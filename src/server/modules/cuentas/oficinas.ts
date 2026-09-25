@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
+import { registrarCambioEmpresa } from "../integraciones/eventos";
 
 export async function listarOficinas(db: Ejecutor, empresaId: string) {
   return db
@@ -121,10 +122,7 @@ export async function crearOficina(
       .returning({ id: t.oficinas.id });
 
     // Cambió la estructura de la empresa: los productos deben resincronizar.
-    await tx
-      .update(t.empresas)
-      .set({ modificadaEn: new Date() })
-      .where(eq(t.empresas.id, empresaId));
+    await registrarCambioEmpresa(tx, [empresaId]);
     await tx.insert(t.auditoria).values({
       actorId,
       actorTipo: "usuario",

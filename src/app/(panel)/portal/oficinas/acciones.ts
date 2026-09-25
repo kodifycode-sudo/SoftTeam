@@ -5,6 +5,7 @@ import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formula
 import { requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { crearOficina, esquemaOficina } from "@/server/modules/cuentas/oficinas";
+import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 
 export async function crearOficinaAccion(
   _: EstadoFormulario,
@@ -39,6 +40,7 @@ export async function crearOficinaAccion(
       valores,
     };
   }
+  programarEntregaDeEventos();
   revalidatePath("/portal/oficinas");
   return { ok: true, mensaje: `Oficina ${resultado.codigo} creada.` };
 }

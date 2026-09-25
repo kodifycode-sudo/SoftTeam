@@ -9,6 +9,7 @@ import {
   MapPinned,
   Package,
   PackageSearch,
+  Plug,
   Receipt,
   UsersRound,
 } from "lucide-react";
@@ -59,6 +60,10 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
         { href: "/admin/paquetes", etiqueta: "Paquetes", icono: Package },
         { href: "/admin/medios-pago", etiqueta: "Medios de pago", icono: CreditCard },
       ],
+    },
+    {
+      titulo: "Sistema",
+      items: [{ href: "/admin/integraciones", etiqueta: "Integraciones", icono: Plug }],
     },
   ],
   portal: [

@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/formulario";
 import { type ContextoCliente, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 import { agregarAlCarrito, cambiarCantidad } from "@/server/modules/ventas/carrito";
 import { confirmarOrden } from "@/server/modules/ventas/checkout";
 import { mensajeRechazoCompra } from "./mensajes";
@@ -89,6 +90,7 @@ export async function confirmarOrdenAccion(
   });
   if (!resultado.ok) return { mensaje: mensajeRechazoCompra(resultado.error, resultado.detalle) };
 
+  programarEntregaDeEventos();
   revalidatePath("/portal", "layout");
   redirect(`/portal/ordenes/${resultado.valor.ordenId}?nueva=1`);
 }

@@ -39,7 +39,7 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.test.ts", "src/server/db/pruebas.ts"],
+      "includes": ["**/*.test.ts", "src/server/db/pruebas.ts", "e2e/**"],
       "linter": {
         "rules": {
           "style": {

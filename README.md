@@ -36,8 +36,21 @@ catálogo de ejemplo. Para empezar de cero, borrá `.data/`.
 ## Producción
 
 Variables obligatorias: `DATABASE_URL` (Postgres/Neon), `BETTER_AUTH_SECRET`
-(32+ caracteres), `BETTER_AUTH_URL`, `RESEND_API_KEY` y `EMAIL_REMITENTE`.
+(32+ caracteres), `BETTER_AUTH_URL`, `RESEND_API_KEY`, `EMAIL_REMITENTE`,
+`STLIC_CLAVE_MAESTRA` (32 bytes en base64: `openssl rand -base64 32`; cifra los
+secretos de los sistemas integrados) y `CRON_SECRET`.
 El administrador inicial solo se crea si se define `ADMIN_PASSWORD`.
+
+Proceso programado: `GET /api/cron/eventos` con `Authorization: Bearer <CRON_SECRET>`
+entrega los avisos pendientes a los webhooks (cada pocos minutos). Además, cada
+cambio intenta entregar sus avisos en el momento.
+
+## API para productos
+
+Prodigal, CotiWeb, BienSeguro y el Boletín consultan licencias y configuración, e
+informan consumos, en `/api/v1` con peticiones firmadas (HMAC-SHA256). El
+contrato completo está en `/api/v1/openapi.json`; los sistemas y sus secretos se
+administran en *Panel SOFTeam → Integraciones*.
 
 ## Estructura
 

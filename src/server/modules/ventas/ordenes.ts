@@ -4,6 +4,7 @@ import { periodoAlta, puedeTransicionar } from "@/domain/licencias/contrato";
 import { exito, type Resultado, rechazo } from "@/domain/resultado";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
+import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { cargarSaldos } from "./checkout";
 
 export type EstadoOrden = "PEND_PAGO" | "PAGADA" | "CANCELADA";
@@ -191,13 +192,11 @@ export async function registrarPago(
       }
     }
 
-    const empresas = [...new Set(contratos.map((c) => c.empresaId))];
-    if (empresas.length) {
-      await tx
-        .update(t.empresas)
-        .set({ modificadaEn: ahora })
-        .where(inArray(t.empresas.id, empresas));
-    }
+    await registrarCambioEmpresa(
+      tx,
+      contratos.map((c) => c.empresaId),
+      ahora,
+    );
     await tx.insert(t.auditoria).values({
       actorId,
       actorTipo: "usuario",
@@ -240,13 +239,11 @@ export async function cancelarOrden(
         ),
       )
       .returning({ empresaId: t.contratos.empresaId });
-    const empresas = [...new Set(cancelados.map((c) => c.empresaId))];
-    if (empresas.length) {
-      await tx
-        .update(t.empresas)
-        .set({ modificadaEn: ahora })
-        .where(inArray(t.empresas.id, empresas));
-    }
+    await registrarCambioEmpresa(
+      tx,
+      cancelados.map((c) => c.empresaId),
+      ahora,
+    );
     await tx.insert(t.auditoria).values({
       actorId,
       actorTipo: "usuario",

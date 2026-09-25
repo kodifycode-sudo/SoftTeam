@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/formulario";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 import { cancelarOrden, registrarPago } from "@/server/modules/ventas/ordenes";
 
 const MENSAJES = {
@@ -29,6 +30,7 @@ export async function registrarPagoAccion(
   const db = await obtenerDb();
   const resultado = await registrarPago(db, id.data, user.id);
   if (!resultado.ok) return { mensaje: MENSAJES[resultado.error] };
+  programarEntregaDeEventos();
   revalidatePath("/admin/ordenes", "layout");
   redirect(`/admin/ordenes/${id.data}?aviso=pago&activados=${resultado.valor.contratosActivados}`);
 }
@@ -50,6 +52,7 @@ export async function cancelarOrdenAccion(
   const db = await obtenerDb();
   const resultado = await cancelarOrden(db, datos.data.ordenId, user.id, datos.data.motivo);
   if (!resultado.ok) return { mensaje: MENSAJES[resultado.error] };
+  programarEntregaDeEventos();
   revalidatePath("/admin/ordenes", "layout");
   redirect(`/admin/ordenes/${datos.data.ordenId}?aviso=cancelada`);
 }

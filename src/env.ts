@@ -18,13 +18,31 @@ const esquema = z
     /** Usuario de Administración SOFTeam que se crea al sembrar datos. */
     ADMIN_EMAIL: z.email().default("admin@softeam.local"),
     ADMIN_PASSWORD: z.string().min(10).default("Softeam.2026!"),
+    /**
+     * Clave maestra (32 bytes en base64) para cifrar los secretos de los
+     * sistemas integrados. Generar con: openssl rand -base64 32
+     */
+    STLIC_CLAVE_MAESTRA: z
+      .string()
+      .refine((v) => Buffer.from(v, "base64").length === 32, {
+        error: "Deben ser 32 bytes en base64",
+      })
+      .optional(),
+    /** Secreto con el que el planificador (cron) invoca los procesos programados. */
+    CRON_SECRET: z.string().min(24).optional(),
   })
   .superRefine((env, ctx) => {
     // Durante `next build` el entorno es "production" pero la app no corre:
     // las claves de producción se exigen al ejecutarla, no al compilarla.
     if (env.NODE_ENV !== "production" || process.env.NEXT_PHASE === "phase-production-build")
       return;
-    for (const clave of ["DATABASE_URL", "BETTER_AUTH_SECRET", "RESEND_API_KEY"] as const) {
+    for (const clave of [
+      "DATABASE_URL",
+      "BETTER_AUTH_SECRET",
+      "RESEND_API_KEY",
+      "STLIC_CLAVE_MAESTRA",
+      "CRON_SECRET",
+    ] as const) {
       if (!env[clave]) {
         ctx.addIssue({ code: "custom", path: [clave], message: "Obligatoria en producción" });
       }
@@ -34,3 +52,8 @@ const esquema = z
 export const env = esquema.parse(process.env);
 
 export const esProduccion = env.NODE_ENV === "production";
+
+// Solo desarrollo y tests: en producción la clave maestra es obligatoria.
+const CLAVE_MAESTRA_DESARROLLO = Buffer.alloc(32, "stlic-desarrollo").toString("base64");
+export const claveMaestra = env.STLIC_CLAVE_MAESTRA ?? CLAVE_MAESTRA_DESARROLLO;
+export const secretoCron = env.CRON_SECRET ?? "stlic-cron-desarrollo-no-usar-en-produccion";

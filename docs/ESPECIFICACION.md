@@ -403,8 +403,12 @@ Regla de dependencias: `domain` no importa nada del resto.
    mezclar paquetes temporales y consumibles.
    *Pendiente de esta fase:* renovación manual desde "Mis paquetes", compra
    delegada por oficina, bonificación de paquetes por SOFTeam.
-4. **Licencias y consumos:** licencia vigente, API de productos, libro de
-   consumos, webhooks.
+4. ✅ **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con
+   listado de sincronización, EmpresaFull v1, licencia vigente y consumos
+   idempotentes; secretos cifrados (AES-256-GCM); webhooks por outbox con
+   reserva de lotes, envío en paralelo y reintentos; contrato OpenAPI;
+   pantalla de Integraciones.
+   *Pendiente:* límite de tasa por sistema en la API.
 5. **Configuración de la empresa:** colaboradores, aseguradoras e interfaces,
    productores, políticas, límites.
 6. **Procesos:** diario, alertas, renovación quincenal, recordatorios.

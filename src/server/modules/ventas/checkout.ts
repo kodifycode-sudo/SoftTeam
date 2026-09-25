@@ -19,6 +19,7 @@ import { exito, type Resultado, rechazo } from "@/domain/resultado";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { vendibleHoy } from "../catalogo/paquetes";
+import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { type ItemCarrito, listarCarrito } from "./carrito";
 
 export type RechazoCompra =
@@ -364,12 +365,8 @@ export async function confirmarOrden(
     }
 
     await tx.delete(t.carritoItems).where(eq(t.carritoItems.empresaId, entrada.empresaId));
-    if (habilitado) {
-      await tx
-        .update(t.empresas)
-        .set({ modificadaEn: new Date() })
-        .where(eq(t.empresas.id, entrada.empresaId));
-    }
+    // Un corporativo cambia su licencia en el acto: se avisa a los productos.
+    if (habilitado) await registrarCambioEmpresa(tx, [entrada.empresaId]);
     await tx.insert(t.auditoria).values({
       actorId: entrada.usuarioId,
       actorTipo: "usuario",
