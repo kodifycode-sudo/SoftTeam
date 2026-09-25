@@ -45,6 +45,8 @@ function crearAuth(db: Db) {
       minPasswordLength: 10,
       maxPasswordLength: 128,
       autoSignIn: false,
+      // Cambiar la contraseña cierra las demás sesiones abiertas.
+      revokeSessionsOnPasswordReset: true,
     },
     emailVerification: { autoSignInAfterVerification: true },
     user: {
@@ -67,6 +69,8 @@ function crearAuth(db: Db) {
         "/sign-in/email": { window: 60, max: 5 },
         "/email-otp/send-verification-otp": { window: 60, max: 3 },
         "/email-otp/verify-email": { window: 60, max: 10 },
+        "/email-otp/request-password-reset": { window: 60, max: 3 },
+        "/email-otp/reset-password": { window: 60, max: 10 },
       },
     },
     plugins: [

@@ -9,12 +9,15 @@ import type { UsuarioMenu } from "./menu-usuario";
 export async function EstructuraPanel({
   variante,
   usuario,
+  permisos,
   encabezado,
   extraBarra,
   children,
 }: {
   variante: "admin" | "portal";
   usuario: UsuarioMenu;
+  /** Rol SOFTeam o permisos del cliente: filtran el menú. */
+  permisos: readonly string[];
   encabezado?: ReactNode;
   extraBarra?: ReactNode;
   children: ReactNode;
@@ -22,7 +25,7 @@ export async function EstructuraPanel({
   const abierta = (await cookies()).get("sidebar_state")?.value !== "false";
   return (
     <SidebarProvider defaultOpen={abierta}>
-      <BarraLateral variante={variante} usuario={usuario} pie={extraBarra} />
+      <BarraLateral variante={variante} usuario={usuario} permisos={permisos} pie={extraBarra} />
       <SidebarInset className="min-w-0 bg-background">
         <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md sm:px-4">
           <SidebarTrigger className="-ml-1" />

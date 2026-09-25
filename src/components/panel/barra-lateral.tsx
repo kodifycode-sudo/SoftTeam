@@ -1,9 +1,11 @@
 "use client";
 
 import {
+  Briefcase,
   Building2,
   CreditCard,
   Gauge,
+  History,
   LayoutDashboard,
   type LucideIcon,
   MapPinned,
@@ -11,6 +13,9 @@ import {
   PackageSearch,
   Plug,
   Receipt,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserCog,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -38,6 +43,12 @@ interface ItemNavegacion {
   icono: LucideIcon;
   /** Activo solo con coincidencia exacta (para la ruta raíz de cada panel). */
   exacto?: boolean;
+  /**
+   * Roles (SOFTeam) o permisos (cliente: "comercial", "configuracion") que ven
+   * la opción. Sin indicar, la ven todos. Solo ordena el menú: cada página y
+   * cada acción vuelven a verificar el permiso en el servidor.
+   */
+  permisos?: readonly string[];
 }
 
 const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavegacion[] }[]> = {
@@ -63,7 +74,26 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
     },
     {
       titulo: "Sistema",
-      items: [{ href: "/admin/integraciones", etiqueta: "Integraciones", icono: Plug }],
+      items: [
+        {
+          href: "/admin/usuarios",
+          etiqueta: "Usuarios SOFTeam",
+          icono: UserCog,
+          permisos: ["ADMINISTRACION"],
+        },
+        {
+          href: "/admin/auditoria",
+          etiqueta: "Auditoría",
+          icono: History,
+          permisos: ["ADMINISTRACION", "SOPORTE"],
+        },
+        {
+          href: "/admin/integraciones",
+          etiqueta: "Integraciones",
+          icono: Plug,
+          permisos: ["ADMINISTRACION", "SOPORTE"],
+        },
+      ],
     },
   ],
   portal: [
@@ -71,8 +101,18 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
       titulo: "Mi cuenta",
       items: [
         { href: "/portal", etiqueta: "Inicio", icono: Gauge, exacto: true },
-        { href: "/portal/paquetes", etiqueta: "Paquetes disponibles", icono: PackageSearch },
-        { href: "/portal/ordenes", etiqueta: "Mis órdenes", icono: Receipt },
+        {
+          href: "/portal/paquetes",
+          etiqueta: "Paquetes disponibles",
+          icono: PackageSearch,
+          permisos: ["comercial"],
+        },
+        {
+          href: "/portal/ordenes",
+          etiqueta: "Mis órdenes",
+          icono: Receipt,
+          permisos: ["comercial"],
+        },
       ],
     },
     {
@@ -80,6 +120,30 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
       items: [
         { href: "/portal/empresa", etiqueta: "Mi empresa", icono: Building2 },
         { href: "/portal/oficinas", etiqueta: "Oficinas", icono: MapPinned },
+        {
+          href: "/portal/usuarios",
+          etiqueta: "Usuarios",
+          icono: UsersRound,
+          permisos: ["configuracion"],
+        },
+        {
+          href: "/portal/aseguradoras",
+          etiqueta: "Aseguradoras",
+          icono: ShieldCheck,
+          permisos: ["configuracion"],
+        },
+        {
+          href: "/portal/productores",
+          etiqueta: "Productores",
+          icono: Briefcase,
+          permisos: ["configuracion"],
+        },
+        {
+          href: "/portal/politicas",
+          etiqueta: "Políticas",
+          icono: SlidersHorizontal,
+          permisos: ["configuracion"],
+        },
       ],
     },
   ],
@@ -88,10 +152,12 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
 export function BarraLateral({
   variante,
   usuario,
+  permisos,
   pie,
 }: {
   variante: "admin" | "portal";
   usuario: UsuarioMenu;
+  permisos: readonly string[];
   pie?: React.ReactNode;
 }) {
   const ruta = usePathname();
@@ -112,33 +178,41 @@ export function BarraLateral({
       </SidebarHeader>
       <SidebarContent>
         {pie}
-        {NAVEGACION[variante].map((seccion) => (
-          <SidebarGroup key={seccion.titulo}>
-            <SidebarGroupLabel className="text-sidebar-foreground/50 uppercase tracking-wider text-[0.68rem]">
-              {seccion.titulo}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {seccion.items.map((item) => {
-                  const esActivo = activo(item);
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        isActive={esActivo}
-                        tooltip={item.etiqueta}
-                        className="relative h-9 data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground data-active:before:absolute data-active:before:inset-y-1.5 data-active:before:left-0 data-active:before:w-1 data-active:before:rounded-full data-active:before:bg-sidebar-primary"
-                        render={<Link href={item.href} onClick={() => setOpenMobile(false)} />}
-                      >
-                        <item.icono className={esActivo ? "text-sidebar-primary" : undefined} />
-                        <span>{item.etiqueta}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        {NAVEGACION[variante]
+          .map((seccion) => ({
+            ...seccion,
+            items: seccion.items.filter(
+              (i) => !i.permisos || i.permisos.some((p) => permisos.includes(p)),
+            ),
+          }))
+          .filter((seccion) => seccion.items.length > 0)
+          .map((seccion) => (
+            <SidebarGroup key={seccion.titulo}>
+              <SidebarGroupLabel className="text-sidebar-foreground/50 uppercase tracking-wider text-[0.68rem]">
+                {seccion.titulo}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {seccion.items.map((item) => {
+                    const esActivo = activo(item);
+                    return (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                          isActive={esActivo}
+                          tooltip={item.etiqueta}
+                          className="relative h-9 data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground data-active:before:absolute data-active:before:inset-y-1.5 data-active:before:left-0 data-active:before:w-1 data-active:before:rounded-full data-active:before:bg-sidebar-primary"
+                          render={<Link href={item.href} onClick={() => setOpenMobile(false)} />}
+                        >
+                          <item.icono className={esActivo ? "text-sidebar-primary" : undefined} />
+                          <span>{item.etiqueta}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
         <MenuUsuario usuario={usuario} />

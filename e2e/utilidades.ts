@@ -31,6 +31,40 @@ export async function codigoEnviadoA(email: string): Promise<string> {
   throw new Error(`No llegó el código para ${email}`);
 }
 
+/** Espera el enlace (invitación) que el servidor imprimió para ese mail. */
+export async function enlaceEnviadoA(email: string): Promise<string> {
+  for (let intento = 0; intento < 40; intento++) {
+    const log = readFileSync(LOG, "utf8");
+    const bloques = log.split("📧").filter((b) => b.includes(`Para: ${email}`));
+    const enlace = bloques.at(-1)?.match(/Enlace: (\S+)/)?.[1];
+    if (enlace) return enlace;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`No llegó el enlace para ${email}`);
+}
+
+/**
+ * Activa un acceso desde el mail de invitación: pide el código, elige la
+ * contraseña e ingresa.
+ */
+export async function activarInvitacion(page: Page, email: string, contrasena = CONTRASENA) {
+  const enlace = new URL(await enlaceEnviadoA(email));
+  await page.goto(enlace.pathname + enlace.search);
+  await expect(page.getByRole("heading", { name: "Activá tu acceso" })).toBeVisible();
+  await expect(page.getByLabel("Mail")).toHaveValue(email);
+  await page.getByRole("button", { name: "Enviarme el código" }).click();
+  await expect(page).toHaveURL(/\/recuperar\/cambiar/);
+  await page.getByLabel("Código", { exact: true }).fill(await codigoEnviadoA(email));
+  await page.getByLabel("Contraseña nueva").fill(contrasena);
+  await page.getByLabel("Repetí la contraseña").fill(contrasena);
+  await page.getByRole("button", { name: "Guardar contraseña" }).click();
+  await expect(page.getByText("Listo, guardamos tu contraseña")).toBeVisible();
+  await expect(page.getByLabel("Mail", { exact: true })).toHaveValue(email);
+  await page.getByLabel("Contraseña", { exact: true }).fill(contrasena);
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/(admin|portal)/);
+}
+
 /**
  * Captura de pantalla para revisar el diseño. Espera a que la página termine
  * de cargar y no toca el cursor: Playwright lo oculta inyectando un estilo en
@@ -87,7 +121,11 @@ export const test = base.extend<{ consolaLimpia: void }>({
     async ({ page }, usar) => {
       const errores: string[] = [];
       page.on("console", (m) => {
-        if (m.type() === "error") errores.push(`[${page.url()}] ${m.text()}`);
+        if (m.type() !== "error") return;
+        // Una página 403/404 buscada a propósito (forbidden(), notFound()) no es un error.
+        const esElDocumento = m.location().url === page.url();
+        if (esElDocumento && /status of 40[34]/.test(m.text())) return;
+        errores.push(`[${page.url()}] ${m.text()}`);
       });
       page.on("pageerror", (e) => errores.push(`[${page.url()}] ${e.message}`));
       await usar();

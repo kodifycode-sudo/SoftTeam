@@ -1,4 +1,5 @@
 import { and, asc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
+import { interfazVigente } from "@/domain/cuentas/limites";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
@@ -78,7 +79,7 @@ export async function listarEmpresasParaSincronizar(
 const codigoOficina = (canal: string, oficina: string) => `${canal}${oficina}`;
 
 /** Estructura completa de una empresa (contrato `EmpresaFull` v1). */
-export async function empresaCompleta(db: Ejecutor, numero: number) {
+export async function empresaCompleta(db: Ejecutor, numero: number, hoy: Fecha = hoyArgentina()) {
   const empresa = await db.query.empresas.findFirst({ where: eq(t.empresas.numero, numero) });
   if (!empresa) return undefined;
 
@@ -125,7 +126,9 @@ export async function empresaCompleta(db: Ejecutor, numero: number) {
           nombre: t.aseguradoras.nombre,
           activa: t.empresaAseguradoras.activa,
           interfazProdigal: t.empresaAseguradoras.interfazProdigal,
+          interfazProdigalBajaDesde: t.empresaAseguradoras.interfazProdigalBajaDesde,
           interfazCotiweb: t.empresaAseguradoras.interfazCotiweb,
+          interfazCotiwebBajaDesde: t.empresaAseguradoras.interfazCotiwebBajaDesde,
         })
         .from(t.empresaAseguradoras)
         .innerJoin(t.aseguradoras, eq(t.aseguradoras.id, t.empresaAseguradoras.aseguradoraId))
@@ -205,7 +208,23 @@ export async function empresaCompleta(db: Ejecutor, numero: number) {
       },
       activo: c.activo,
     })),
-    aseguradoras,
+    // Interfaces vigentes hoy: una baja programada rige recién el mes siguiente.
+    aseguradoras: aseguradoras.map((a) => ({
+      codigoLegal: a.codigoLegal,
+      abreviatura: a.abreviatura,
+      nombre: a.nombre,
+      activa: a.activa,
+      interfazProdigal: interfazVigente(
+        a.interfazProdigal,
+        a.interfazProdigalBajaDesde as Fecha | null,
+        hoy,
+      ),
+      interfazCotiweb: interfazVigente(
+        a.interfazCotiweb,
+        a.interfazCotiwebBajaDesde as Fecha | null,
+        hoy,
+      ),
+    })),
     productores: productores.map((p) => ({
       id: p.id,
       nombre: p.nombre,

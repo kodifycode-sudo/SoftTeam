@@ -6,12 +6,22 @@ import {
   createContext,
   type ReactNode,
   useContext,
+  useEffect,
+  useEffectEvent,
   useTransition,
 } from "react";
 import { useFormStatus } from "react-dom";
+import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import type { EstadoFormulario } from "@/lib/formulario";
@@ -112,5 +122,68 @@ export function MensajeFormulario({ estado }: { estado: EstadoFormulario }) {
         {estado.mensaje}
       </AlertDescription>
     </Alert>
+  );
+}
+
+/**
+ * Muestra el resultado de una acción como aviso (éxito o error general) y,
+ * si salió bien, ejecuta `alTerminar` (por ejemplo, cerrar un diálogo). Los
+ * errores por campo se muestran en el formulario, no como aviso.
+ */
+export function useAvisoDeAccion(estado: EstadoFormulario, alTerminar?: () => void) {
+  const avisar = useEffectEvent((e: EstadoFormulario) => {
+    if (!e.mensaje) return;
+    if (e.ok) {
+      toast.success(e.mensaje);
+      alTerminar?.();
+    } else if (!e.errores) {
+      toast.error(e.mensaje);
+    }
+  });
+  useEffect(() => {
+    avisar(estado);
+  }, [estado]);
+}
+
+/**
+ * Casilla de verificación con etiqueta y ayuda. Envía "on" si está marcada.
+ * Una casilla deshabilitada no viaja en el formulario: si está marcada, se
+ * envía su valor en un campo oculto para que el servidor no la lea como
+ * desmarcada.
+ */
+export function Casilla({
+  nombre,
+  etiqueta,
+  descripcion,
+  marcada,
+  deshabilitada,
+}: {
+  nombre: string;
+  etiqueta: ReactNode;
+  descripcion?: ReactNode;
+  marcada: boolean;
+  deshabilitada?: boolean;
+}) {
+  const id = `casilla-${nombre}`;
+  return (
+    <Field orientation="horizontal" data-disabled={deshabilitada ? true : undefined}>
+      <Checkbox
+        // Si el valor guardado cambia (revalidación tras guardar), se remonta
+        // con el nuevo valor inicial en lugar de cambiar el de una casilla viva.
+        key={String(marcada)}
+        id={id}
+        name={nombre}
+        value="on"
+        defaultChecked={marcada}
+        disabled={deshabilitada}
+      />
+      {deshabilitada && marcada && <input type="hidden" name={nombre} value="on" />}
+      <FieldContent>
+        <FieldLabel htmlFor={id} className="font-normal">
+          {etiqueta}
+        </FieldLabel>
+        {descripcion && <FieldDescription>{descripcion}</FieldDescription>}
+      </FieldContent>
+    </Field>
   );
 }

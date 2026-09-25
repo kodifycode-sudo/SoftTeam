@@ -5,9 +5,10 @@ import { forbidden, redirect } from "next/navigation";
 import { cache } from "react";
 import { obtenerDb } from "@/server/db";
 import { clientes, colaboradores, empresas } from "@/server/db/schema";
+import { type RolSofteam, rolSofteamActual } from "@/server/modules/cuentas/usuarios-softeam";
 import { obtenerAuth } from ".";
 
-export type RolSofteam = "SOPORTE" | "COMERCIAL" | "ADMINISTRACION";
+export type { RolSofteam };
 
 /** Sesión del request actual (memorizada por render: se consulta una sola vez). */
 export const obtenerSesion = cache(async () => {
@@ -23,10 +24,19 @@ export async function requerirUsuario() {
   return sesion;
 }
 
+/**
+ * Rol SOFTeam vigente del usuario de la sesión. Se lee de la base y no de la
+ * sesión (que se cachea en la cookie unos minutos): un cambio de rol o una
+ * baja rigen en el acto.
+ */
+const rolDeLaSesion = cache(async (usuarioId: string) =>
+  rolSofteamActual(await obtenerDb(), usuarioId),
+);
+
 /** Exige un usuario de SOFTeam y, si se indican, alguno de los roles. */
 export async function requerirSofteam(roles?: readonly RolSofteam[]) {
   const sesion = await requerirUsuario();
-  const rol = sesion.user.rolSofteam as RolSofteam | null | undefined;
+  const rol = await rolDeLaSesion(sesion.user.id);
   if (!rol) redirect("/portal");
   if (roles && !roles.includes(rol)) forbidden();
   return { ...sesion, rol };
@@ -36,6 +46,8 @@ export const COOKIE_EMPRESA = "stlic-empresa";
 
 export interface ContextoCliente {
   usuarioId: string;
+  /** Colaborador del usuario en la empresa activa. */
+  colaboradorId: string;
   nombreUsuario: string;
   email: string;
   empresaId: string;
@@ -56,11 +68,12 @@ export interface ContextoCliente {
  */
 export const requerirCliente = cache(async (): Promise<ContextoCliente> => {
   const sesion = await requerirUsuario();
-  if (sesion.user.rolSofteam) redirect("/admin");
+  if (await rolDeLaSesion(sesion.user.id)) redirect("/admin");
 
   const db = await obtenerDb();
   const filas = await db
     .select({
+      colaboradorId: colaboradores.id,
       empresaId: empresas.id,
       empresaNombre: empresas.nombre,
       empresaNumero: empresas.numero,
@@ -104,3 +117,21 @@ export const requerirCliente = cache(async (): Promise<ContextoCliente> => {
     })),
   };
 });
+
+/** Permisos del portal: comercial (paquetes y pagos) u operativo (configuración). */
+export const puedeComprar = (c: ContextoCliente) => c.adminGeneral || c.adminComercial;
+export const puedeConfigurar = (c: ContextoCliente) => c.adminGeneral || c.adminOperativo;
+
+/** Exige permiso de configuración (páginas de usuarios, aseguradoras, productores y políticas). */
+export async function requerirConfiguracion(): Promise<ContextoCliente> {
+  const contexto = await requerirCliente();
+  if (!puedeConfigurar(contexto)) forbidden();
+  return contexto;
+}
+
+/** Exige permiso comercial (carrito y órdenes de la empresa). */
+export async function requerirComercial(): Promise<ContextoCliente> {
+  const contexto = await requerirCliente();
+  if (!puedeComprar(contexto)) forbidden();
+  return contexto;
+}

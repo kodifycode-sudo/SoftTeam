@@ -94,8 +94,9 @@ export const empresaAseguradoras = pgTable(
     activa: boolean().notNull().default(true),
     interfazProdigal: boolean().notNull().default(false),
     interfazCotiweb: boolean().notNull().default(false),
-    /** La baja de una interfaz rige desde el mes siguiente. */
-    interfazBajaDesde: date({ mode: "string" }),
+    /** Baja programada: la interfaz sigue vigente hasta esta fecha (el mes siguiente). */
+    interfazProdigalBajaDesde: date({ mode: "string" }),
+    interfazCotiwebBajaDesde: date({ mode: "string" }),
     ...marcasTiempo,
   },
   (t) => [primaryKey({ columns: [t.empresaId, t.aseguradoraId] })],

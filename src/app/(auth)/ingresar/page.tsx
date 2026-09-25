@@ -1,11 +1,13 @@
+import { CircleCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FormularioIngreso } from "./formulario";
 
 export const metadata: Metadata = { title: "Ingresar" };
 
 export default async function PaginaIngresar({ searchParams }: PageProps<"/ingresar">) {
-  const { destino } = await searchParams;
+  const { destino, aviso, email } = await searchParams;
   return (
     <div className="w-full max-w-sm space-y-8">
       <header className="space-y-2">
@@ -14,7 +16,18 @@ export default async function PaginaIngresar({ searchParams }: PageProps<"/ingre
           Administrá tus licencias, pagos y usuarios de los productos SOFTeam.
         </p>
       </header>
-      <FormularioIngreso destino={typeof destino === "string" ? destino : undefined} />
+      {aviso === "contrasena" && (
+        <Alert className="border-success/30 bg-success/5 text-success">
+          <CircleCheck />
+          <AlertDescription className="text-success">
+            Listo, guardamos tu contraseña. Ya podés ingresar.
+          </AlertDescription>
+        </Alert>
+      )}
+      <FormularioIngreso
+        destino={typeof destino === "string" ? destino : undefined}
+        email={typeof email === "string" ? email : undefined}
+      />
       <p className="text-center text-sm text-muted-foreground">
         ¿Todavía no tenés cuenta?{" "}
         <Link

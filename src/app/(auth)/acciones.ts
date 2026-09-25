@@ -19,6 +19,7 @@ import {
   existeClienteConCuit,
   guardarSolicitudAlta,
 } from "@/server/modules/cuentas/alta";
+import { vincularColaboradores } from "@/server/modules/cuentas/usuarios";
 
 interface ErrorDeAuth {
   statusCode: number;
@@ -65,6 +66,10 @@ export async function ingresar(_: EstadoFormulario, formData: FormData): Promise
   try {
     const resultado = await auth.api.signInEmail({ body: datos.data, headers: await headers() });
     esSofteam = Boolean(resultado.user.rolSofteam);
+    // Accesos que le dieron antes de tener usuario (invitaciones).
+    if (!esSofteam) {
+      await vincularColaboradores(await obtenerDb(), resultado.user.id, resultado.user.email);
+    }
   } catch (error) {
     if (codigoDeError(error) === "EMAIL_NOT_VERIFIED") {
       await auth.api.sendVerificationOTP({
@@ -145,7 +150,11 @@ export async function registrarse(
     const codigo = codigoDeError(error);
     if (codigo?.startsWith("USER_ALREADY_EXISTS")) {
       return {
-        errores: { email: ["Ya hay una cuenta con este mail. Ingresá con tu contraseña."] },
+        errores: {
+          email: [
+            "Ya hay una cuenta con este mail. Ingresá con tu contraseña o recuperala desde el ingreso.",
+          ],
+        },
         valores: recordar,
       };
     }
@@ -221,6 +230,67 @@ export async function reenviarCodigo(
     throw error;
   }
   return { ok: true, mensaje: "Te enviamos un código nuevo." };
+}
+
+// ─── Recuperar la contraseña (y activar una invitación) ─────────────────────
+
+const rutaCambiar = (email: string, invitacion: boolean) =>
+  `/recuperar/cambiar?email=${encodeURIComponent(email)}${invitacion ? "&invitacion=1" : ""}`;
+
+/**
+ * Envía un código para elegir una contraseña nueva. Responde igual exista o
+ * no el mail, para no revelar quién tiene cuenta.
+ */
+export async function pedirCodigoContrasena(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const valores = valoresDe(formData);
+  const email = z.email({ error: "Ingresá tu mail" }).trim().toLowerCase().safeParse(valores.email);
+  if (!email.success) return { errores: { email: ["Ingresá tu mail"] }, valores };
+  try {
+    const auth = await obtenerAuth();
+    await auth.api.requestPasswordResetEmailOTP({ body: { email: email.data } });
+  } catch (error) {
+    if (esLimiteDeIntentos(error)) {
+      return { mensaje: "Esperá un minuto antes de pedir otro código.", valores };
+    }
+    throw error;
+  }
+  redirect(rutaCambiar(email.data, valores.invitacion === "1"));
+}
+
+const esquemaCambio = z
+  .object({
+    email: z.email().trim().toLowerCase(),
+    codigo: z.string().regex(/^\d{6}$/, { error: "El código tiene 6 números" }),
+    password: esquemaContrasena,
+    confirmacion: z.string(),
+  })
+  .refine((d) => d.password === d.confirmacion, {
+    path: ["confirmacion"],
+    error: "Las contraseñas no coinciden",
+  });
+
+export async function cambiarContrasena(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const datos = esquemaCambio.safeParse(valoresDe(formData));
+  if (!datos.success) return { errores: erroresPorCampo(datos.error) };
+  const auth = await obtenerAuth();
+  try {
+    await auth.api.resetPasswordEmailOTP({
+      body: { email: datos.data.email, otp: datos.data.codigo, password: datos.data.password },
+    });
+  } catch (error) {
+    const codigo = codigoDeError(error);
+    if (codigo && MENSAJES_OTP[codigo]) return { errores: { codigo: [MENSAJES_OTP[codigo]] } };
+    if (esLimiteDeIntentos(error)) return { mensaje: "Demasiados intentos. Esperá un minuto." };
+    if (esErrorDeAuth(error)) return { errores: { codigo: ["El código no es correcto."] } };
+    throw error;
+  }
+  redirect(`/ingresar?aviso=contrasena&email=${encodeURIComponent(datos.data.email)}`);
 }
 
 // ─── Salir ─────────────────────────────────────────────────────────────────

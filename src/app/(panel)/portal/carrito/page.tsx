@@ -32,7 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { pesos, porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
-import { requerirCliente } from "@/server/auth/sesion";
+import { requerirComercial } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarCarrito } from "@/server/modules/ventas/carrito";
 import { cotizarCarrito, mediosParaEmpresa } from "@/server/modules/ventas/checkout";
@@ -83,7 +83,7 @@ function BotonCantidad({
 }
 
 export default async function Carrito({ searchParams }: PageProps<"/portal/carrito">) {
-  const contexto = await requerirCliente();
+  const contexto = await requerirComercial();
   const sp = await searchParams;
   const medioElegido = texto(sp.medio);
   const ticketPedido = texto(sp.ticket)?.trim().toUpperCase() || undefined;

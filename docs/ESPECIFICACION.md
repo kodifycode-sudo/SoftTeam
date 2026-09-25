@@ -319,6 +319,21 @@ período). Reejecutar un día no duplica nada.
   `ADMIN_COMERCIAL` (paquetes y pagos), `ADMIN_OPERATIVO` (configuración), más
   administradores delegados por oficina.
   - Se verifica en el servidor en cada acción. Nunca solo en la pantalla.
+  - El menú muestra solo lo que el rol o permiso habilita; cada página y cada
+    acción lo vuelven a exigir (403 si no corresponde).
+  - El rol SOFTeam se lee de la base en cada request (no de la cookie de
+    sesión): un cambio de rol o una baja rigen en el acto, y la baja cierra
+    sus sesiones.
+  - Nadie se quita permisos a sí mismo; siempre queda al menos un
+    administrador general por empresa y una persona de Administración en
+    SOFTeam. Solo un administrador general da o quita permisos.
+  - Un mismo mail no puede ser a la vez de SOFTeam y administrador de un
+    cliente (los paneles son excluyentes).
+- **Invitaciones:** dar permisos a alguien sin usuario crea uno sin
+  contraseña y le envía un enlace; la persona recibe un código y elige su
+  contraseña (eso verifica el mail). El mismo flujo sirve para "olvidé mi
+  contraseña", que responde igual exista o no el mail. Cambiar la contraseña
+  cierra las demás sesiones.
 - **Multi-cliente:** toda consulta del portal se filtra por las empresas del
   usuario, en una capa de acceso a datos central.
 - **API para productos:** cada sistema tiene su clave. Las peticiones van firmadas
@@ -409,8 +424,16 @@ Regla de dependencias: `domain` no importa nada del resto.
    reserva de lotes, envío en paralelo y reintentos; contrato OpenAPI;
    pantalla de Integraciones.
    *Pendiente:* límite de tasa por sistema en la API.
-5. **Configuración de la empresa:** colaboradores, aseguradoras e interfaces,
-   productores, políticas, límites.
+5. ✅ **Configuración de la empresa y perfiles:** usuarios de la empresa con
+   accesos a productos y permisos de administración (invitación por mail),
+   aseguradoras e interfaces con baja al mes siguiente, productores con sus
+   códigos, políticas, límites de la licencia al activar; usuarios SOFTeam por
+   rol, menú según rol o permiso, pantalla de auditoría, recuperación de la
+   contraseña.
+   *Pendiente:* catálogo de aseguradoras editable por SOFTeam (hoy semilla),
+   administradores delegados por oficina (el alcance ya se guarda; falta
+   restringir el portal), 2FA para SOFTeam, alerta cuando la licencia baja por
+   debajo de lo configurado (fase 6).
 6. **Procesos:** diario, alertas, renovación quincenal, recordatorios.
 7. **Cobro:** MercadoPago (link y suscripción), Xubio, tickets, orden agrupada.
 8. **Pulido:** reportes, exportaciones, marca blanca, tickets de soporte.

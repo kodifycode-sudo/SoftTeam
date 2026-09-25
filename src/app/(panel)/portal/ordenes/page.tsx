@@ -14,14 +14,14 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { fechaCorta, pesos } from "@/lib/formato";
-import { requerirCliente } from "@/server/auth/sesion";
+import { requerirComercial } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarOrdenes } from "@/server/modules/ventas/ordenes";
 
 export const metadata: Metadata = { title: "Mis órdenes" };
 
 export default async function MisOrdenes() {
-  const contexto = await requerirCliente();
+  const contexto = await requerirComercial();
   const db = await obtenerDb();
   const ordenes = await listarOrdenes(db, { empresaId: contexto.empresaId });
 

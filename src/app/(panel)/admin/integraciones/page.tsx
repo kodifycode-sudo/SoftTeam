@@ -66,7 +66,7 @@ const horaCorta = (d: Date) =>
   }).format(d);
 
 export default async function Integraciones() {
-  const { rol } = await requerirSofteam();
+  const { rol } = await requerirSofteam(["ADMINISTRACION", "SOPORTE"]);
   const puedeEditar = rol === "ADMINISTRACION";
   const db = await obtenerDb();
   const [sistemas, eventos] = await Promise.all([

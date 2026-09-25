@@ -29,6 +29,13 @@
       "when": 1790364597269,
       "tag": "0003_agregacion_recursos",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790367933223,
+      "tag": "0004_interfaces_baja",
+      "breakpoints": true
     }
   ]
 }

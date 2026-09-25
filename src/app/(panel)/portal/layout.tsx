@@ -1,5 +1,5 @@
 import { EstructuraPanel } from "@/components/panel/estructura";
-import { requerirCliente } from "@/server/auth/sesion";
+import { puedeComprar, puedeConfigurar, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { cantidadEnCarrito } from "@/server/modules/ventas/carrito";
 import { AccesoCarrito } from "./compra/agregar";
@@ -7,7 +7,8 @@ import { SelectorEmpresa } from "./selector-empresa";
 
 export default async function LayoutPortal({ children }: LayoutProps<"/portal">) {
   const contexto = await requerirCliente();
-  const enCarrito = await cantidadEnCarrito(await obtenerDb(), contexto.empresaId);
+  const comercial = puedeComprar(contexto);
+  const enCarrito = comercial ? await cantidadEnCarrito(await obtenerDb(), contexto.empresaId) : 0;
   const rol = contexto.adminGeneral
     ? "Administrador general"
     : contexto.adminComercial
@@ -18,6 +19,10 @@ export default async function LayoutPortal({ children }: LayoutProps<"/portal">)
     <EstructuraPanel
       variante="portal"
       usuario={{ nombre: contexto.nombreUsuario, email: contexto.email, rol }}
+      permisos={[
+        ...(comercial ? ["comercial"] : []),
+        ...(puedeConfigurar(contexto) ? ["configuracion"] : []),
+      ]}
       extraBarra={
         contexto.empresas.length > 1 ? (
           <SelectorEmpresa empresas={contexto.empresas} actual={contexto.empresaId} />
@@ -32,7 +37,7 @@ export default async function LayoutPortal({ children }: LayoutProps<"/portal">)
               · Empresa #{contexto.empresaNumero}
             </span>
           </span>
-          <AccesoCarrito cantidad={enCarrito} />
+          {comercial && <AccesoCarrito cantidad={enCarrito} />}
         </>
       }
     >

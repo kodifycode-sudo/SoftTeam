@@ -6,7 +6,7 @@ import { EstadoOrden, VistaOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { requerirCliente } from "@/server/auth/sesion";
+import { requerirComercial } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { obtenerOrden } from "@/server/modules/ventas/ordenes";
 
@@ -16,7 +16,7 @@ export default async function OrdenPortal({
   params,
   searchParams,
 }: PageProps<"/portal/ordenes/[id]">) {
-  const contexto = await requerirCliente();
+  const contexto = await requerirComercial();
   const [{ id }, { nueva }] = await Promise.all([params, searchParams]);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const db = await obtenerDb();

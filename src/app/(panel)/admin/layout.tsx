@@ -14,6 +14,7 @@ export default async function LayoutAdmin({ children }: LayoutProps<"/admin">) {
     <EstructuraPanel
       variante="admin"
       usuario={{ nombre: user.name, email: user.email, rol: ROLES[rol] }}
+      permisos={[rol]}
       encabezado={
         <>
           <span className="truncate text-sm font-medium">Panel SOFTeam</span>
