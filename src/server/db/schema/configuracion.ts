@@ -6,10 +6,12 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  text,
   uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { usuarios } from "./auth";
 import { canales, empresas, oficinas, paises } from "./cuentas";
 import { condicionIva, rolProductor, tipoPersona } from "./enums";
 import { marcasTiempo } from "./tipos";
@@ -45,7 +47,7 @@ export const colaboradores = pgTable(
     /** Código de usuario en Prodigal. */
     usuarioProdigal: varchar({ length: 20 }),
     /** Usuario de login en STLic (Better Auth), si administra la cuenta. */
-    usuarioId: varchar({ length: 64 }),
+    usuarioId: text().references(() => usuarios.id, { onDelete: "set null" }),
     activo: boolean().notNull().default(true),
     altaFecha: date({ mode: "string" }).notNull().defaultNow(),
     bajaFecha: date({ mode: "string" }),

@@ -39,13 +39,25 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.test.ts"],
+      "includes": ["**/*.test.ts", "src/server/db/pruebas.ts"],
       "linter": {
         "rules": {
           "style": {
             "noNonNullAssertion": "off"
           }
         }
+      }
+    },
+    {
+      "includes": ["src/components/ui/**", "src/hooks/**", "src/lib/utils.ts"],
+      "linter": {
+        "enabled": false
+      },
+      "formatter": {
+        "enabled": false
+      },
+      "assist": {
+        "enabled": false
       }
     }
   ]

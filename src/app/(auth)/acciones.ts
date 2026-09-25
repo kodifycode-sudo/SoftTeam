@@ -1,0 +1,212 @@
+"use server";
+
+import { APIError } from "better-auth/api";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import {
+  type EstadoFormulario,
+  erroresPorCampo,
+  rutaInternaSegura,
+  valoresDe,
+} from "@/lib/formulario";
+import { obtenerAuth } from "@/server/auth";
+import { obtenerDb } from "@/server/db";
+import {
+  confirmarAlta,
+  esquemaContrasena,
+  esquemaDatosAlta,
+  existeClienteConCuit,
+  guardarSolicitudAlta,
+} from "@/server/modules/cuentas/alta";
+
+const codigoDeError = (e: unknown): string | undefined =>
+  e instanceof APIError ? (e.body as { code?: string } | undefined)?.code : undefined;
+
+const esLimiteDeIntentos = (e: unknown) => e instanceof APIError && e.statusCode === 429;
+
+const rutaVerificar = (email: string) => `/registro/verificar?email=${encodeURIComponent(email)}`;
+
+// ─── Ingresar ──────────────────────────────────────────────────────────────
+
+const esquemaIngreso = z.object({
+  email: z.email({ error: "Ingresá tu mail" }).trim().toLowerCase(),
+  password: z.string().min(1, { error: "Ingresá tu contraseña" }),
+});
+
+export async function ingresar(_: EstadoFormulario, formData: FormData): Promise<EstadoFormulario> {
+  const valores = valoresDe(formData);
+  const recordar = { email: valores.email ?? "" };
+  const datos = esquemaIngreso.safeParse(valores);
+  if (!datos.success) return { errores: erroresPorCampo(datos.error), valores: recordar };
+
+  const auth = await obtenerAuth();
+  let esSofteam = false;
+  try {
+    const resultado = await auth.api.signInEmail({ body: datos.data, headers: await headers() });
+    esSofteam = Boolean(resultado.user.rolSofteam);
+  } catch (error) {
+    if (codigoDeError(error) === "EMAIL_NOT_VERIFIED") {
+      await auth.api.sendVerificationOTP({
+        body: { email: datos.data.email, type: "email-verification" },
+      });
+      redirect(rutaVerificar(datos.data.email));
+    }
+    if (esLimiteDeIntentos(error)) {
+      return {
+        mensaje: "Demasiados intentos. Esperá un minuto y volvé a probar.",
+        valores: recordar,
+      };
+    }
+    if (error instanceof APIError) {
+      // Mismo mensaje exista o no el mail: no se revela quién tiene cuenta.
+      return { mensaje: "El mail o la contraseña no son correctos.", valores: recordar };
+    }
+    throw error;
+  }
+  redirect(rutaInternaSegura(valores.destino, esSofteam ? "/admin" : "/portal"));
+}
+
+// ─── Alta en línea ─────────────────────────────────────────────────────────
+
+const esquemaRegistro = esquemaDatosAlta.and(
+  z
+    .object({
+      password: esquemaContrasena,
+      confirmacion: z.string(),
+      aceptaTerminos: z.literal(true, { error: "Tenés que aceptar las condiciones" }),
+    })
+    .refine((d) => d.password === d.confirmacion, {
+      path: ["confirmacion"],
+      error: "Las contraseñas no coinciden",
+    }),
+);
+
+export async function registrarse(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const valores = valoresDe(formData);
+  const { password: _p, confirmacion: _c, ...recordar } = valores;
+  const datos = esquemaRegistro.safeParse({
+    ...valores,
+    razonSocial: valores.razonSocial || undefined,
+    tipoSociedad: valores.tipoSociedad || undefined,
+    aceptaNotificaciones: valores.aceptaNotificaciones === "on",
+    aceptaTerminos: valores.aceptaTerminos === "on",
+  });
+  if (!datos.success) {
+    return {
+      errores: erroresPorCampo(datos.error),
+      mensaje: "Revisá los datos marcados.",
+      valores: recordar,
+    };
+  }
+  const { password, confirmacion: _confirmacion, aceptaTerminos: _acepta, ...alta } = datos.data;
+
+  const db = await obtenerDb();
+  if (await existeClienteConCuit(db, alta.cuit)) {
+    return {
+      errores: {
+        cuit: ["Ya existe una cuenta con este CUIT. Pedile acceso al administrador de tu empresa."],
+      },
+      valores: recordar,
+    };
+  }
+
+  const auth = await obtenerAuth();
+  try {
+    const { user } = await auth.api.signUpEmail({
+      body: { name: alta.nombre, email: alta.email, password },
+      headers: await headers(),
+    });
+    await guardarSolicitudAlta(db, user.id, esquemaDatosAlta.parse(alta));
+  } catch (error) {
+    const codigo = codigoDeError(error);
+    if (codigo?.startsWith("USER_ALREADY_EXISTS")) {
+      return {
+        errores: { email: ["Ya hay una cuenta con este mail. Ingresá con tu contraseña."] },
+        valores: recordar,
+      };
+    }
+    if (esLimiteDeIntentos(error)) {
+      return {
+        mensaje: "Demasiados intentos. Esperá un minuto y volvé a probar.",
+        valores: recordar,
+      };
+    }
+    throw error;
+  }
+  redirect(rutaVerificar(alta.email));
+}
+
+// ─── Verificación del mail ─────────────────────────────────────────────────
+
+const MENSAJES_OTP: Record<string, string> = {
+  INVALID_OTP: "El código no es correcto.",
+  OTP_EXPIRED: "El código venció. Pedí uno nuevo.",
+  TOO_MANY_ATTEMPTS: "Superaste los intentos permitidos. Pedí un código nuevo.",
+};
+
+export async function verificarCodigo(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const datos = z
+    .object({
+      email: z.email().trim().toLowerCase(),
+      codigo: z.string().regex(/^\d{6}$/, { error: "El código tiene 6 números" }),
+    })
+    .safeParse(valoresDe(formData));
+  if (!datos.success) return { errores: erroresPorCampo(datos.error) };
+
+  const auth = await obtenerAuth();
+  let usuarioId: string;
+  let esSofteam = false;
+  try {
+    const resultado = await auth.api.verifyEmailOTP({
+      body: { email: datos.data.email, otp: datos.data.codigo },
+      headers: await headers(),
+    });
+    usuarioId = resultado.user.id;
+    esSofteam = Boolean((resultado.user as { rolSofteam?: string | null }).rolSofteam);
+  } catch (error) {
+    const codigo = codigoDeError(error);
+    if (codigo && MENSAJES_OTP[codigo]) return { errores: { codigo: [MENSAJES_OTP[codigo]] } };
+    if (esLimiteDeIntentos(error)) return { mensaje: "Demasiados intentos. Esperá un minuto." };
+    throw error;
+  }
+
+  if (esSofteam) redirect("/admin");
+  const db = await obtenerDb();
+  const solicitud = await db.query.solicitudesAlta.findFirst({
+    where: (s, { eq }) => eq(s.usuarioId, usuarioId),
+  });
+  if (solicitud) await confirmarAlta(db, usuarioId);
+  redirect("/portal?bienvenida=1");
+}
+
+export async function reenviarCodigo(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const email = z.email().safeParse(formData.get("email"));
+  if (!email.success) return { mensaje: "Falta el mail." };
+  try {
+    const auth = await obtenerAuth();
+    await auth.api.sendVerificationOTP({ body: { email: email.data, type: "email-verification" } });
+  } catch (error) {
+    if (esLimiteDeIntentos(error))
+      return { mensaje: "Esperá un minuto antes de pedir otro código." };
+    throw error;
+  }
+  return { ok: true, mensaje: "Te enviamos un código nuevo." };
+}
+
+// ─── Salir ─────────────────────────────────────────────────────────────────
+
+export async function salir(): Promise<void> {
+  const auth = await obtenerAuth();
+  await auth.api.signOut({ headers: await headers() });
+  redirect("/ingresar");
+}

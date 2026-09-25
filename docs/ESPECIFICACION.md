@@ -386,10 +386,13 @@ Regla de dependencias: `domain` no importa nada del resto.
 
 ## 11. Plan por fases
 
-1. **Base:** proyecto, dominio con tests, esquema de datos, auth y roles, layout.
-2. **Catálogo y cuentas:** países, productos y recursos, paquetes, alternativas,
-   medios de pago; clientes, grupos, empresas, oficinas; alta en línea con
-   verificación del email.
+1. ✅ **Base:** proyecto, dominio con tests, esquema de datos, auth y roles, layout.
+2. ✅ **Catálogo y cuentas:** paquetes y alternativas (ABM), medios de pago,
+   clientes y empresas (consulta), oficinas y canales, alta en línea con
+   verificación del mail, portal del cliente.
+   *Pendiente de esta fase:* ABM de grupos económicos, edición de datos del
+   cliente y de la empresa desde SOFTeam, ABM de productos/recursos y países
+   (hoy se cargan con la semilla).
 3. **Compra:** selector, carrito, checkout con cálculo, confirmación
    transaccional, vista de orden, "Mis paquetes".
 4. **Licencias y consumos:** licencia vigente, API de productos, libro de
