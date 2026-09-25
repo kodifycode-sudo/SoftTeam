@@ -48,3 +48,8 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# archivos locales de asistentes (no son del proyecto)
+CLAUDE.md
+AGENTS.md
+.claude/
