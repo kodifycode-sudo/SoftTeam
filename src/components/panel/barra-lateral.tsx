@@ -9,6 +9,7 @@ import {
   MapPinned,
   Package,
   PackageSearch,
+  Receipt,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,6 +50,10 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
       items: [{ href: "/admin/clientes", etiqueta: "Clientes", icono: UsersRound }],
     },
     {
+      titulo: "Cobranza",
+      items: [{ href: "/admin/ordenes", etiqueta: "Órdenes", icono: Receipt }],
+    },
+    {
       titulo: "Catálogo",
       items: [
         { href: "/admin/paquetes", etiqueta: "Paquetes", icono: Package },
@@ -62,6 +67,7 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
       items: [
         { href: "/portal", etiqueta: "Inicio", icono: Gauge, exacto: true },
         { href: "/portal/paquetes", etiqueta: "Paquetes disponibles", icono: PackageSearch },
+        { href: "/portal/ordenes", etiqueta: "Mis órdenes", icono: Receipt },
       ],
     },
     {

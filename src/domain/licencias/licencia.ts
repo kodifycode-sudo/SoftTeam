@@ -13,9 +13,27 @@ export type ClaseRecurso =
   /** Prepago sin vencimiento que se agota con el uso. */
   | "SALDO";
 
+/**
+ * Cómo se acumula una capacidad entre contratos y unidades. La mayoría se
+ * suma (usuarios, pólizas); algunas no, como los años de retención de
+ * cartera: dos paquetes de 2 años siguen siendo 2 años.
+ */
+export type Agregacion = "SUMA" | "MAXIMO";
+
+/** Cantidad a congelar en un contrato: solo se multiplica lo que se suma. */
+export function cantidadContratada(
+  porUnidad: number,
+  unidades: number,
+  agregacion: Agregacion,
+): number {
+  return agregacion === "SUMA" ? porUnidad * unidades : porUnidad;
+}
+
 export interface RecursoContratado {
   readonly recurso: string;
   readonly clase: ClaseRecurso;
+  /** Por defecto SUMA. */
+  readonly agregacion?: Agregacion;
   /** Para FUNCION, cualquier valor > 0 la habilita. */
   readonly cantidad: number;
 }
@@ -49,9 +67,16 @@ export function consolidarLicencia(
 ): Licencia {
   const licencia = new Map<string, ValorLicencia>();
   for (const recursos of contratosVigentes) {
-    for (const { recurso, clase, cantidad } of recursos) {
+    for (const { recurso, clase, cantidad, agregacion = "SUMA" } of recursos) {
       const previo = licencia.get(recurso)?.total ?? 0;
-      const total = clase === "FUNCION" ? (previo > 0 || cantidad > 0 ? 1 : 0) : previo + cantidad;
+      const total =
+        clase === "FUNCION"
+          ? previo > 0 || cantidad > 0
+            ? 1
+            : 0
+          : agregacion === "MAXIMO"
+            ? Math.max(previo, cantidad)
+            : previo + cantidad;
       licencia.set(recurso, { clase, total });
     }
   }

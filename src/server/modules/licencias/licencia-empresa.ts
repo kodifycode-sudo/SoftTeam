@@ -76,8 +76,10 @@ export async function licenciaDeEmpresa(
         recursoId: t.contratoRecursos.recursoId,
         clase: t.contratoRecursos.clase,
         cantidad: t.contratoRecursos.cantidad,
+        agregacion: t.recursos.agregacion,
       })
       .from(t.contratoRecursos)
+      .innerJoin(t.recursos, eq(t.recursos.id, t.contratoRecursos.recursoId))
       .where(inArray(t.contratoRecursos.contratoId, ids)),
     // Saldo prepago: suma de todos sus movimientos.
     db
@@ -128,7 +130,12 @@ export async function licenciaDeEmpresa(
     vigentes.map((c) =>
       recursosVigentes
         .filter((r) => r.contratoId === c.id)
-        .map((r) => ({ recurso: r.recursoId, clase: r.clase, cantidad: r.cantidad })),
+        .map((r) => ({
+          recurso: r.recursoId,
+          clase: r.clase,
+          cantidad: r.cantidad,
+          agregacion: r.agregacion,
+        })),
     ),
   );
 

@@ -1,0 +1,2 @@
+ALTER TABLE "carrito_items" ALTER COLUMN "agregado_por" SET DATA TYPE text;--> statement-breakpoint
+ALTER TABLE "carrito_items" ADD CONSTRAINT "carrito_items_agregado_por_usuarios_id_fk" FOREIGN KEY ("agregado_por") REFERENCES "public"."usuarios"("id") ON DELETE set null ON UPDATE no action;

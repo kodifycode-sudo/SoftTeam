@@ -14,6 +14,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { usuarios } from "./auth";
 import { alternativas, mediosPago, paquetes, recursos, tickets } from "./catalogo";
 import { clientes, empresas, oficinas } from "./cuentas";
 import {
@@ -45,7 +46,7 @@ export const carritoItems = pgTable(
     /** Para RENOVACION: contrato que se renueva. */
     contratoAnteriorId: uuid().references((): AnyPgColumn => contratos.id),
     cantidad: smallint().notNull().default(1),
-    agregadoPor: uuid(),
+    agregadoPor: text().references(() => usuarios.id, { onDelete: "set null" }),
     ...marcasTiempo,
   },
   (t) => [

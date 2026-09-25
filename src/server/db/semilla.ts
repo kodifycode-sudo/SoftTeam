@@ -49,6 +49,9 @@ const RECURSOS: readonly [string, ProductoId, string, ClaseRecurso, string | nul
   ["mailing.plataforma", "mailing", "Plataforma de mail marketing", "FUNCION", null],
 ];
 
+/** Capacidades que no se suman entre contratos ni unidades. */
+const RECURSOS_POR_MAXIMO = new Set(["prodigal.retencion"]);
+
 const MEDIOS_ENVIO = [
   { id: "mail", nombre: "Mail", factorCentesimos: 100 },
   { id: "app", nombre: "App BienSeguro", factorCentesimos: 100 },
@@ -109,6 +112,7 @@ export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }
         productoId,
         nombre,
         clase,
+        agregacion: RECURSOS_POR_MAXIMO.has(id) ? ("MAXIMO" as const) : ("SUMA" as const),
         unidad,
         orden,
       })),

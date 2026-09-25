@@ -86,6 +86,10 @@ Reglas del paquete:
 - Un paquete es **TEMPORAL** (`CAPACIDAD`, `FUNCION`, `CUPO_MENSUAL`, con
   alternativas en meses) o **CONSUMIBLE** (solo `SALDO`, sin vencimiento).
   Nunca se mezclan.
+- **Acumulación:** cada capacidad declara si se **suma** entre contratos y
+  unidades (usuarios, pólizas, GB) o si vale el **máximo** (años de retención
+  de cartera: dos paquetes de 2 años siguen siendo 2 años). La cantidad
+  contratada solo multiplica las que se suman.
 - **Reglas derivadas** declarativas: por ejemplo, la emisión de CotiWeb se
   habilita con 4 o más usuarios de CotiWeb.
 
@@ -393,8 +397,12 @@ Regla de dependencias: `domain` no importa nada del resto.
    *Pendiente de esta fase:* ABM de grupos económicos, edición de datos del
    cliente y de la empresa desde SOFTeam, ABM de productos/recursos y países
    (hoy se cargan con la semilla).
-3. **Compra:** selector, carrito, checkout con cálculo, confirmación
-   transaccional, vista de orden, "Mis paquetes".
+3. ✅ **Compra:** carrito persistente, checkout con cálculo completo (medio de
+   pago, IVA, ticket), confirmación transaccional e idempotente, vista de
+   orden, registro de pago y cancelación desde SOFTeam. El carrito puede
+   mezclar paquetes temporales y consumibles.
+   *Pendiente de esta fase:* renovación manual desde "Mis paquetes", compra
+   delegada por oficina, bonificación de paquetes por SOFTeam.
 4. **Licencias y consumos:** licencia vigente, API de productos, libro de
    consumos, webhooks.
 5. **Configuración de la empresa:** colaboradores, aseguradoras e interfaces,

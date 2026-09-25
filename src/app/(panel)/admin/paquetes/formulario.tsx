@@ -3,7 +3,12 @@
 import { CalendarRange, Layers, Plus, Save, Tags, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useId, useState } from "react";
-import { BotonEnviar, Campo, MensajeFormulario } from "@/components/formulario";
+import {
+  BotonEnviar,
+  Campo,
+  FormularioConservado,
+  MensajeFormulario,
+} from "@/components/formulario";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -107,7 +112,7 @@ export function FormularioPaquete({
   );
 
   return (
-    <form action={accion} className="space-y-6" noValidate id={idForm}>
+    <FormularioConservado accion={accion} className="space-y-6" noValidate id={idForm}>
       {inicial.id && <input type="hidden" name="id" value={inicial.id} />}
       <input type="hidden" name="alternativas" value={alternativasJson} />
       <MensajeFormulario estado={estado} />
@@ -415,6 +420,6 @@ export function FormularioPaquete({
           <Save data-icon="inline-start" /> Guardar paquete
         </BotonEnviar>
       </div>
-    </form>
+    </FormularioConservado>
   );
 }

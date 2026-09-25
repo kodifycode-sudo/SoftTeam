@@ -37,6 +37,12 @@ export const metadata: Metadata = { title: "Tablero" };
 
 const ACCESOS = [
   {
+    href: "/admin/ordenes",
+    titulo: "Órdenes",
+    detalle: "Cobranza y activación de paquetes",
+    icono: FileClock,
+  },
+  {
     href: "/admin/clientes",
     titulo: "Clientes",
     detalle: "Cuentas, empresas y contactos",

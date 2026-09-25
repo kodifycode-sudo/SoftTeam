@@ -20,10 +20,30 @@ import {
   guardarSolicitudAlta,
 } from "@/server/modules/cuentas/alta";
 
-const codigoDeError = (e: unknown): string | undefined =>
-  e instanceof APIError ? (e.body as { code?: string } | undefined)?.code : undefined;
+interface ErrorDeAuth {
+  statusCode: number;
+  body?: { code?: string };
+}
 
-const esLimiteDeIntentos = (e: unknown) => e instanceof APIError && e.statusCode === 429;
+/**
+ * Errores de Better Auth. Se reconocen por su forma además de por su clase:
+ * con recarga en caliente el bundler puede tener dos copias de `APIError` y
+ * `instanceof` fallar, lo que convertiría un login incorrecto en un error 500.
+ */
+function esErrorDeAuth(e: unknown): e is ErrorDeAuth {
+  return (
+    e instanceof APIError ||
+    (typeof e === "object" &&
+      e !== null &&
+      (e as { name?: unknown }).name === "APIError" &&
+      typeof (e as { statusCode?: unknown }).statusCode === "number")
+  );
+}
+
+const codigoDeError = (e: unknown): string | undefined =>
+  esErrorDeAuth(e) ? e.body?.code : undefined;
+
+const esLimiteDeIntentos = (e: unknown) => esErrorDeAuth(e) && e.statusCode === 429;
 
 const rutaVerificar = (email: string) => `/registro/verificar?email=${encodeURIComponent(email)}`;
 
@@ -58,7 +78,7 @@ export async function ingresar(_: EstadoFormulario, formData: FormData): Promise
         valores: recordar,
       };
     }
-    if (error instanceof APIError) {
+    if (esErrorDeAuth(error)) {
       // Mismo mensaje exista o no el mail: no se revela quién tiene cuenta.
       return { mensaje: "El mail o la contraseña no son correctos.", valores: recordar };
     }

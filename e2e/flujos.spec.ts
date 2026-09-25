@@ -1,36 +1,4 @@
-import { readFileSync } from "node:fs";
-import { expect, type Page, test } from "@playwright/test";
-
-const LOG = process.env.STLIC_LOG_DEV ?? ".data/dev.log";
-const CAPTURAS = process.env.STLIC_CAPTURAS;
-
-/** CUIT válido y único (dígito verificador módulo 11). */
-function cuitAleatorio(): string {
-  for (;;) {
-    const base = `30${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`;
-    const pesos = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
-    const suma = [...base].reduce((s, d, i) => s + Number(d) * (pesos[i] as number), 0);
-    const resto = 11 - (suma % 11);
-    if (resto === 10) continue;
-    return `${base}${resto === 11 ? 0 : resto}`;
-  }
-}
-
-/** Espera el código de verificación que el servidor imprimió para ese mail. */
-async function codigoEnviadoA(email: string): Promise<string> {
-  for (let intento = 0; intento < 40; intento++) {
-    const log = readFileSync(LOG, "utf8");
-    const bloques = log.split("📧").filter((b) => b.includes(`Para: ${email}`));
-    const codigo = bloques.at(-1)?.match(/Código: (\d{6})/)?.[1];
-    if (codigo) return codigo;
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  throw new Error(`No llegó el código para ${email}`);
-}
-
-async function capturar(page: Page, nombre: string) {
-  if (CAPTURAS) await page.screenshot({ path: `${CAPTURAS}/${nombre}.png`, fullPage: true });
-}
+import { CAPTURAS, capturar, codigoEnviadoA, cuitAleatorio, expect, test } from "./utilidades";
 
 const sufijo = Date.now().toString(36).toUpperCase();
 const email = `ana.${sufijo.toLowerCase()}@brokerdelsur.com.ar`;
@@ -54,6 +22,10 @@ test.describe
       await expect(page.getByText("Revisá los datos marcados.")).toBeVisible();
 
       await page.getByLabel("Razón social").fill(razonSocial);
+      // Un envío con errores no borra lo que ya se cargó.
+      await page.getByRole("button", { name: "Crear cuenta y continuar" }).click();
+      await expect(page.getByText("Revisá los datos marcados.")).toBeVisible();
+      await expect(page.getByLabel("Razón social")).toHaveValue(razonSocial);
       await page.getByLabel("Tipo de sociedad").selectOption("SRL");
       await page.getByLabel("Apellido y nombre del administrador").fill("Pérez, Ana");
       await page.getByLabel("CUIT").fill(cuitAleatorio());
@@ -175,7 +147,9 @@ test.describe
       await capturar(page, "15-celular-portal");
       await page.getByRole("button", { name: "Toggle Sidebar" }).click();
       await expect(page.getByRole("link", { name: "Oficinas" })).toBeVisible();
-      await page.screenshot({ path: CAPTURAS ? `${CAPTURAS}/16-celular-menu.png` : undefined });
+      if (CAPTURAS) {
+        await page.screenshot({ path: `${CAPTURAS}/16-celular-menu.png`, caret: "initial" });
+      }
       await page.getByRole("link", { name: "Paquetes disponibles" }).click();
       await expect(page).toHaveURL(/\/portal\/paquetes/);
       await capturar(page, "17-celular-paquetes");

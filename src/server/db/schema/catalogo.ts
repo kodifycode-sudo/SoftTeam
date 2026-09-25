@@ -13,7 +13,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { paises } from "./cuentas";
-import { claseRecurso, tipoMedioPago, tipoPaquete } from "./enums";
+import { agregacionRecurso, claseRecurso, tipoMedioPago, tipoPaquete } from "./enums";
 import { dinero, fechaCol, marcasTiempo, pct } from "./tipos";
 
 /** Producto de SOFTeam: prodigal, cotiweb, bienseguro, boletin, notificaciones. */
@@ -32,6 +32,8 @@ export const recursos = pgTable("recursos", {
     .references(() => productos.id),
   nombre: varchar({ length: 80 }).notNull(),
   clase: claseRecurso().notNull(),
+  /** Cómo se acumula entre contratos y unidades (retención de cartera: máximo). */
+  agregacion: agregacionRecurso().notNull().default("SUMA"),
   unidad: varchar({ length: 20 }),
   orden: smallint().notNull().default(0),
   activo: boolean().notNull().default(true),

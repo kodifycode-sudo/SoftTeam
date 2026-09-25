@@ -13,6 +13,7 @@ export const claseRecurso = pgEnum("clase_recurso", [
   "CUPO_MENSUAL",
   "SALDO",
 ]);
+export const agregacionRecurso = pgEnum("agregacion_recurso", ["SUMA", "MAXIMO"]);
 export const tipoAccion = pgEnum("tipo_accion", ["ALTA", "RENOVACION"]);
 export const estadoContrato = pgEnum("estado_contrato", ESTADOS_CONTRATO);
 export const estadoOrden = pgEnum("estado_orden", ["PEND_PAGO", "PAGADA", "CANCELADA"]);

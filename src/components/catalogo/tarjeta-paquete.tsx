@@ -20,10 +20,13 @@ function duracion(meses: number | null): string {
 export function TarjetaPaquete({
   paquete,
   acciones,
+  accionAlternativa,
   mostrarEstado = false,
 }: {
   paquete: PaqueteListado;
   acciones?: ReactNode;
+  /** Control por alternativa (por ejemplo, agregar al carrito en el portal). */
+  accionAlternativa?: (alternativa: { id: string; nombre: string }) => ReactNode;
   mostrarEstado?: boolean;
 }) {
   const alternativas = paquete.alternativas.filter((a) => a.activa);
@@ -114,25 +117,25 @@ export function TarjetaPaquete({
 
         <div className="space-y-2">
           {alternativas.map((a) => (
-            <div
-              key={a.id}
-              className="flex items-baseline justify-between gap-3 rounded-xl border bg-muted/30 px-3 py-2.5"
-            >
-              <span className="text-sm font-medium">{a.nombre}</span>
-              <span className="text-right">
-                <span className="text-base font-semibold tabular-nums">
-                  {pesosRedondo(a.precioCompra)}
-                </span>{" "}
-                <span className="text-xs text-muted-foreground">
-                  {a.meses === null ? <Infinito className="inline size-3" /> : null}{" "}
-                  {duracion(a.meses)}
-                </span>
-                {a.precioRenovacion !== a.precioCompra && (
-                  <span className="block text-xs text-muted-foreground">
-                    Renovación {pesosRedondo(a.precioRenovacion)}
+            <div key={a.id} className="space-y-2.5 rounded-xl border bg-muted/30 px-3 py-2.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-medium">{a.nombre}</span>
+                <span className="text-right">
+                  <span className="text-base font-semibold tabular-nums">
+                    {pesosRedondo(a.precioCompra)}
+                  </span>{" "}
+                  <span className="text-xs text-muted-foreground">
+                    {a.meses === null ? <Infinito className="inline size-3" /> : null}{" "}
+                    {duracion(a.meses)}
                   </span>
-                )}
-              </span>
+                  {a.precioRenovacion !== a.precioCompra && (
+                    <span className="block text-xs text-muted-foreground">
+                      Renovación {pesosRedondo(a.precioRenovacion)}
+                    </span>
+                  )}
+                </span>
+              </div>
+              {accionAlternativa?.({ id: a.id, nombre: a.nombre })}
             </div>
           ))}
           <p className="text-[0.7rem] text-muted-foreground">Los precios no incluyen IVA.</p>

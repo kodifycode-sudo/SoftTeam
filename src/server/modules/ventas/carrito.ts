@@ -1,0 +1,132 @@
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
+import type { Db, Ejecutor } from "@/server/db/cliente";
+import * as t from "@/server/db/schema";
+import { vendibleHoy } from "../catalogo/paquetes";
+
+export const CANTIDAD_MAXIMA = 99;
+
+export async function listarCarrito(db: Ejecutor, empresaId: string) {
+  return db
+    .select({
+      id: t.carritoItems.id,
+      cantidad: t.carritoItems.cantidad,
+      tipoAccion: t.carritoItems.tipoAccion,
+      alternativaId: t.alternativas.id,
+      alternativa: t.alternativas.nombre,
+      meses: t.alternativas.meses,
+      precioCompra: t.alternativas.precioCompra,
+      precioRenovacion: t.alternativas.precioRenovacion,
+      alternativaActiva: t.alternativas.activa,
+      paqueteId: t.paquetes.id,
+      paquete: t.paquetes.nombre,
+      codigo: t.paquetes.codigo,
+      tipoPaquete: t.paquetes.tipo,
+      paqueteActivo: t.paquetes.activo,
+    })
+    .from(t.carritoItems)
+    .innerJoin(t.alternativas, eq(t.alternativas.id, t.carritoItems.alternativaId))
+    .innerJoin(t.paquetes, eq(t.paquetes.id, t.alternativas.paqueteId))
+    .where(eq(t.carritoItems.empresaId, empresaId))
+    .orderBy(asc(t.carritoItems.creadoEn));
+}
+
+export type ItemCarrito = Awaited<ReturnType<typeof listarCarrito>>[number];
+
+export async function cantidadEnCarrito(db: Ejecutor, empresaId: string): Promise<number> {
+  const [fila] = await db
+    .select({ total: sql<number>`coalesce(sum(${t.carritoItems.cantidad}), 0)::int` })
+    .from(t.carritoItems)
+    .where(eq(t.carritoItems.empresaId, empresaId));
+  return fila?.total ?? 0;
+}
+
+export type ErrorCarrito = "NO_DISPONIBLE" | "CANTIDAD_INVALIDA" | "NO_EXISTE";
+
+/**
+ * Agrega una alternativa al carrito de la empresa. Solo se pueden agregar
+ * paquetes públicos, a la venta hoy y del país de la empresa. Si ya estaba,
+ * suma la cantidad.
+ */
+export async function agregarAlCarrito(
+  db: Db,
+  entrada: { empresaId: string; alternativaId: string; cantidad: number; usuarioId: string },
+  hoy: Fecha = hoyArgentina(),
+): Promise<{ ok: true } | { ok: false; error: ErrorCarrito }> {
+  if (
+    !Number.isInteger(entrada.cantidad) ||
+    entrada.cantidad < 1 ||
+    entrada.cantidad > CANTIDAD_MAXIMA
+  ) {
+    return { ok: false, error: "CANTIDAD_INVALIDA" };
+  }
+  const [disponible] = await db
+    .select({ id: t.alternativas.id })
+    .from(t.alternativas)
+    .innerJoin(t.paquetes, eq(t.paquetes.id, t.alternativas.paqueteId))
+    .innerJoin(t.empresas, eq(t.empresas.paisId, t.paquetes.paisId))
+    .where(
+      and(
+        eq(t.alternativas.id, entrada.alternativaId),
+        eq(t.alternativas.activa, true),
+        eq(t.empresas.id, entrada.empresaId),
+        eq(t.paquetes.privado, false),
+        vendibleHoy(hoy),
+      ),
+    );
+  if (!disponible) return { ok: false, error: "NO_DISPONIBLE" };
+
+  return db.transaction(async (tx) => {
+    const [existente] = await tx
+      .select({ id: t.carritoItems.id, cantidad: t.carritoItems.cantidad })
+      .from(t.carritoItems)
+      .where(
+        and(
+          eq(t.carritoItems.empresaId, entrada.empresaId),
+          eq(t.carritoItems.alternativaId, entrada.alternativaId),
+          eq(t.carritoItems.tipoAccion, "ALTA"),
+          isNull(t.carritoItems.oficinaId),
+        ),
+      )
+      .for("update");
+    if (existente) {
+      const cantidad = Math.min(existente.cantidad + entrada.cantidad, CANTIDAD_MAXIMA);
+      await tx.update(t.carritoItems).set({ cantidad }).where(eq(t.carritoItems.id, existente.id));
+    } else {
+      await tx.insert(t.carritoItems).values({
+        empresaId: entrada.empresaId,
+        alternativaId: entrada.alternativaId,
+        cantidad: entrada.cantidad,
+        agregadoPor: entrada.usuarioId,
+      });
+    }
+    return { ok: true as const };
+  });
+}
+
+/** Cambia la cantidad de una línea (0 la quita). Siempre acotado a la empresa. */
+export async function cambiarCantidad(
+  db: Db,
+  entrada: { empresaId: string; itemId: string; cantidad: number },
+): Promise<{ ok: true } | { ok: false; error: ErrorCarrito }> {
+  if (
+    !Number.isInteger(entrada.cantidad) ||
+    entrada.cantidad < 0 ||
+    entrada.cantidad > CANTIDAD_MAXIMA
+  ) {
+    return { ok: false, error: "CANTIDAD_INVALIDA" };
+  }
+  const donde = and(
+    eq(t.carritoItems.id, entrada.itemId),
+    eq(t.carritoItems.empresaId, entrada.empresaId),
+  );
+  const filas =
+    entrada.cantidad === 0
+      ? await db.delete(t.carritoItems).where(donde).returning({ id: t.carritoItems.id })
+      : await db
+          .update(t.carritoItems)
+          .set({ cantidad: entrada.cantidad })
+          .where(donde)
+          .returning({ id: t.carritoItems.id });
+  return filas.length ? { ok: true } : { ok: false, error: "NO_EXISTE" };
+}

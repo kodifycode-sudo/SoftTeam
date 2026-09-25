@@ -15,6 +15,20 @@
       "when": 1790361003752,
       "tag": "0001_auth_y_alta",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790363194486,
+      "tag": "0002_carrito_usuario",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790364597269,
+      "tag": "0003_agregacion_recursos",
+      "breakpoints": true
     }
   ]
 }

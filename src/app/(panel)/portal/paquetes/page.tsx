@@ -16,11 +16,13 @@ import { cn } from "@/lib/utils";
 import { requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarPaquetes } from "@/server/modules/catalogo/paquetes";
+import { AgregarAlCarrito } from "../compra/agregar";
 
 export const metadata: Metadata = { title: "Paquetes disponibles" };
 
 export default async function PaquetesDisponibles({ searchParams }: PageProps<"/portal/paquetes">) {
-  await requerirCliente();
+  const contexto = await requerirCliente();
+  const puedeComprar = contexto.adminGeneral || contexto.adminComercial;
   const { tipo } = await searchParams;
   const tipoElegido = tipo === "CONSUMIBLE" ? "CONSUMIBLE" : "TEMPORAL";
   const db = await obtenerDb();
@@ -34,14 +36,15 @@ export default async function PaquetesDisponibles({ searchParams }: PageProps<"/
         descripcion="Combiná los paquetes que necesites: tu licencia es la suma de todos los que tengas vigentes."
       />
 
-      <Alert className="mb-6 border-primary/20 bg-primary/5">
-        <Info className="text-primary" />
-        <AlertTitle>La contratación en línea llega en la próxima actualización</AlertTitle>
-        <AlertDescription>
-          Ya podés ver el catálogo y los precios. Muy pronto vas a poder armar tu carrito, elegir el
-          medio de pago y activar los paquetes desde acá.
-        </AlertDescription>
-      </Alert>
+      {!puedeComprar && (
+        <Alert className="mb-6 border-primary/20 bg-primary/5">
+          <Info className="text-primary" />
+          <AlertTitle>Solo consulta</AlertTitle>
+          <AlertDescription>
+            Para contratar paquetes hace falta un administrador general o comercial de la empresa.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="mb-6 inline-flex rounded-full border bg-card p-0.5">
         {(
@@ -78,7 +81,20 @@ export default async function PaquetesDisponibles({ searchParams }: PageProps<"/
       ) : (
         <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
           {paquetes.map((p) => (
-            <TarjetaPaquete key={p.id} paquete={p} />
+            <TarjetaPaquete
+              key={p.id}
+              paquete={p}
+              accionAlternativa={
+                puedeComprar
+                  ? (a) => (
+                      <AgregarAlCarrito
+                        alternativaId={a.id}
+                        etiqueta={`${p.nombre} · ${a.nombre}`}
+                      />
+                    )
+                  : undefined
+              }
+            />
           ))}
         </div>
       )}

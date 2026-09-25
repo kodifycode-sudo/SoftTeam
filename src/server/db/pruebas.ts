@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { porcentaje } from "@/domain/dinero";
 import type { Fecha } from "@/domain/fecha";
 import type { EstadoContrato } from "@/domain/licencias/contrato";
+import { cantidadContratada } from "@/domain/licencias/licencia";
 import { crearDbPglite, type Db } from "./cliente";
 import * as t from "./schema";
 import { sembrarDatosBase } from "./semilla";
@@ -126,6 +127,7 @@ export async function crearContratoDePrueba(
       recursoId: t.paqueteRecursos.recursoId,
       cantidad: t.paqueteRecursos.cantidad,
       clase: t.recursos.clase,
+      agregacion: t.recursos.agregacion,
     })
     .from(t.paqueteRecursos)
     .innerJoin(t.recursos, eq(t.recursos.id, t.paqueteRecursos.recursoId))
@@ -135,7 +137,7 @@ export async function crearContratoDePrueba(
       contratoId: contrato!.id,
       recursoId: r.recursoId,
       clase: r.clase,
-      cantidad: r.cantidad * cantidad,
+      cantidad: cantidadContratada(r.cantidad, cantidad, r.agregacion),
     })),
   );
   return contrato!;

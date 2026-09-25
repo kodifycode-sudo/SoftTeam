@@ -2,7 +2,12 @@
 
 import { Building2, Check, KeyRound, MapPin, UserRound, X } from "lucide-react";
 import { type ReactNode, useActionState, useState } from "react";
-import { BotonEnviar, Campo, MensajeFormulario } from "@/components/formulario";
+import {
+  BotonEnviar,
+  Campo,
+  FormularioConservado,
+  MensajeFormulario,
+} from "@/components/formulario";
 import { SelectNativo } from "@/components/select-nativo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -85,7 +90,7 @@ export function FormularioRegistro() {
   const juridica = tipoPersona === "JURIDICA";
 
   return (
-    <form action={accion} className="space-y-6" noValidate>
+    <FormularioConservado accion={accion} className="space-y-6" noValidate>
       <MensajeFormulario estado={estado} />
       <Card>
         <CardContent className="space-y-8">
@@ -292,6 +297,6 @@ export function FormularioRegistro() {
       <BotonEnviar size="lg" className="w-full sm:w-auto sm:px-6">
         Crear cuenta y continuar
       </BotonEnviar>
-    </form>
+    </FormularioConservado>
   );
 }
