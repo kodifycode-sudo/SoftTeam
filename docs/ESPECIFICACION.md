@@ -1,0 +1,401 @@
+# STLic — Especificación consolidada
+
+Plataforma de cuentas, licencias, consumos y cobranza de SOFTeam.
+Fuente única de verdad del sistema nuevo. Reemplaza a los documentos de GeneXus
+(Especificación Etapa 1 v3, Anexos de Atributos y Paneles, Mejora v2 y la
+presentación conceptual): toma la última versión de cada regla y la mejora
+donde el diseño original tenía un defecto. Cada desvío respecto de los
+documentos está marcado con **[Cambio]** y su motivo.
+
+---
+
+## 1. Visión
+
+SOFTeam vende software a intermediarios de seguros: **Prodigal** (gestión de
+cartera), **CotiWeb** (multicotización y emisión), **BienSeguro** (portal y app
+para asegurados), **Boletín C@** (boletín para asegurados) y servicios
+complementarios (mail marketing, notificaciones).
+
+STLic es el sistema detrás del catálogo:
+
+1. **Cuentas:** clientes, empresas, oficinas, usuarios, aseguradoras y productores.
+2. **Licencias:** qué puede usar cada empresa. Es la suma de sus paquetes vigentes.
+3. **Consumos:** saldos de notificaciones y cotizaciones, con un libro de movimientos.
+4. **Venta y cobro:** carrito, órdenes, cálculo de impuestos y descuentos,
+   medios de pago, renovación automática, MercadoPago y Xubio.
+5. **Autogestión:** el cliente se da de alta, configura y compra sin intervención
+   de SOFTeam.
+6. **Integración:** los productos consultan licencias y configuración, e informan
+   consumos, por una API firmada con webhooks de sincronización.
+
+Audiencias: **SOFTeam** (Soporte, Comercial, Administración), **Cliente**
+(Administrador general, comercial y operativo, más administradores delegados
+por oficina) y **Productos** (clientes de la API).
+
+---
+
+## 2. Decisiones que cierran contradicciones entre documentos
+
+| Tema | Documentos | Decisión |
+|---|---|---|
+| Pasarela | Presentación: WooCommerce. v3: WooCommerce descartado | MercadoPago + Xubio. Sin WooCommerce. |
+| Prórroga | v3: estado `PRORROGADO` automático a +7 o +30 días. Mejora v2: la reemplaza | **No hay prórroga automática ni estado `PRORROGADO`.** El margen para pagar lo da la renovación anticipada (la orden se genera antes del vencimiento). La excepción es manual: habilitar sin pago hasta una fecha (`PEND_PAGO_ACTIVO`) o editar la fecha de fin con motivo obligatorio. |
+| Tipo de cliente | DIRECTO / CORPORATIVO / GRUPOS / DISTRIBUIDOR | Tres ejes independientes (Mejora v2 cap. 7): **tipo** DIRECTO o CORPORATIVO (si se suspende por falta de pago), **grupo económico** (organización y reportes) y **facturación consolidada** (grupo con cliente de facturación + medio de pago de planilla). |
+| Detalle de orden | Atributos: `OrdenDetalle`. v3: sin detalle | **[Cambio]** Hay tabla `orden_item`: cada línea congela precio de lista, bonificación, precio final y el total prorrateado. Lo necesita la factura y la orden agrupada, que mezcla empresas. |
+| Carrito | v3: filas `BORRADOR` en PaquetesxEmpresa. KB: sesión web | **[Cambio]** Tabla `carrito_item` persistente por empresa. Los contratos recién existen al confirmar, así no hay filas borrador mezcladas con contratos reales y el carrito sobrevive entre dispositivos. |
+| Licencia por oficina | Presentación: empresa + oficina. v3: empresa | Ver sección 4.3: la licencia es de la **empresa**. Un contrato puede estar **asignado a una oficina**, solo para consumos y para la oficina que compra por su cuenta. |
+| Fecha de inicio | Presentación: 30 días de regalo y la renovación empalma. KB: desde hoy | Alta: **desde el día de activación** (sección 4.2). Renovación: **empalma** con el fin del contrato anterior. Sin días de regalo. |
+
+---
+
+## 3. Modelo de dominio
+
+```
+Pais ──< Aseguradora
+GrupoEconomico ──< Cliente ──< Empresa ──< Oficina (CC-OOO, canal = CC)
+                     │            ├──< Colaborador (usuarios de los productos)
+                     │            ├──< EmpresaAseguradora (interfaces activas)
+                     │            ├──< Productor ──< ProductorCodigo (por aseguradora)
+                     │            ├──< CarritoItem
+                     │            └──< Contrato ──< ContratoRecurso (snapshot de límites)
+                     │                     └──< MovimientoSaldo (libro de consumos)
+                     └──< Orden ──< OrdenItem ──> Contrato
+Producto ──< Recurso
+Paquete ──< PaqueteRecurso, Paquete ──< Alternativa
+MedioPago, Ticket ──< TicketPaquete, Parametro, Alerta, JobRun,
+EventoSalida (outbox), ApiCliente, Auditoria
+```
+
+### 3.1 Recursos genéricos en lugar de columnas fijas — [Cambio]
+
+GeneXus tenía unas 30 columnas fijas por paquete (`ProdigalUsrCant`,
+`CWPresuMesCant`…). Agregar un producto o un límite obligaba a cambiar tablas,
+pantallas y APIs.
+
+Ahora los límites son datos: un catálogo de **recursos**, y cada paquete declara
+cantidades de algunos de ellos.
+
+| Clase de recurso | Ejemplos | Cómo se suma |
+|---|---|---|
+| `CAPACIDAD` | usuarios Prodigal, pólizas, GB, interfaces, años de retención | Suma de los contratos vigentes |
+| `FUNCION` | chatbot, API, e-commerce, motos, institorio | Habilitada si algún contrato vigente la trae |
+| `CUPO_MENSUAL` | notificaciones y cotizaciones del mes | Cupo del mes, se renueva solo cada mes (4.4) |
+| `SALDO` | notificaciones y cotizaciones sin vencimiento | Prepago que se agota con el uso |
+
+Reglas del paquete:
+- Un paquete es **TEMPORAL** (`CAPACIDAD`, `FUNCION`, `CUPO_MENSUAL`, con
+  alternativas en meses) o **CONSUMIBLE** (solo `SALDO`, sin vencimiento).
+  Nunca se mezclan.
+- **Reglas derivadas** declarativas: por ejemplo, la emisión de CotiWeb se
+  habilita con 4 o más usuarios de CotiWeb.
+
+### 3.2 Cantidad — [Cambio]
+
+Un contrato tiene `cantidad` de unidades. **Multiplica límites y precio, nunca
+la duración.** La KB multiplicaba también los meses: 3 unidades de un plan anual
+daban 36 meses con el triple de usuarios.
+
+---
+
+## 4. Licencias
+
+### 4.1 Estados del contrato
+
+El **estado** refleja la situación de pago. La **vigencia** se calcula por fechas.
+Son dos conceptos separados — **[Cambio]**.
+
+| Estado | Significado | ¿Suma a la licencia? |
+|---|---|---|
+| `PEND_PAGO` | Orden emitida, sin pagar | No |
+| `PEND_PAGO_ACTIVO` | Habilitado sin pago. Corporativo sin límite, o excepción manual con fecha límite | Sí, si está dentro del período y del plazo |
+| `ACTIVO` | Pagado o activado manualmente | Sí, dentro del período |
+| `CANCELADO` | Anulado (siempre manual) | No |
+| `BAJA` | Dado de baja manualmente antes de tiempo | No |
+
+"Vencido" no es un estado: es `hoy > hasta`. Por eso la licencia es correcta a
+cualquier hora, sin depender de que haya corrido el proceso diario (en la KB, un
+paquete vencido seguía sumando hasta la corrida del día siguiente).
+
+**Vigente(hoy)** =
+- estado `ACTIVO`, o `PEND_PAGO_ACTIVO` con `pendPagoActivoHasta` nula o ≥ hoy; **y**
+- si es temporal: `desde ≤ hoy ≤ hasta`; si es consumible: saldo > 0.
+
+**[Cambio]** `PEND_PAGO_ACTIVO` también exige estar dentro del período. La regla
+del documento v2 solo miraba la fecha límite: un contrato corporativo impago de
+un período ya terminado habría seguido sumando para siempre, encima de su
+renovación. Resultado: licencias duplicadas.
+
+### 4.2 Fechas
+
+| Caso | `desde` | `hasta` |
+|---|---|---|
+| Alta, cliente DIRECTO | Fecha de activación (pago confirmado) | desde + meses − 1 día |
+| Alta, cliente CORPORATIVO | Fecha de confirmación (nace habilitado) | desde + meses − 1 día |
+| Renovación | Día siguiente al `hasta` del contrato anterior | desde + meses − 1 día |
+
+- **Alta de un DIRECTO:** mientras no paga, las fechas son provisorias y se
+  recalculan al activar. Así el cliente no pierde los días que tardó en pagar.
+- **Renovación:** empalma con el contrato anterior. No se pierden ni se
+  superponen días, aunque se pague tarde, y los cortes quincenales quedan estables.
+- **Edición manual de `hasta`** (consolidación de vencimientos): solo
+  Administración SOFTeam, con motivo obligatorio y auditoría. Si hay suscripción
+  en MercadoPago, pregunta si regenerarla. Es la única excepción a la
+  inmutabilidad del contrato.
+
+### 4.3 Empresa y oficinas
+
+- **Toda empresa tiene al menos una oficina** (`01001`, que se crea con el alta).
+  Una empresa con una sola oficina y otra con muchas usan el mismo modelo.
+- **La licencia pertenece a la empresa.** Las capacidades y las funciones son un
+  único pozo de la empresa, y el administrador distribuye usuarios e interfaces
+  entre oficinas.
+- **Un contrato puede estar asignado a una oficina.** Se usa para dos cosas:
+  1. **Consumos:** una oficina consume primero de sus propios contratos y después
+     del pozo de la empresa, si la política lo permite y hasta su tope mensual.
+  2. **Compra delegada:** un administrador delegado de oficina compra paquetes
+     para su oficina, que puede facturarse a otro cliente.
+- **Visibilidad** de usuarios y contratos: toda la empresa, un canal (`CC`) o una
+  oficina (`CC-OOO`).
+
+### 4.4 Consumos (libro de movimientos)
+
+- Cada movimiento (carga, consumo, ajuste) es **una fila inmutable** en
+  `movimiento_saldo`. El saldo es la suma de sus movimientos: siempre auditable.
+- **Cupo mensual:** disponible = cupo del mes − consumido en el mes. **No hay
+  proceso de reposición**: el mes nuevo empieza con el consumo en cero. Se elimina
+  un job y su riesgo de no correr — **[Cambio]**.
+- **Orden de débito:** cupo mensual antes que saldo prepago; contratos de la
+  oficina antes que los de la empresa; dentro de cada grupo, el más antiguo
+  primero (FIFO).
+- **Factor por medio de envío** (tabla configurable): mail 1, SMS 2, WhatsApp 2,5.
+- **Modos:** `TODO_O_NADA` o `PARCIAL`.
+- **Idempotencia:** clave única (sistema, id de transacción externa). Un reintento
+  del producto no descuenta dos veces.
+- **Concurrencia:** el débito bloquea las filas de saldo de la empresa
+  (`SELECT … FOR UPDATE`). Dos consumos simultáneos no pueden dejar saldo negativo.
+
+### 4.5 Límites de configuración
+
+Usuarios activos por producto ≤ licenciados, e interfaces activas por aseguradora
+≤ licenciadas. Se valida al activar. Si una licencia baja, no se desactiva nada
+automáticamente: se genera una alerta y el administrador elige qué desactivar.
+La baja de una interfaz rige desde el mes siguiente.
+
+---
+
+## 5. Orden y cálculo
+
+### 5.1 Motor de cálculo (función pura)
+
+Un único módulo, sin base de datos ni usuario, determinista y cubierto por tests.
+Se usa igual en el carrito, en la edición de la orden y en la renovación.
+
+```
+por ítem:  precioLista = unitario(ALTA→compra | RENOVACION→renovación) × cantidad
+           bonif       = redondear(precioLista × bonifPor / 100)
+           precioFinal = precioLista − bonif
+subtotal     = Σ precioFinal                       (ejemplo 2.6: 140.000)
+ticket       = min(redondear(subtotal × ticketPor / 100), saldo del ticket)
+baseNeta     = max(subtotal − ticket, 0)
+ajustePago   = redondear(baseNeta × ajustePor / 100)   (recargo + / bonificación −)
+netoGravado  = baseNeta + ajustePago
+iva          = redondear(netoGravado × alícuota / 100)
+total        = netoGravado + iva
+prorrateo    = total repartido entre los ítems proporcional a su precioFinal
+```
+
+- **Importes en centavos enteros** (`bigint`). Los porcentajes se guardan en
+  centésimos de punto (2 decimales). **Sin punto flotante en ningún cálculo** —
+  **[Cambio]**.
+- **Redondeo:** en cada paso, a 2 decimales, mitad alejándose de cero.
+- **Prorrateo por restos mayores** — **[Cambio]**. Reparte el redondeo entre los
+  ítems con mayor resto, en lugar de cargarlo todo al último. La suma da el total
+  exacto también con muchos ítems o con ítems en cero.
+- **Alícuota de IVA:** 0 si el cliente de facturación es Exento; si no, la
+  alícuota general del país (parámetro, 21 en Argentina).
+- **Tipo de comprobante:** A si el cliente de facturación es Responsable
+  Inscripto; B en los demás casos. SOFTeam emite como Responsable Inscripto.
+
+### 5.2 Rechazos
+
+`SIN_ITEMS`, `MEDIO_NO_HABILITADO`, `MONEDA_INCONSISTENTE`, `PAQUETE_NO_DISPONIBLE`,
+`ALTERNATIVA_INEXISTENTE`, `TICKET_INVALIDO`, `TICKET_VENCIDO`, `TICKET_AGOTADO`,
+`TICKET_SOBRE_BONIFICADO`, `TICKET_CORPORATIVO`, `TICKET_PAQUETE_NO_HABILITADO`.
+
+Al cliente se le muestra siempre un mensaje genérico. El código detallado lo ven
+solo los roles SOFTeam.
+
+### 5.3 Medio de pago
+
+Resolución: el que se eligió, o si no el preferido del cliente según la
+instancia (alta, adicional o renovación). Validaciones, **en cadena**:
+activo, país (vacío = todos) e instancia habilitada.
+
+El cliente de facturación pasa a ser el del **grupo** solo si el medio es de
+planilla **y** el grupo tiene cliente de facturación. La condición de IVA sale
+siempre del cliente de facturación ya resuelto.
+
+### 5.4 Confirmar la orden (transacción única)
+
+Recalcular en el servidor, sin confiar en ningún importe que mande el navegador
+→ crear la orden y sus ítems → crear los contratos (estado inicial según el tipo
+de cliente) → vaciar el carrito → registrar el evento de salida.
+
+**Todo en una transacción**, con una clave de idempotencia para que un doble
+clic no genere dos órdenes.
+
+Estado inicial del contrato:
+- **DIRECTO** → `PEND_PAGO`.
+- **CORPORATIVO** → `PEND_PAGO_ACTIVO` sin fecha límite (el servicio nunca se
+  corta solo).
+
+### 5.5 Estados de la orden
+
+`PEND_PAGO` → `PAGADA` | `CANCELADA`. Un error de pago no es un estado: queda
+marcado dentro de `PEND_PAGO`, con observación, fecha y hora, reintentos y
+cantidad de reenvíos del link.
+
+Cualquier cambio de medio de pago, ticket o bonificación mientras está
+`PEND_PAGO` recalcula la orden e invalida el link de pago vigente.
+
+---
+
+## 6. Renovación, tickets y facturación consolidada
+
+- **Generación quincenal** (idempotente, días de corte configurables: 5 y 15).
+  El día 5 renueva los contratos vigentes que vencen entre el 1 y el 15; el día
+  15, los que vencen del 16 a fin de mes.
+  - Propaga la bonificación **solo si es recurrente**, aplicada sobre el precio de
+    renovación vigente.
+  - Medio de pago: el de renovación del cliente.
+  - Agrupa en una orden por (cliente de facturación, período) si es planilla; si
+    no, una orden por empresa.
+  - Si hay suscripción de MercadoPago y el monto cambió, lo actualiza **antes**
+    de la fecha de cobro.
+  - No consolida vencimientos automáticamente. Un contrato marcado **"no
+    renovar"** se omite.
+- **Tickets:**
+  - Porcentaje con tope como saldo: consumido = suma de los descuentos de las
+    órdenes de la serie no canceladas. El último mes aplica el remanente.
+  - Vigencia anual para la serie.
+  - Un solo ticket por orden.
+  - No aplica si algún ítem tiene bonificación (en ninguno de los dos sentidos),
+    ni a clientes corporativos.
+  - Si el ticket está restringido a paquetes, **todos** los ítems deben ser de
+    esos paquetes.
+  - El conteo de usos cuenta solo órdenes de generación manual.
+- **Orden agrupada** (planilla): solo la ven el cliente agrupador y los roles
+  SOFTeam. En "Mis paquetes" del cliente agrupado aparece como "Incluido en
+  facturación corporativa".
+- **Paquetes privados:** solo visibles y vendibles para roles SOFTeam. El filtro
+  se aplica en el servidor y en la API, no solo en la pantalla.
+
+---
+
+## 7. Procesos programados (todos idempotentes)
+
+Cada corrida se registra en `job_run` con clave única (tipo de trabajo + fecha o
+período). Reejecutar un día no duplica nada.
+
+| Proceso | Frecuencia | Qué hace |
+|---|---|---|
+| Diario | 06:00 | Vence las excepciones de pago (`PEND_PAGO_ACTIVO` con fecha pasada → `PEND_PAGO`). Genera alertas (vencimiento 15, 7 y 1 día, saldo bajo 20 %, plazo de pago por vencer, licencia vencida, **empresa sin paquete vigente**). No emite alertas de vencimiento si hay renovación automática. |
+| Renovación | Días de corte | Sección 6 |
+| Entrega de eventos | Continuo, con reintentos | Envía webhooks desde el outbox, con reintento y backoff |
+| Recordatorios de cobro | Configurable (10, 20 y 28) | Avisos de órdenes impagas y semáforo de antigüedad (10 y 21 días) |
+
+---
+
+## 8. Seguridad
+
+- **Autenticación** con Better Auth: email y contraseña, verificación del email
+  por código (OTP), 2FA opcional para roles SOFTeam y sesiones en base de datos.
+- **Autorización** por rol y alcance. Roles SOFTeam: `SOPORTE`, `COMERCIAL`,
+  `ADMINISTRACION`. Roles del cliente por empresa: `ADMIN_GENERAL`,
+  `ADMIN_COMERCIAL` (paquetes y pagos), `ADMIN_OPERATIVO` (configuración), más
+  administradores delegados por oficina.
+  - Se verifica en el servidor en cada acción. Nunca solo en la pantalla.
+- **Multi-cliente:** toda consulta del portal se filtra por las empresas del
+  usuario, en una capa de acceso a datos central.
+- **API para productos:** cada sistema tiene su clave. Las peticiones van firmadas
+  con HMAC-SHA256 sobre método, ruta, timestamp y hash del cuerpo, con una
+  ventana anti-replay de 5 minutos. Los webhooks de salida se firman igual. Esto
+  reemplaza la "firma" genérica de los documentos.
+- **Validación con Zod** en todos los bordes: formularios, acciones y API.
+- **Auditoría** de cambios sensibles: precios, bonificaciones, fechas, estados,
+  roles. Actor, antes y después, y motivo.
+- Rate limiting en el login y en la API. Headers de seguridad y CSP. Secretos
+  solo en variables de entorno validadas al arrancar.
+
+---
+
+## 9. Integraciones
+
+- **API de productos (`/api/v1`):**
+  - licencias consolidadas por empresa, con desglose por oficina;
+  - estructura completa de la empresa versionada (`EmpresaFull` v1);
+  - lista de empresas modificadas desde una fecha y hora;
+  - consumo de notificaciones y cotizaciones;
+  - contrato documentado en OpenAPI.
+- **Webhooks de sincronización:** cada cambio en una empresa o en sus datos
+  relacionados actualiza su fecha de modificación y encola un evento en el
+  outbox, **en la misma transacción**. Los productos reciben
+  `empresa.actualizada` con la empresa y la fecha, y la vuelven a leer.
+- **MercadoPago:** preferencias (link de pago), suscripciones (preapproval) y
+  webhooks de pago verificados con la firma de MercadoPago. Idempotentes por id
+  de evento.
+- **Xubio:** comprobante al confirmarse el pago. Neto gravado como base, IVA y
+  total, al cliente de facturación.
+- **Email:** Resend + React Email (alertas, links de pago, verificación).
+
+---
+
+## 10. Arquitectura técnica
+
+| Capa | Tecnología |
+|---|---|
+| Framework | Next.js 16 (App Router, Server Components, Server Actions, `proxy.ts`), React 19 con React Compiler |
+| Lenguaje | TypeScript en modo estricto |
+| UI | Tailwind CSS 4 + shadcn/ui, TanStack Table |
+| Datos | PostgreSQL + Drizzle ORM. **PGlite** (Postgres embebido) para desarrollo y tests, sin instalar nada. Neon en producción |
+| Validación | Zod 4 |
+| Auth | Better Auth |
+| Tests | Vitest (dominio y base de datos real con PGlite) + Playwright (flujos) |
+| Calidad | Biome (lint + formato), TypeScript estricto, CI |
+| Deploy | Vercel (app + cron) + Neon |
+
+Estructura del código (monolito modular):
+
+```
+src/
+  domain/        reglas puras, sin I/O: dinero, cálculo de orden, vigencia, consumos, tickets
+  server/
+    db/          esquema Drizzle, cliente, migraciones
+    modules/     casos de uso por módulo (cuentas, catalogo, licencias, consumos, ordenes, cobros)
+    auth/        sesión, roles, autorización
+    jobs/        procesos programados
+    integrations/ mercadopago, xubio, email, webhooks
+  app/           rutas: (portal) cliente, (admin) SOFTeam, api/v1 productos
+  components/    UI
+```
+
+Regla de dependencias: `domain` no importa nada del resto.
+`server/modules` usa `domain` y `db`. `app` solo llama a `server/modules`.
+
+---
+
+## 11. Plan por fases
+
+1. **Base:** proyecto, dominio con tests, esquema de datos, auth y roles, layout.
+2. **Catálogo y cuentas:** países, productos y recursos, paquetes, alternativas,
+   medios de pago; clientes, grupos, empresas, oficinas; alta en línea con
+   verificación del email.
+3. **Compra:** selector, carrito, checkout con cálculo, confirmación
+   transaccional, vista de orden, "Mis paquetes".
+4. **Licencias y consumos:** licencia vigente, API de productos, libro de
+   consumos, webhooks.
+5. **Configuración de la empresa:** colaboradores, aseguradoras e interfaces,
+   productores, políticas, límites.
+6. **Procesos:** diario, alertas, renovación quincenal, recordatorios.
+7. **Cobro:** MercadoPago (link y suscripción), Xubio, tickets, orden agrupada.
+8. **Pulido:** reportes, exportaciones, marca blanca, tickets de soporte.
