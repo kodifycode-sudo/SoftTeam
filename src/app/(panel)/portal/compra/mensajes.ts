@@ -5,6 +5,9 @@ import type { RechazoCompra } from "@/server/modules/ventas/checkout";
  * un texto genérico: el motivo detallado queda para los roles SOFTeam.
  */
 export function mensajeRechazoCompra(error: RechazoCompra, detalle?: string): string {
+  if (error === "TICKET_SOLO_PAQUETES_NUEVOS") {
+    return "Los códigos de descuento son para paquetes nuevos: no aplican a renovaciones.";
+  }
   if (error.startsWith("TICKET_")) return "El código no es válido o no aplica a esta orden.";
   switch (error) {
     case "SIN_ITEMS":

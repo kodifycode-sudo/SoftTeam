@@ -38,7 +38,7 @@ describe("calcularOrden — ejemplo numérico 2.6 del documento de mejora", () =
       }),
       item({ clave: "bienseguro", precioCompra: centavos("50000") }),
     ],
-    ticket: { porcentaje: porcentaje("15"), saldoDisponible: centavos("15000") },
+    ticket: { porcentaje: porcentaje("15"), tope: centavos("15000") },
     ajustePagoPorcentaje: porcentaje("8"),
     alicuotaIva: porcentaje("21"),
   });
@@ -86,9 +86,7 @@ describe("calcularOrden — reglas", () => {
   });
 
   it("el ticket nunca deja la base negativa", () => {
-    const r = calcular(
-      base({ ticket: { porcentaje: porcentaje("100"), saldoDisponible: centavos("1000") } }),
-    );
+    const r = calcular(base({ ticket: { porcentaje: porcentaje("100"), tope: centavos("1000") } }));
     expect(r.baseNeta).toBe(0n);
     expect(r.total).toBe(0n);
   });

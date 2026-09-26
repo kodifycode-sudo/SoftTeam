@@ -170,9 +170,11 @@ export async function cotizarCarrito(
       ticket: fila && { ...fila, paquetesHabilitados: habilitados.map((h) => h.paqueteId) },
       hoy,
       tipoCliente: ctx.tipoCliente,
-      items: items.map((i) => ({ paqueteId: i.paqueteId, bonifPorcentaje: 0n })),
-      // Orden manual nueva: inicia su propia serie.
-      consumidoSerie: 0n,
+      items: items.map((i) => ({
+        paqueteId: i.paqueteId,
+        tipoAccion: i.tipoAccion,
+        bonifPorcentaje: 0n,
+      })),
     });
     if (!evaluado.ok) return evaluado;
     ticket = fila ? { id: fila.id, codigo: fila.codigo } : null;

@@ -2,12 +2,13 @@ import type { Centavos, Porcentaje } from "../dinero";
 import { esAnterior, esPosterior, type Fecha } from "../fecha";
 import type { TipoCliente } from "../licencias/contrato";
 import { exito, type Resultado, rechazo } from "../resultado";
+import type { TipoAccion } from "./calculo-orden";
 
 export interface Ticket {
   readonly codigo: string;
   readonly activo: boolean;
   readonly porcentaje: Porcentaje;
-  /** Tope total del descuento: funciona como saldo a lo largo de la serie. */
+  /** Descuento máximo en una misma compra. */
   readonly tope: Centavos;
   readonly vigenteDesde: Fecha;
   readonly vigenteHasta: Fecha;
@@ -18,27 +19,33 @@ export interface Ticket {
 export type RechazoTicket =
   | "TICKET_INVALIDO"
   | "TICKET_VENCIDO"
-  | "TICKET_AGOTADO"
   | "TICKET_CORPORATIVO"
+  | "TICKET_SOLO_PAQUETES_NUEVOS"
   | "TICKET_SOBRE_BONIFICADO"
   | "TICKET_PAQUETE_NO_HABILITADO";
 
 export interface TicketAplicable {
   readonly porcentaje: Porcentaje;
-  readonly saldoDisponible: Centavos;
+  /** El descuento de la compra no supera este importe. */
+  readonly tope: Centavos;
 }
 
 /**
- * Decide si un ticket se puede aplicar a una orden. El importe se calcula
- * después, en el motor de la orden: min(subtotal × %, saldo).
+ * Decide si un ticket se puede aplicar a una compra. El importe se calcula
+ * después, en el motor de la orden: min(subtotal × %, tope).
+ *
+ * Los tickets son para paquetes nuevos: no aplican a renovaciones (ni a la
+ * automática ni a una renovación comprada a mano).
  */
 export function evaluarTicket(entrada: {
   readonly ticket: Ticket | undefined;
   readonly hoy: Fecha;
   readonly tipoCliente: TipoCliente;
-  readonly items: readonly { readonly paqueteId: string; readonly bonifPorcentaje: Porcentaje }[];
-  /** Descuento ya usado por las órdenes no canceladas de la serie. */
-  readonly consumidoSerie: Centavos;
+  readonly items: readonly {
+    readonly paqueteId: string;
+    readonly tipoAccion: TipoAccion;
+    readonly bonifPorcentaje: Porcentaje;
+  }[];
 }): Resultado<TicketAplicable, RechazoTicket> {
   const { ticket, hoy, items } = entrada;
   if (!ticket || !ticket.activo) return rechazo("TICKET_INVALIDO");
@@ -47,6 +54,9 @@ export function evaluarTicket(entrada: {
   }
   // Las condiciones de los corporativos se negocian por contrato.
   if (entrada.tipoCliente === "CORPORATIVO") return rechazo("TICKET_CORPORATIVO");
+  if (items.some((i) => i.tipoAccion === "RENOVACION")) {
+    return rechazo("TICKET_SOLO_PAQUETES_NUEVOS");
+  }
   // No hay descuento sobre descuento.
   if (items.some((i) => i.bonifPorcentaje > 0n)) return rechazo("TICKET_SOBRE_BONIFICADO");
   if (
@@ -55,7 +65,5 @@ export function evaluarTicket(entrada: {
   ) {
     return rechazo("TICKET_PAQUETE_NO_HABILITADO");
   }
-  const saldoDisponible = ticket.tope - entrada.consumidoSerie;
-  if (saldoDisponible <= 0n) return rechazo("TICKET_AGOTADO");
-  return exito({ porcentaje: ticket.porcentaje, saldoDisponible });
+  return exito({ porcentaje: ticket.porcentaje, tope: ticket.tope });
 }

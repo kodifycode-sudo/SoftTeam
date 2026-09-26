@@ -7,8 +7,8 @@ import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
 
 /**
- * Tickets con lo que ya se usó: el tope funciona como saldo, así que lo
- * consumido es la suma de los descuentos de las órdenes no canceladas.
+ * Tickets con su uso: cuántas compras lo aplicaron y cuánto se descontó en
+ * total (órdenes no canceladas). El tope es por compra.
  */
 export async function listarTickets(db: Ejecutor) {
   const [tickets, paquetes] = await Promise.all([
@@ -22,7 +22,7 @@ export async function listarTickets(db: Ejecutor) {
         vigenteDesde: t.tickets.vigenteDesde,
         vigenteHasta: t.tickets.vigenteHasta,
         activo: t.tickets.activo,
-        consumido: sql<string>`coalesce((select sum(o.ticket_descuento) from ${t.ordenes} o where o.ticket_id = "tickets"."id" and o.estado <> 'CANCELADA'), 0)::text`,
+        descontado: sql<string>`coalesce((select sum(o.ticket_descuento) from ${t.ordenes} o where o.ticket_id = "tickets"."id" and o.estado <> 'CANCELADA'), 0)::text`,
         usos: sql<number>`(select count(*)::int from ${t.ordenes} o where o.ticket_id = "tickets"."id" and o.estado <> 'CANCELADA' and o.tipo_generacion = 'MANUAL')`,
       })
       .from(t.tickets)
@@ -38,7 +38,7 @@ export async function listarTickets(db: Ejecutor) {
   return tickets.map((k) => ({
     ...k,
     // Centavos exactos (la suma llega como texto decimal de Postgres).
-    consumido: centavos(k.consumido),
+    descontado: centavos(k.descontado),
     paquetes: paquetes.filter((p) => p.ticketId === k.id).map((p) => p.nombre),
   }));
 }

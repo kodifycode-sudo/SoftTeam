@@ -67,10 +67,10 @@ function ContenidoNuevoTicket({
           />
           <Campo
             nombre="tope"
-            etiqueta="Tope total ($)"
+            etiqueta="Tope por compra ($)"
             inputMode="decimal"
             placeholder="50000"
-            ayuda="Se consume en la compra y en sus renovaciones."
+            ayuda="Descuento máximo en una misma compra."
             estado={estado}
           />
         </div>
@@ -121,7 +121,8 @@ export function NuevoTicket(props: { paquetes: { id: string; nombre: string }[];
         <DialogHeader>
           <DialogTitle>Nuevo ticket de descuento</DialogTitle>
           <DialogDescription>
-            Un porcentaje con tope. No aplica a clientes corporativos ni sobre paquetes bonificados.
+            Un porcentaje con tope, solo para paquetes nuevos: no aplica a renovaciones, a clientes
+            corporativos ni sobre paquetes bonificados.
           </DialogDescription>
         </DialogHeader>
         {abierto && <ContenidoNuevoTicket {...props} cerrar={() => setAbierto(false)} />}

@@ -17,16 +17,15 @@ const entrada = (parcial: Partial<Parameters<typeof evaluarTicket>[0]> = {}) => 
   ticket,
   hoy: fecha("2026-09-25"),
   tipoCliente: "DIRECTO" as const,
-  items: [{ paqueteId: "p1", bonifPorcentaje: 0n }],
-  consumidoSerie: 0n,
+  items: [{ paqueteId: "p1", tipoAccion: "ALTA" as const, bonifPorcentaje: 0n }],
   ...parcial,
 });
 
 describe("evaluarTicket", () => {
-  it("devuelve porcentaje y saldo restante del tope", () => {
-    expect(evaluarTicket(entrada({ consumidoSerie: centavos("9000") }))).toEqual({
+  it("devuelve el porcentaje y el tope de la compra", () => {
+    expect(evaluarTicket(entrada())).toEqual({
       ok: true,
-      valor: { porcentaje: porcentaje("15"), saldoDisponible: centavos("6000") },
+      valor: { porcentaje: porcentaje("15"), tope: centavos("15000") },
     });
   });
 
@@ -37,19 +36,29 @@ describe("evaluarTicket", () => {
     ["TICKET_CORPORATIVO", entrada({ tipoCliente: "CORPORATIVO" })],
     [
       "TICKET_SOBRE_BONIFICADO",
-      entrada({ items: [{ paqueteId: "p1", bonifPorcentaje: porcentaje("5") }] }),
+      entrada({
+        items: [{ paqueteId: "p1", tipoAccion: "ALTA", bonifPorcentaje: porcentaje("5") }],
+      }),
     ],
     [
       "TICKET_PAQUETE_NO_HABILITADO",
       entrada({
         ticket: { ...ticket, paquetesHabilitados: ["p1"] },
         items: [
-          { paqueteId: "p1", bonifPorcentaje: 0n },
-          { paqueteId: "p2", bonifPorcentaje: 0n },
+          { paqueteId: "p1", tipoAccion: "ALTA", bonifPorcentaje: 0n },
+          { paqueteId: "p2", tipoAccion: "ALTA", bonifPorcentaje: 0n },
         ],
       }),
     ],
-    ["TICKET_AGOTADO", entrada({ consumidoSerie: centavos("15000") })],
+    [
+      "TICKET_SOLO_PAQUETES_NUEVOS",
+      entrada({
+        items: [
+          { paqueteId: "p1", tipoAccion: "ALTA", bonifPorcentaje: 0n },
+          { paqueteId: "p2", tipoAccion: "RENOVACION", bonifPorcentaje: 0n },
+        ],
+      }),
+    ],
   ] as const)("rechaza con %s", (codigo, e) => {
     expect(evaluarTicket(e)).toMatchObject({ ok: false, error: codigo });
   });

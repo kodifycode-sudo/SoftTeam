@@ -291,9 +291,11 @@ Cualquier cambio de medio de pago, ticket o bonificación mientras está
   - No consolida vencimientos automáticamente. Un contrato marcado **"no
     renovar"** se omite.
 - **Tickets:**
-  - Porcentaje con tope como saldo: consumido = suma de los descuentos de las
-    órdenes de la serie no canceladas. El último mes aplica el remanente.
-  - Vigencia anual para la serie.
+  - **Solo para paquetes nuevos — [Cambio]:** no aplican a renovaciones, ni a
+    la automática ni a una renovación comprada a mano. Se decidió no
+    arrastrar descuentos de promoción a los períodos siguientes.
+  - Porcentaje con tope: el descuento de la compra es
+    min(subtotal × porcentaje, tope).
   - Un solo ticket por orden.
   - No aplica si algún ítem tiene bonificación (en ninguno de los dos sentidos),
     ni a clientes corporativos.
@@ -469,7 +471,7 @@ Regla de dependencias: `domain` no importa nada del resto.
    firmadas); link de pago reutilizable, avisos de pago idempotentes (pago
    rechazado, reintento, importe distinto a revisión), reenvío del link,
    facturación automática al cobrar con reintento diario, tickets (alta en el
-   panel, serie en las renovaciones), orden agrupada visible para el cliente
+   panel, solo para paquetes nuevos), orden agrupada visible para el cliente
    que factura.
    *Pendiente:* adaptador real de Xubio (necesita credenciales y su API
    documentada; hoy solo el simulador, y en producción las órdenes quedan

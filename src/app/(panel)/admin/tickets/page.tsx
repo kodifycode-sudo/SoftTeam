@@ -26,36 +26,11 @@ import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import * as t from "@/server/db/schema";
-import { listarTickets, type TicketListado } from "@/server/modules/catalogo/tickets";
+import { listarTickets } from "@/server/modules/catalogo/tickets";
 import { cambiarEstadoTicketAccion } from "./acciones";
 import { NuevoTicket } from "./nuevo-ticket";
 
 export const metadata: Metadata = { title: "Tickets" };
-
-function Uso({ k }: { k: TicketListado }) {
-  const porcentajeUsado = k.tope > 0n ? Number((k.consumido * 100n) / k.tope) : 0;
-  return (
-    <div className="min-w-40 space-y-1">
-      <p className="text-sm tabular-nums">
-        {pesos(k.consumido)} <span className="text-muted-foreground">de {pesos(k.tope)}</span>
-      </p>
-      {/* biome-ignore lint/a11y/useSemanticElements: <meter> no se puede estilizar igual en todos los navegadores; el role conserva la semántica. */}
-      <div
-        role="meter"
-        aria-label={`Tope usado de ${k.codigo}`}
-        aria-valuenow={Math.min(porcentajeUsado, 100)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        className="h-1.5 overflow-hidden rounded-full bg-muted"
-      >
-        <div
-          className={cn("h-full rounded-full bg-primary", porcentajeUsado >= 100 && "bg-brand")}
-          style={{ width: `${Math.min(porcentajeUsado, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
 
 export default async function PaginaTickets() {
   const { rol } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
@@ -75,7 +50,7 @@ export default async function PaginaTickets() {
     <>
       <EncabezadoPagina
         titulo="Tickets"
-        descripcion="Códigos de descuento con tope. El tope funciona como saldo: se consume en la compra y en sus renovaciones durante un año."
+        descripcion="Códigos de descuento para compras de paquetes nuevos (no aplican a renovaciones). El descuento de cada compra no supera el tope."
         acciones={administra && <NuevoTicket paquetes={paquetes} hoy={fechaHoy} />}
       />
       {tickets.length === 0 ? (
@@ -98,7 +73,8 @@ export default async function PaginaTickets() {
                 <TableRow>
                   <TableHead className="pl-4">Ticket</TableHead>
                   <TableHead>Descuento</TableHead>
-                  <TableHead>Uso del tope</TableHead>
+                  <TableHead className="text-right">Tope por compra</TableHead>
+                  <TableHead className="text-right">Descontado</TableHead>
                   <TableHead>Vigencia</TableHead>
                   <TableHead className="text-center">Compras</TableHead>
                   {administra && <TableHead className="w-32" />}
@@ -123,8 +99,9 @@ export default async function PaginaTickets() {
                       <TableCell className="tabular-nums">
                         {porcentajeTexto(k.porcentaje)}
                       </TableCell>
-                      <TableCell>
-                        <Uso k={k} />
+                      <TableCell className="text-right tabular-nums">{pesos(k.tope)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {pesos(k.descontado)}
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">
                         {fechaCorta(k.vigenteDesde)} – {fechaCorta(k.vigenteHasta)}

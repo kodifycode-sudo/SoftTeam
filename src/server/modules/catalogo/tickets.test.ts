@@ -7,7 +7,6 @@ import type { Db } from "@/server/db/cliente";
 import { crearContratoDePrueba, crearDbDePrueba, crearEmpresaDePrueba } from "@/server/db/pruebas";
 import * as t from "@/server/db/schema";
 import { procesoRenovacion } from "../procesos/renovacion";
-import { registrarPago } from "../ventas/ordenes";
 import { cambiarEstadoTicket, crearTicket, esquemaTicket, listarTickets } from "./tickets";
 
 let db: Db;
@@ -55,12 +54,11 @@ describe("tickets", () => {
   });
 });
 
-describe("ticket en serie en las renovaciones", () => {
-  it("descuenta hasta agotar el tope, con el remanente al final", async () => {
-    const r = await crearTicket(db, entrada("SERIE-50"), "actor");
+describe("tickets y renovaciones", () => {
+  it("la renovación de una compra hecha con ticket no lleva descuento", async () => {
+    const r = await crearTicket(db, entrada("SOLO-NUEVOS"), "actor");
     if (!r.ok) throw new Error();
     const { empresa, orden } = await crearEmpresaDePrueba(db);
-    // La orden original ya usó 10.000 del tope de 30.000.
     await db
       .update(t.ordenes)
       .set({
@@ -80,26 +78,22 @@ describe("ticket en serie en las renovaciones", () => {
       },
     );
 
-    // Renueva, paga y vuelve a renovar, tres veces.
-    const descuentos: bigint[] = [];
-    let anterior = contrato.id;
-    for (const corte of ["2026-09-15", "2026-10-15", "2026-11-15"] as const) {
-      await procesoRenovacion(db, ventanasDeRenovacion(fecha(corte)).at(-1)!);
-      const nuevo = await db.query.contratos.findFirst({
-        where: eq(t.contratos.contratoAnteriorId, anterior),
-      });
-      if (!nuevo) throw new Error(`No se renovó en ${corte}`);
-      const o = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, nuevo.ordenId) });
-      descuentos.push(o?.ticketDescuento ?? 0n);
-      expect(o?.ordenOrigenId).toBe(orden.id);
-      await registrarPago(db, nuevo.ordenId, "actor", nuevo.desde!);
-      anterior = nuevo.id;
-    }
-    // 50 % de 35.000 = 17.500; después queda un remanente de 2.500; después, nada.
-    expect(descuentos).toEqual([centavos("17500"), centavos("2500"), 0n]);
+    await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-09-15")).at(-1)!);
+    const nuevo = await db.query.contratos.findFirst({
+      where: eq(t.contratos.contratoAnteriorId, contrato.id),
+    });
+    const renovacion = await db.query.ordenes.findFirst({
+      where: eq(t.ordenes.id, nuevo!.ordenId),
+    });
+    expect(renovacion).toMatchObject({
+      ticketId: null,
+      ticketDescuento: 0n,
+      subtotal: centavos("35000"),
+    });
 
+    // El total descontado del ticket es solo el de la compra original.
     const [listado] = (await listarTickets(db)).filter((k) => k.id === r.id);
-    expect(listado?.consumido).toBe(centavos("30000"));
+    expect(listado?.descontado).toBe(centavos("10000"));
     expect(listado?.usos).toBe(1);
   });
 });

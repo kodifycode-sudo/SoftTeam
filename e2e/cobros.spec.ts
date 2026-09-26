@@ -14,7 +14,7 @@ test.describe
       const dialogo = page.getByRole("dialog");
       await dialogo.getByLabel("Código").fill(ticket.toLowerCase());
       await dialogo.getByLabel("Descuento (%)").fill("10");
-      await dialogo.getByLabel("Tope total ($)").fill("100000");
+      await dialogo.getByLabel("Tope por compra ($)").fill("100000");
       await dialogo.getByLabel("Hasta").fill("2027-12-31");
       await dialogo.getByRole("button", { name: "Crear ticket" }).click();
       await expect(page.getByText(`Ticket ${ticket} creado.`)).toBeVisible();
@@ -70,7 +70,7 @@ test.describe
       await capturar(page, "portal-orden-pagada");
     });
 
-    test("SOFTeam ve el ticket consumido", async ({ page }) => {
+    test("SOFTeam ve lo descontado con el ticket", async ({ page }) => {
       await ingresar(page, ADMIN.email, ADMIN.contrasena);
       await page.goto("/admin/tickets");
       const fila = page.getByRole("row").filter({ hasText: ticket });
