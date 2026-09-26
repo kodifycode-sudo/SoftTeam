@@ -477,4 +477,25 @@ Regla de dependencias: `domain` no importa nada del resto.
    documentada; hoy solo el simulador, y en producción las órdenes quedan
    "pendientes de facturar"), suscripción de Mercado Pago (débito automático),
    prueba del adaptador de Mercado Pago contra su sandbox.
-8. **Pulido:** reportes, exportaciones, marca blanca, tickets de soporte.
+8. ✅ **Pulido:**
+   - **Reportes** para SOFTeam (cobranza por mes, órdenes impagas por
+     antigüedad, vencimientos con estado de renovación, consumos, empresas por
+     producto, ventas por paquete, soporte) y **exportación a Excel** (CSV con
+     ";" y BOM; protegido contra inyección de fórmulas) de reportes y listados,
+     también en el portal (órdenes y consumos).
+   - **Marca blanca** (diapositivas 7 y 18 del documento de concepto:
+     "personalizar imágenes y textos para mostrar la marca del cliente en los
+     productos"): nombre comercial, logo (PNG/JPEG/WebP validado por su
+     contenido, hasta 300 KB), colores con control de contraste, textos y
+     contacto, con vista previa. Los productos la reciben en EmpresaFull_V1 y
+     el logo en `/api/v1/empresas/{numero}/logo` (con ETag).
+   - **Tickets de soporte** ("atención de incidentes"): el cliente abre
+     pedidos que consumen un ticket de su licencia (cupo mensual y después
+     saldo, diapositivas 37 y 40); Soporte los atiende desde una bandeja, con
+     notas internas, asignación y estados; el cliente recibe aviso y mail de
+     cada respuesta.
+   - **Notas de SOFTeam** por empresa (las líneas que empiezan con "*" no las
+     ve el cliente) e **histórico de actividad** de cada empresa, a partir de
+     la auditoría.
+   *Pendiente:* adjuntos en los pedidos de soporte, marca blanca en los mails
+   de STLic.

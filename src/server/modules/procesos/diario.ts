@@ -82,6 +82,7 @@ async function vencerExcepciones(db: Db, hoy: Fecha): Promise<number> {
       await auditar(tx, {
         ...ACTOR,
         entidad: "contrato",
+        empresaId: v.empresaId,
         entidadId: v.id,
         accion: "vencer_excepcion",
         antes: { estado: "PEND_PAGO_ACTIVO", pendPagoActivoHasta: v.hasta },

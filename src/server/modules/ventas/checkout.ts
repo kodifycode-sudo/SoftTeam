@@ -373,6 +373,7 @@ export async function confirmarOrden(
       actorId: entrada.usuarioId,
       actorTipo: "usuario",
       entidad: "orden",
+      empresaId: entrada.empresaId,
       entidadId: orden.id,
       accion: "confirmar",
       despues: {

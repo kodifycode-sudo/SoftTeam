@@ -5,4 +5,5 @@ export * from "./consumos";
 export * from "./cuentas";
 export * from "./enums";
 export * from "./sistema";
+export * from "./soporte";
 export * from "./ventas";

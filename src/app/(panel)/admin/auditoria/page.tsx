@@ -14,29 +14,12 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { accionLegible, ENTIDADES_AUDITORIA, nombreDe } from "@/lib/auditoria";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { entidadesAuditadas, listarAuditoria } from "@/server/modules/auditoria";
 
 export const metadata: Metadata = { title: "Auditoría" };
-
-const ENTIDADES: Record<string, string> = {
-  colaborador: "Usuario de empresa",
-  empresa_aseguradora: "Aseguradora de empresa",
-  productor: "Productor",
-  politicas: "Políticas",
-  oficina: "Oficina",
-  orden: "Orden",
-  paquete: "Paquete",
-  medio_pago: "Medio de pago",
-  usuario_softeam: "Usuario SOFTeam",
-  sistema_api: "Sistema integrado",
-  cliente: "Cliente",
-  contrato: "Contrato",
-  proceso: "Proceso",
-  ticket: "Ticket",
-  alerta: "Alerta",
-};
 
 const fechaHora = (d: Date) =>
   new Intl.DateTimeFormat("es-AR", {
@@ -44,51 +27,6 @@ const fechaHora = (d: Date) =>
     timeStyle: "medium",
     timeZone: "America/Argentina/Buenos_Aires",
   }).format(d);
-
-const ACCIONES: Record<string, string> = {
-  alta: "Alta",
-  alta_en_linea: "Alta en línea",
-  baja: "Baja",
-  modificacion: "Modificación",
-  reactivacion: "Reactivación",
-  activar: "Activación",
-  inactivar: "Inactivación",
-  cambio_rol: "Cambio de rol",
-  codigo_alta: "Alta de código",
-  codigo_baja: "Baja de código",
-  confirmar: "Confirmación",
-  cancelar: "Cancelación",
-  registrar_pago: "Pago registrado",
-  rotar_secreto: "Secreto rotado",
-  renovacion: "Renovación generada",
-  vencer_excepcion: "Excepción de pago vencida",
-  ejecutar: "Ejecución manual",
-  descartar: "Descarte",
-  reenviar_link: "Link de pago reenviado",
-  pago_rechazado: "Pago rechazado",
-  facturar: "Factura emitida",
-  revisada: "Revisión cerrada",
-  no_renovar: "Renovación automática desactivada",
-  renovar: "Renovación automática activada",
-  interfaz_prodigal_alta: "Alta de interfaz Prodigal",
-  interfaz_prodigal_baja: "Baja de interfaz Prodigal",
-  interfaz_cotiweb_alta: "Alta de interfaz CotiWeb",
-  interfaz_cotiweb_baja: "Baja de interfaz CotiWeb",
-};
-
-const accionLegible = (accion: string) => ACCIONES[accion] ?? accion.replaceAll("_", " ");
-
-/** Nombre del registro, si el cambio lo trae (más fácil de reconocer que el id). */
-function nombreDe(antes: unknown, despues: unknown): string | undefined {
-  for (const valor of [despues, antes]) {
-    if (valor && typeof valor === "object") {
-      const { nombre, email } = valor as { nombre?: unknown; email?: unknown };
-      if (typeof nombre === "string") return nombre;
-      if (typeof email === "string") return email;
-    }
-  }
-  return undefined;
-}
 
 function Json({ titulo, valor }: { titulo: string; valor: unknown }) {
   if (valor === null || valor === undefined) return null;
@@ -151,7 +89,7 @@ export default async function PaginaAuditoria({ searchParams }: PageProps<"/admi
             <option value="">Todos los registros</option>
             {entidades.map((e) => (
               <option key={e} value={e}>
-                {ENTIDADES[e] ?? e}
+                {ENTIDADES_AUDITORIA[e] ?? e}
               </option>
             ))}
           </SelectNativo>
@@ -184,7 +122,7 @@ export default async function PaginaAuditoria({ searchParams }: PageProps<"/admi
                   {fechaHora(r.en)}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                  <Badge variant="outline">{ENTIDADES[r.entidad] ?? r.entidad}</Badge>
+                  <Badge variant="outline">{ENTIDADES_AUDITORIA[r.entidad] ?? r.entidad}</Badge>
                   <span className="font-medium">{accionLegible(r.accion)}</span>
                   {nombreDe(r.antes, r.despues) && (
                     <span className="truncate text-sm">{nombreDe(r.antes, r.despues)}</span>

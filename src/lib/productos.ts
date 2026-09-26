@@ -2,6 +2,7 @@ import {
   BellRing,
   Calculator,
   FolderKanban,
+  LifeBuoy,
   type LucideIcon,
   Mails,
   Newspaper,
@@ -36,6 +37,11 @@ export const PRODUCTOS_UI: Record<string, { nombre: string; icono: LucideIcon; c
     nombre: "Mail marketing",
     icono: Mails,
     clase: "bg-secondary text-secondary-foreground",
+  },
+  soporte: {
+    nombre: "Soporte técnico",
+    icono: LifeBuoy,
+    clase: "bg-primary/10 text-primary",
   },
 };
 

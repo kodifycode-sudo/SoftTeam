@@ -1,15 +1,18 @@
 import {
   Building2,
+  History,
   Mail,
   MapPin,
   Phone,
   Receipt,
   ServerCog,
   Settings2,
+  StickyNote,
   UserRoundCog,
 } from "lucide-react";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { ListaActividad } from "@/components/actividad";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +20,7 @@ import { formatearCuit } from "@/domain/cuentas/cuit";
 import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
 import { requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { actividadDeEmpresa, notasDeEmpresa } from "@/server/modules/cuentas/actividad";
 import { obtenerCliente } from "@/server/modules/cuentas/consultas";
 import { obtenerEmpresaDelPortal } from "@/server/modules/cuentas/empresa";
 
@@ -54,9 +58,11 @@ const SiNo = ({ si }: { si: boolean }) => (
 export default async function MiEmpresa() {
   const contexto = await requerirCliente();
   const db = await obtenerDb();
-  const [cliente, empresa] = await Promise.all([
+  const [cliente, empresa, notas, actividad] = await Promise.all([
     obtenerCliente(db, contexto.clienteId),
     obtenerEmpresaDelPortal(db, contexto.empresaId),
+    notasDeEmpresa(db, contexto.empresaId, false),
+    actividadDeEmpresa(db, contexto.empresaId, { esSofteam: false, limite: 15 }),
   ]);
   if (!cliente || !empresa) throw new Error("Empresa no encontrada");
   const d = cliente.domicilioFiscal;
@@ -195,6 +201,31 @@ export default async function MiEmpresa() {
                 </dd>
               </div>
             </dl>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        {notas && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <StickyNote className="size-4 text-primary" /> Notas de SOFTeam
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm whitespace-pre-line">{notas}</p>
+            </CardContent>
+          </Card>
+        )}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="size-4 text-primary" /> Actividad reciente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ListaActividad actividad={actividad} />
           </CardContent>
         </Card>
       </div>

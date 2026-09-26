@@ -42,6 +42,7 @@ export const tipoAlerta = pgEnum("tipo_alerta", [
   "LINK_PAGO_REENVIADO",
   "RENOVACION_GENERADA",
   "RECORDATORIO_PAGO",
+  "SOPORTE_RESPUESTA",
 ]);
 export const estadoAlerta = pgEnum("estado_alerta", [
   "PENDIENTE",
@@ -51,3 +52,11 @@ export const estadoAlerta = pgEnum("estado_alerta", [
 ]);
 export const estadoJob = pgEnum("estado_job", ["EN_CURSO", "OK", "ERROR"]);
 export const estadoEvento = pgEnum("estado_evento", ["PENDIENTE", "ENTREGADO", "FALLIDO"]);
+export const estadoIncidente = pgEnum("estado_incidente", [
+  "ABIERTO",
+  "EN_CURSO",
+  "ESPERANDO_CLIENTE",
+  "RESUELTO",
+  "CERRADO",
+]);
+export const prioridadIncidente = pgEnum("prioridad_incidente", ["BAJA", "MEDIA", "ALTA"]);

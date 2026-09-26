@@ -14,10 +14,17 @@ export const FAMILIAS_CONSUMO = {
     saldo: "cotiweb.cotizaciones",
     usaMedio: false,
   },
+  /** Tickets de soporte: los consume STLic al abrir un pedido de asistencia. */
+  soporte: {
+    cupoMensual: "soporte.mes",
+    saldo: "soporte.saldo",
+    usaMedio: false,
+  },
 } as const;
 
 export type FamiliaConsumo = keyof typeof FAMILIAS_CONSUMO;
 
+/** Familias que los productos pueden consumir por la API (soporte no: lo consume STLic). */
 export const FAMILIAS = [
   "notificaciones",
   "cotizaciones",

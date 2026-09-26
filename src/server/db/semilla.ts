@@ -18,6 +18,7 @@ const PRODUCTOS = [
   { id: "boletin", nombre: "Boletín C@", orden: 4 },
   { id: "notificaciones", nombre: "Notificaciones", orden: 5 },
   { id: "mailing", nombre: "Mail marketing", orden: 6 },
+  { id: "soporte", nombre: "Soporte técnico", orden: 7 },
 ] as const;
 
 type ProductoId = (typeof PRODUCTOS)[number]["id"];
@@ -47,6 +48,8 @@ const RECURSOS: readonly [string, ProductoId, string, ClaseRecurso, string | nul
   ["notificaciones.mes", "notificaciones", "Notificaciones por mes", "CUPO_MENSUAL", "créditos"],
   ["notificaciones.saldo", "notificaciones", "Notificaciones sin vencimiento", "SALDO", "créditos"],
   ["mailing.plataforma", "mailing", "Plataforma de mail marketing", "FUNCION", null],
+  ["soporte.mes", "soporte", "Tickets de soporte por mes", "CUPO_MENSUAL", "tickets"],
+  ["soporte.saldo", "soporte", "Tickets de soporte sin vencimiento", "SALDO", "tickets"],
 ];
 
 /** Capacidades que no se suman entre contratos ni unidades. */
@@ -215,6 +218,7 @@ const PAQUETES_DEMO: PaqueteDemo[] = [
       "prodigal.retencion": 2,
       "prodigal.interfaces": 3,
       "prodigal.gb": 5,
+      "soporte.mes": 2,
     },
     alternativas: [
       { nombre: "Mensual", meses: 1, compra: "38000", renovacion: "35000" },
@@ -233,6 +237,7 @@ const PAQUETES_DEMO: PaqueteDemo[] = [
       "prodigal.interfaces": 15,
       "prodigal.gb": 50,
       "prodigal.institorio": 1,
+      "soporte.mes": 10,
     },
     alternativas: [
       { nombre: "Mensual", meses: 1, compra: "100000", renovacion: "95000" },
@@ -274,6 +279,14 @@ const PAQUETES_DEMO: PaqueteDemo[] = [
     tipo: "CONSUMIBLE",
     recursos: { "notificaciones.saldo": 10000 },
     alternativas: [{ nombre: "Pago único", meses: null, compra: "30000", renovacion: "30000" }],
+  },
+  {
+    codigo: "SOPORTE-10",
+    nombre: "Soporte 10 tickets",
+    descripcion: "Diez consultas a Soporte técnico, sin vencimiento.",
+    tipo: "CONSUMIBLE",
+    recursos: { "soporte.saldo": 10 },
+    alternativas: [{ nombre: "Pago único", meses: null, compra: "25000", renovacion: "25000" }],
   },
 ];
 

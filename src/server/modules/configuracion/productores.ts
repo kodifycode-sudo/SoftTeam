@@ -164,6 +164,7 @@ export async function guardarProductor(
     await auditar(tx, {
       actorId,
       entidad: "productor",
+      empresaId: empresaId,
       entidadId: id,
       accion: antes ? "modificacion" : "alta",
       antes,
@@ -191,6 +192,7 @@ export async function cambiarEstadoProductor(
     await auditar(tx, {
       actorId,
       entidad: "productor",
+      empresaId: empresaId,
       entidadId: id,
       accion: activo ? "reactivacion" : "baja",
     });
@@ -269,6 +271,7 @@ export async function agregarCodigo(
     await auditar(tx, {
       actorId,
       entidad: "productor",
+      empresaId: empresaId,
       entidadId: productor.id,
       accion: "codigo_alta",
       despues: { aseguradoraId: entrada.aseguradoraId, codigo: entrada.codigo, rol: entrada.rol },
@@ -303,6 +306,7 @@ export async function quitarCodigo(
     await auditar(tx, {
       actorId,
       entidad: "productor",
+      empresaId: empresaId,
       entidadId: fila.productorId,
       accion: "codigo_baja",
       antes: { aseguradoraId: fila.aseguradoraId, codigo: fila.codigo },

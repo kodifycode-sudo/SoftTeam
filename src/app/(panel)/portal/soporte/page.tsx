@@ -1,0 +1,133 @@
+import { ChevronRight, LifeBuoy, MessageSquareReply, PackageSearch } from "lucide-react";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { EncabezadoPagina } from "@/components/panel/estructura";
+import { EstadoIncidente } from "@/components/soporte/conversacion";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { fechaCorta } from "@/lib/formato";
+import { puedeComprar, requerirCliente } from "@/server/auth/sesion";
+import { obtenerDb } from "@/server/db";
+import {
+  creditosDeSoporte,
+  incidentesDeEmpresa,
+  PRODUCTOS_SOPORTE,
+} from "@/server/modules/soporte/incidentes";
+import { NuevoIncidente } from "./nuevo";
+
+export const metadata: Metadata = { title: "Soporte" };
+
+export default async function PaginaSoporte() {
+  const contexto = await requerirCliente();
+  const db = await obtenerDb();
+  const [creditos, incidentes] = await Promise.all([
+    creditosDeSoporte(db, contexto.empresaId),
+    incidentesDeEmpresa(db, contexto.empresaId),
+  ]);
+
+  return (
+    <>
+      <EncabezadoPagina
+        titulo="Soporte"
+        descripcion="Consultas y problemas con los productos. Cada pedido nuevo usa un ticket de soporte de tu licencia."
+        acciones={
+          <NuevoIncidente productos={PRODUCTOS_SOPORTE} disponibles={creditos.disponibles} />
+        }
+      />
+
+      <section
+        aria-label="Tickets de soporte disponibles"
+        className="mb-6 grid gap-3 sm:grid-cols-3"
+      >
+        <Card className="gap-1 p-4">
+          <p className="text-sm text-muted-foreground">Disponibles</p>
+          <p className="text-2xl font-semibold tabular-nums">{creditos.disponibles}</p>
+        </Card>
+        <Card className="gap-1 p-4">
+          <p className="text-sm text-muted-foreground">Del mes</p>
+          <p className="text-lg tabular-nums">
+            {creditos.mes ? `${creditos.mes.disponible} de ${creditos.mes.total}` : "No incluidos"}
+          </p>
+        </Card>
+        <Card className="gap-1 p-4">
+          <p className="text-sm text-muted-foreground">Sin vencimiento</p>
+          <p className="text-lg tabular-nums">
+            {creditos.saldo
+              ? `${creditos.saldo.disponible} de ${creditos.saldo.total}`
+              : "No tenés"}
+          </p>
+        </Card>
+      </section>
+
+      {creditos.disponibles <= 0 && (
+        <Card className="mb-6 flex-row flex-wrap items-center justify-between gap-3 border-warning/50 bg-warning/10 p-4">
+          <p className="text-sm">
+            No te quedan tickets de soporte. El cupo mensual se renueva el día 1; para seguir ahora,
+            sumá un paquete de soporte.
+          </p>
+          {puedeComprar(contexto) && (
+            <Link
+              href="/portal/paquetes?tipo=CONSUMIBLE"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <PackageSearch data-icon="inline-start" /> Ver paquetes de soporte
+            </Link>
+          )}
+        </Card>
+      )}
+
+      {incidentes.length === 0 ? (
+        <Empty className="border border-dashed bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <LifeBuoy />
+            </EmptyMedia>
+            <EmptyTitle>No tenés pedidos de soporte</EmptyTitle>
+            <EmptyDescription>
+              Si algo no funciona o tenés una duda, escribinos y lo seguimos por acá.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <ul className="grid gap-3">
+          {incidentes.map((i) => (
+            <li key={i.id}>
+              <Link href={`/portal/soporte/${i.id}`} className="group block">
+                <Card className="flex-row items-center gap-4 p-4 transition-shadow group-hover:shadow-md">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">
+                        #{i.numero} · {i.asunto}
+                      </p>
+                      <EstadoIncidente estado={i.estado} />
+                      {i.estado === "ESPERANDO_CLIENTE" && (
+                        <Badge variant="secondary" className="gap-1">
+                          <MessageSquareReply className="size-3" /> Te respondimos
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {PRODUCTOS_SOPORTE[i.producto as keyof typeof PRODUCTOS_SOPORTE] ??
+                        i.producto}{" "}
+                      · {i.mensajes} mensaje{i.mensajes === 1 ? "" : "s"} · Última actividad{" "}
+                      {fechaCorta(i.ultimaActividadEn)}
+                    </p>
+                  </div>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </Card>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}

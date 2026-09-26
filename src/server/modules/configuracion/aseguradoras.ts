@@ -214,6 +214,7 @@ export async function cambiarAseguradora(
     await auditar(tx, {
       actorId,
       entidad: "empresa_aseguradora",
+      empresaId: empresaId,
       entidadId: `${empresaId}:${aseguradora.abreviatura}`,
       accion:
         cambio.cambio === "trabaja"

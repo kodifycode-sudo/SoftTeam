@@ -127,6 +127,7 @@ export async function crearOficina(
       actorId,
       actorTipo: "usuario",
       entidad: "oficina",
+      empresaId: empresaId,
       entidadId: oficina?.id ?? "",
       accion: "alta",
       despues: { empresaId, codigo: `${canal.codigo}-${codigo}`, nombre: entrada.nombre },

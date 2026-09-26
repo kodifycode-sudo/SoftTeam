@@ -9,7 +9,9 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  // blob: son archivos elegidos en la propia página (vista previa del logo antes
+  // de subirlo): el navegador los lee como conexión. No permite salir a terceros.
+  "connect-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

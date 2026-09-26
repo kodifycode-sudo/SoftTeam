@@ -102,6 +102,7 @@ export async function reenviarLinkDePago(
     await auditar(tx, {
       actorId,
       entidad: "orden",
+      empresaId: orden.empresaId,
       entidadId: ordenId,
       accion: "reenviar_link",
       despues: { reenvios: orden.reenvios },
@@ -188,6 +189,7 @@ export async function procesarPago(
         actorId: null,
         actorTipo: "pasarela",
         entidad: "orden",
+        empresaId: orden.empresaId,
         entidadId: orden.id,
         accion: "pago_rechazado",
         despues: { pago: pago.id, detalle: pago.detalle },

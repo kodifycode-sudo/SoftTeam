@@ -40,6 +40,7 @@ export async function guardarPoliticas(
     await auditar(tx, {
       actorId,
       entidad: "politicas",
+      empresaId: empresaId,
       entidadId: empresaId,
       accion: "modificacion",
       antes,

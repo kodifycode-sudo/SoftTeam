@@ -4,6 +4,7 @@ import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { POLITICAS_POR_DEFECTO } from "@/server/db/schema/configuracion";
+import { leerMarca, marcaParaApi } from "../configuracion/marca";
 import { licenciaDeEmpresa } from "../licencias/licencia-empresa";
 
 /*
@@ -83,7 +84,7 @@ export async function empresaCompleta(db: Ejecutor, numero: number, hoy: Fecha =
   const empresa = await db.query.empresas.findFirst({ where: eq(t.empresas.numero, numero) });
   if (!empresa) return undefined;
 
-  const [oficinas, colaboradores, aseguradoras, productores, codigos, politicas] =
+  const [oficinas, colaboradores, aseguradoras, productores, codigos, politicas, marca] =
     await Promise.all([
       db
         .select({
@@ -152,6 +153,7 @@ export async function empresaCompleta(db: Ejecutor, numero: number, hoy: Fecha =
         .innerJoin(t.aseguradoras, eq(t.aseguradoras.id, t.productorCodigos.aseguradoraId))
         .where(eq(t.productores.empresaId, empresa.id)),
       db.query.politicasEmpresa.findFirst({ where: eq(t.politicasEmpresa.empresaId, empresa.id) }),
+      leerMarca(db, empresa.id),
     ]);
 
   const oficinaPorId = new Map(oficinas.map((o) => [o.id, codigoOficina(o.canal, o.codigo)]));
@@ -243,6 +245,8 @@ export async function empresaCompleta(db: Ejecutor, numero: number, hoy: Fecha =
         .map(({ aseguradora, codigo, rol, activo }) => ({ aseguradora, codigo, rol, activo })),
     })),
     politicas: politicas?.politicas ?? POLITICAS_POR_DEFECTO,
+    // Marca blanca: cómo se muestra la empresa ante sus asegurados.
+    marca: marcaParaApi(marca, `/api/v1/empresas/${empresa.numero}/logo`),
   };
 }
 

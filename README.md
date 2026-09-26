@@ -77,6 +77,6 @@ src/server/auth/         autenticación (Better Auth) y autorización
 src/server/modules/      casos de uso por módulo (cuentas, catálogo, licencias)
 src/app/(auth)/          ingreso, alta en línea y verificación del mail
 src/app/(panel)/admin/   panel de SOFTeam
-src/app/(panel)/portal/  portal del cliente
+src/app/(panel)/portal/  portal del cliente (compra, configuración, marca, soporte, consumos)
 src/components/          UI compartida (shadcn/ui + componentes propios)
 ```

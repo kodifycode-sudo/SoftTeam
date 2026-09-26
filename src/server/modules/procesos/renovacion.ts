@@ -328,6 +328,7 @@ async function generarOrden(db: Db, ventana: VentanaRenovacion, grupo: Grupo): P
     await auditar(tx, {
       ...ACTOR,
       entidad: "orden",
+      empresaId: grupo.agrupada ? null : primero.empresa.id,
       entidadId: orden.id,
       accion: "renovacion",
       despues: {

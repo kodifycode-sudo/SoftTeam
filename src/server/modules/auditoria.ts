@@ -12,6 +12,8 @@ export interface Registro {
   antes?: unknown;
   despues?: unknown;
   motivo?: string;
+  /** Empresa afectada (para su histórico de actividad). */
+  empresaId?: string | null;
 }
 
 /** Registra un cambio en la auditoría (dentro de la misma transacción que el cambio). */
@@ -25,6 +27,7 @@ export async function auditar(db: Ejecutor, r: Registro): Promise<void> {
     antes: r.antes ?? null,
     despues: r.despues ?? null,
     motivo: r.motivo ?? null,
+    empresaId: r.empresaId ?? null,
   });
 }
 

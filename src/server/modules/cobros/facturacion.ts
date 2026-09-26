@@ -83,6 +83,7 @@ export async function facturarOrden(
         actorId: null,
         actorTipo: `facturador:${facturador.nombre}`,
         entidad: "orden",
+        empresaId: reservada.empresaId,
         entidadId: ordenId,
         accion: "facturar",
         despues: comprobante,

@@ -118,7 +118,9 @@ export const auditoria = pgTable(
     antes: jsonb(),
     despues: jsonb(),
     motivo: varchar({ length: 300 }),
+    /** Empresa afectada, para el histórico de actividad de cada empresa. */
+    empresaId: uuid(),
     en: instante().notNull().defaultNow(),
   },
-  (t) => [index().on(t.entidad, t.entidadId), index().on(t.en)],
+  (t) => [index().on(t.entidad, t.entidadId), index().on(t.en), index().on(t.empresaId, t.en)],
 );

@@ -107,6 +107,11 @@ export const empresas = pgTable(
     activa: boolean().notNull().default(true),
     /** Cambia con cualquier modificación de la empresa o sus datos: dispara la sincronización. */
     modificadaEn: instante().notNull().defaultNow(),
+    /**
+     * Notas de SOFTeam sobre la empresa. Las líneas que empiezan con "*" son
+     * internas: solo las ve SOFTeam.
+     */
+    notasInternas: text(),
     ...marcasTiempo,
   },
   (t) => [uniqueIndex().on(t.numero), index().on(t.clienteId), index().on(t.modificadaEn)],

@@ -221,6 +221,7 @@ export async function registrarPago(
       actorId,
       actorTipo: opciones.actorTipo ?? "usuario",
       entidad: "orden",
+      empresaId: orden.empresaId,
       entidadId: ordenId,
       accion: "registrar_pago",
       despues: {
@@ -271,6 +272,7 @@ export async function cancelarOrden(
       actorId,
       actorTipo: "usuario",
       entidad: "orden",
+      empresaId: orden.empresaId,
       entidadId: ordenId,
       accion: "cancelar",
       motivo,

@@ -46,7 +46,7 @@ describe("licenciaDeEmpresa", () => {
     expect(item(licencia, "prodigal.usuarios")?.total).toBe(4);
     expect(item(licencia, "prodigal.institorio")).toBeUndefined();
     expect(licencia.contratosVigentes).toHaveLength(1);
-    expect(licencia.productos.map((p) => p.productoId)).toEqual(["prodigal"]);
+    expect(licencia.productos.map((p) => p.productoId)).toEqual(["prodigal", "soporte"]);
   });
 
   it("un corporativo habilitado sin pago suma durante su período", async () => {

@@ -255,6 +255,7 @@ async function aplicar(
   await auditar(tx, {
     actorId: actor.usuarioId,
     entidad: "colaborador",
+    empresaId: empresaId,
     entidadId: id,
     accion: !antes
       ? "alta"

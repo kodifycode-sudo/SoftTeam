@@ -1,18 +1,23 @@
 "use client";
 
 import {
+  Activity,
   Bell,
   Briefcase,
   Building2,
   CalendarClock,
+  ChartColumn,
   CreditCard,
   Gauge,
+  Headset,
   History,
   LayoutDashboard,
+  LifeBuoy,
   type LucideIcon,
   MapPinned,
   Package,
   PackageSearch,
+  Palette,
   Plug,
   Receipt,
   ShieldCheck,
@@ -58,11 +63,18 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
   admin: [
     {
       titulo: "General",
-      items: [{ href: "/admin", etiqueta: "Tablero", icono: LayoutDashboard, exacto: true }],
+      items: [
+        { href: "/admin", etiqueta: "Tablero", icono: LayoutDashboard, exacto: true },
+        { href: "/admin/reportes", etiqueta: "Reportes", icono: ChartColumn },
+      ],
     },
     {
       titulo: "Cuentas",
       items: [{ href: "/admin/clientes", etiqueta: "Clientes", icono: UsersRound }],
+    },
+    {
+      titulo: "Atención",
+      items: [{ href: "/admin/soporte", etiqueta: "Soporte", icono: Headset }],
     },
     {
       titulo: "Cobranza",
@@ -117,6 +129,8 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
       items: [
         { href: "/portal", etiqueta: "Inicio", icono: Gauge, exacto: true },
         { href: "/portal/avisos", etiqueta: "Avisos", icono: Bell },
+        { href: "/portal/consumos", etiqueta: "Consumos", icono: Activity },
+        { href: "/portal/soporte", etiqueta: "Soporte", icono: LifeBuoy },
         {
           href: "/portal/paquetes",
           etiqueta: "Paquetes disponibles",
@@ -152,6 +166,12 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
           href: "/portal/productores",
           etiqueta: "Productores",
           icono: Briefcase,
+          permisos: ["configuracion"],
+        },
+        {
+          href: "/portal/marca",
+          etiqueta: "Marca",
+          icono: Palette,
           permisos: ["configuracion"],
         },
         {

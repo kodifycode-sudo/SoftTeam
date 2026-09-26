@@ -179,6 +179,7 @@ export async function confirmarAlta(db: Db, usuarioId: string): Promise<{ empres
       actorId: usuarioId,
       actorTipo: "usuario",
       entidad: "cliente",
+      empresaId: empresa.id,
       entidadId: cliente.id,
       accion: "alta_en_linea",
       despues: { clienteId: cliente.id, empresaId: empresa.id, cuit: datos.cuit },

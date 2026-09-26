@@ -8,7 +8,7 @@ import {
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import { estaVigente } from "@/domain/licencias/contrato";
 import { exito, type Resultado, rechazo } from "@/domain/resultado";
-import type { Db, Ejecutor } from "@/server/db/cliente";
+import type { Db, Ejecutor, Tx } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { POLITICAS_POR_DEFECTO } from "@/server/db/schema/configuracion";
 
@@ -119,7 +119,7 @@ async function fuentesDeCredito(
  * negativo, y es idempotente por (sistema, transacción).
  */
 export async function consumir(
-  db: Db,
+  db: Db | Tx,
   pedido: PedidoConsumo,
   hoy: Fecha = hoyArgentina(),
 ): Promise<Resultado<ResultadoConsumo, RechazoConsumo>> {

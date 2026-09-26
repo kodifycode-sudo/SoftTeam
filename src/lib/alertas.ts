@@ -13,4 +13,5 @@ export const ETIQUETA_ALERTA = {
   LINK_PAGO_REENVIADO: "Link de pago reenviado",
   RENOVACION_GENERADA: "Renovación generada",
   RECORDATORIO_PAGO: "Recordatorio de pago",
+  SOPORTE_RESPUESTA: "Respuesta de soporte",
 } as const;

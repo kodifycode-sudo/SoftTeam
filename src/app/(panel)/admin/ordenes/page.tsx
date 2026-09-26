@@ -1,11 +1,11 @@
-import { ChevronRight, Receipt, Search } from "lucide-react";
+import { ChevronRight, Download, Receipt, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
 import { EstadoOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Empty,
@@ -76,6 +76,14 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
       <EncabezadoPagina
         titulo="Órdenes"
         descripcion={`Cobranza de compras y renovaciones. El semáforo marca las pendientes con más de ${umbrales[0]} y ${umbrales[1]} días.`}
+        acciones={
+          <a
+            href={`/admin/reportes/exportar?${new URLSearchParams({ reporte: "ordenes", estado, q: busqueda })}`}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            <Download data-icon="inline-start" /> Exportar a Excel
+          </a>
+        }
       />
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

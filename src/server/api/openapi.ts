@@ -199,9 +199,26 @@ export const documentoOpenApi = {
       get: {
         summary: "Estructura completa de la empresa (EmpresaFull_V1)",
         description:
-          "Empresa, canales, oficinas, usuarios con sus accesos, aseguradoras, productores con sus códigos y políticas.",
+          "Empresa, canales, oficinas, usuarios con sus accesos, aseguradoras, productores con sus códigos, políticas y marca blanca (nombre comercial, colores, logo, textos y contacto; `null` si la empresa no la configuró).",
         parameters: [...cabecerasFirma, numero],
         responses: { "200": { description: "EmpresaFull_V1" }, "401": problema, "404": problema },
+      },
+    },
+    "/empresas/{numero}/logo": {
+      get: {
+        summary: "Logo de la marca blanca",
+        description:
+          "Imagen PNG, JPEG o WebP. Responde con ETag (el hash del logo): enviar If-None-Match para recibir 304 si no cambió. La URL con su versión viene en EmpresaFull_V1 (marca.logo.url).",
+        parameters: [...cabecerasFirma, numero],
+        responses: {
+          "200": {
+            description: "Logo",
+            content: { "image/png": {}, "image/jpeg": {}, "image/webp": {} },
+          },
+          "304": { description: "Sin cambios desde el ETag enviado" },
+          "401": problema,
+          "404": problema,
+        },
       },
     },
     "/empresas/{numero}/licencia": {

@@ -83,6 +83,7 @@ export async function cambiarRenovacionAutomatica(
     await auditar(tx, {
       actorId,
       entidad: "contrato",
+      empresaId: empresaId,
       entidadId: contratoId,
       accion: renovar ? "renovar" : "no_renovar",
       antes: { noRenovar: contrato.noRenovar },

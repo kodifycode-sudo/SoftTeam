@@ -12,6 +12,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { ListaActividad } from "@/components/actividad";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -22,7 +23,10 @@ import { fechaCorta } from "@/lib/formato";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import type { Contacto, Domicilio } from "@/server/db/schema";
+import { actividadDeEmpresa, notasDeEmpresa } from "@/server/modules/cuentas/actividad";
 import { obtenerCliente } from "@/server/modules/cuentas/consultas";
+import { abiertosPorEmpresa } from "@/server/modules/soporte/incidentes";
+import { NotasEmpresa } from "./notas";
 
 export const metadata: Metadata = { title: "Cliente" };
 
@@ -76,6 +80,12 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
   const db = await obtenerDb();
   const cliente = await obtenerCliente(db, id);
   if (!cliente) notFound();
+  const ids = cliente.empresas.map((e) => e.id);
+  const [abiertos, notas, actividad] = await Promise.all([
+    abiertosPorEmpresa(db, ids),
+    Promise.all(ids.map((e) => notasDeEmpresa(db, e, true))),
+    Promise.all(ids.map((e) => actividadDeEmpresa(db, e, { esSofteam: true, limite: 8 }))),
+  ]);
 
   return (
     <>
@@ -144,8 +154,8 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
       <h2 className="mt-10 mb-4 flex items-center gap-2 text-lg font-semibold">
         <Building2 className="size-5 text-primary" /> Empresas
       </h2>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {cliente.empresas.map((e) => (
+      <div className="grid gap-4 lg:grid-cols-2">
+        {cliente.empresas.map((e, n) => (
           <Card key={e.id} className="gap-4">
             <CardHeader>
               <CardTitle>{e.nombre}</CardTitle>
@@ -163,10 +173,27 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
                 </Badge>
                 {!e.activa && <Badge variant="destructive">Inactiva</Badge>}
               </div>
-              <dl className="grid grid-cols-2 gap-3">
+              <dl className="grid grid-cols-3 gap-3">
                 <Dato etiqueta="Oficinas">{e.oficinas}</Dato>
                 <Dato etiqueta="Usuarios activos">{e.colaboradores}</Dato>
+                <Dato etiqueta="Soporte abierto">
+                  {abiertos.get(e.id) ? (
+                    <Link
+                      href={`/admin/soporte?q=${encodeURIComponent(e.nombre)}`}
+                      className="text-primary hover:underline"
+                    >
+                      {abiertos.get(e.id)} pedido{abiertos.get(e.id) === 1 ? "" : "s"}
+                    </Link>
+                  ) : (
+                    "Ninguno"
+                  )}
+                </Dato>
               </dl>
+              <NotasEmpresa empresaId={e.id} clienteId={cliente.id} notas={notas[n] ?? ""} />
+              <div className="space-y-2 border-t pt-4">
+                <p className="text-sm font-medium">Actividad reciente</p>
+                <ListaActividad actividad={actividad[n] ?? []} />
+              </div>
             </CardContent>
           </Card>
         ))}

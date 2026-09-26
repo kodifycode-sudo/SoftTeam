@@ -1,4 +1,4 @@
-import { ChevronRight, Receipt } from "lucide-react";
+import { ChevronRight, Download, Receipt } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EstadoOrden } from "@/components/compra/vista-orden";
@@ -34,6 +34,11 @@ export default async function MisOrdenes() {
       <EncabezadoPagina
         titulo="Mis órdenes"
         descripcion="Tus compras y renovaciones, con su estado de pago."
+        acciones={
+          <a href="/portal/ordenes/exportar" className={buttonVariants({ variant: "outline" })}>
+            <Download data-icon="inline-start" /> Exportar a Excel
+          </a>
+        }
       />
       {ordenes.length === 0 ? (
         <Empty className="border border-dashed bg-card py-12">

@@ -1,9 +1,9 @@
-import { ChevronRight, Search, UsersRound } from "lucide-react";
+import { ChevronRight, Download, Search, UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Empty,
@@ -43,6 +43,14 @@ export default async function PaginaClientes({ searchParams }: PageProps<"/admin
       <EncabezadoPagina
         titulo="Clientes"
         descripcion="Brokers y productores con cuenta en STLic, con sus empresas y datos de facturación."
+        acciones={
+          <a
+            href={`/admin/reportes/exportar?${new URLSearchParams({ reporte: "clientes", q: busqueda, inactivos: conInactivos ? "1" : "" })}`}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            <Download data-icon="inline-start" /> Exportar a Excel
+          </a>
+        }
       />
 
       <search className="mb-5">
