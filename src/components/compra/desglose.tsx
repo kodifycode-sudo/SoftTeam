@@ -33,7 +33,7 @@ function Fila({
       <dt className={fuerte ? undefined : "text-muted-foreground"}>{etiqueta}</dt>
       <dd
         className={cn(
-          "tabular-nums",
+          "shrink-0 tabular-nums whitespace-nowrap",
           tono === "negativo" && "text-success",
           tono === "positivo" && "text-foreground",
         )}

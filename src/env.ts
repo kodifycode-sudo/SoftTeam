@@ -10,8 +10,21 @@ const esquema = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     /** Postgres (Neon). Sin valor, en desarrollo se usa PGlite en `.data/pglite`. */
     DATABASE_URL: z.url().optional(),
+    /** Conexiones por instancia hacia Postgres (con el pooler de Neon alcanza con pocas). */
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).default(5),
     BETTER_AUTH_SECRET: z.string().min(32).optional(),
-    BETTER_AUTH_URL: z.url().default("http://localhost:3000"),
+    /**
+     * URL pública de la app (enlaces de los mails, retorno de los pagos). En
+     * los despliegues de vista previa de Vercel se toma la del despliegue.
+     */
+    BETTER_AUTH_URL: z.preprocess(
+      (v) =>
+        v ??
+        (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : undefined),
+      z.url().default("http://localhost:3000"),
+    ),
     /** Envío de mails. Sin clave, en desarrollo los mails se muestran en la consola. */
     RESEND_API_KEY: z.string().optional(),
     EMAIL_REMITENTE: z.string().default("STLic <no-responder@softeam.com.ar>"),
@@ -60,6 +73,14 @@ const esquema = z
       if (!env[clave]) {
         ctx.addIssue({ code: "custom", path: [clave], message: "Obligatoria en producción" });
       }
+    }
+    // Con el valor por defecto (localhost), los mails y los pagos apuntarían mal.
+    if (env.BETTER_AUTH_URL.startsWith("http://localhost")) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["BETTER_AUTH_URL"],
+        message: "Obligatoria en producción: la URL pública de la app",
+      });
     }
   });
 

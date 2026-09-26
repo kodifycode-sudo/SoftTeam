@@ -32,8 +32,12 @@ catálogo de ejemplo. Para empezar de cero, borrá `.data/`.
 | `npm run lint` | Lint y formato (Biome) |
 | `npm run build` | Build de producción |
 | `npm run db:generate` | Genera la migración a partir de cambios en el esquema |
+| `npm run db:migrate` | Migra Postgres (Neon) y carga los datos base; lo corre el build de Vercel |
 
 ## Producción
+
+La guía paso a paso para Vercel y Neon está en [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).
+
 
 Variables obligatorias: `DATABASE_URL` (Postgres/Neon), `BETTER_AUTH_SECRET`
 (32+ caracteres), `BETTER_AUTH_URL`, `RESEND_API_KEY`, `EMAIL_REMITENTE`,

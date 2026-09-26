@@ -40,12 +40,15 @@ const PESTANAS = {
   cobranza: "Cobranza",
   vencimientos: "Vencimientos",
   consumos: "Consumos",
-  licencias: "Licencias y ventas",
+  licencias: "Licencias",
 } as const;
 type Pestana = keyof typeof PESTANAS;
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesCorto = (mes: string) => `${MESES[Number(mes.slice(5, 7)) - 1]} ${mes.slice(2, 4)}`;
+/** Etiqueta del gráfico: solo el mes; el año, en enero (y en el primero de la serie). */
+const mesGrafico = (mes: string, i: number) =>
+  i === 0 || mes.endsWith("-01") ? mesCorto(mes) : (MESES[Number(mes.slice(5, 7)) - 1] ?? mes);
 const aPesos = (centavos: bigint) => Number(centavos) / 100;
 
 function Exportar({ reporte, extra = "" }: { reporte: string; extra?: string }) {
@@ -69,9 +72,9 @@ function Indicador({
   detalle?: ReactNode;
 }) {
   return (
-    <Card className="gap-1 p-5">
-      <p className="text-sm text-muted-foreground">{titulo}</p>
-      <p className="text-2xl font-semibold tabular-nums">{valor}</p>
+    <Card className="gap-1 p-4 sm:p-5">
+      <p className="text-xs text-muted-foreground sm:text-sm">{titulo}</p>
+      <p className="text-lg font-semibold tabular-nums sm:text-2xl">{valor}</p>
       {detalle && <p className="text-xs text-muted-foreground">{detalle}</p>}
     </Card>
   );
@@ -159,7 +162,7 @@ async function Cobranza({ fecha }: { fecha: ReturnType<typeof hoy> }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         <Indicador titulo="Cobrado este mes" valor={pesos(actual?.cobrado ?? 0n)} />
         <Indicador
           titulo="Pendiente de cobro"
@@ -184,8 +187,8 @@ async function Cobranza({ fecha }: { fecha: ReturnType<typeof hoy> }) {
             { nombre: "Emitido", clase: "bg-primary/40" },
             { nombre: "Cobrado", clase: "bg-primary" },
           ]}
-          grupos={meses.map((m) => ({
-            etiqueta: mesCorto(m.mes),
+          grupos={meses.map((m, i) => ({
+            etiqueta: mesGrafico(m.mes, i),
             valores: [aPesos(m.emitido), aPesos(m.cobrado)],
           }))}
           formato={(v) => pesos(BigInt(Math.round(v * 100)))}
@@ -308,7 +311,7 @@ async function Vencimientos({ fecha, dias }: { fecha: ReturnType<typeof hoy>; di
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         <Indicador titulo={`Vencen en ${proximos} días`} valor={numero(porVencer.length)} />
         <Indicador
           titulo="Sin renovación paga"
@@ -432,8 +435,8 @@ async function Consumos({ fecha, mes }: { fecha: ReturnType<typeof hoy>; mes: st
             <GraficoBarras
               descripcion="Créditos consumidos por mes y familia"
               series={FAMILIAS.map((f) => ({ nombre: f.nombre, clase: f.clase }))}
-              grupos={meses.map((m) => ({
-                etiqueta: mesCorto(m),
+              grupos={meses.map((m, i) => ({
+                etiqueta: mesGrafico(m, i),
                 valores: FAMILIAS.map((f) => credito(m, f.familia)),
               }))}
               formato={numero}

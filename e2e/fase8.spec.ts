@@ -112,7 +112,7 @@ test.describe
 
     test("marca blanca: valida el logo y guarda colores y textos", async ({ page }) => {
       await ingresar(page, email, CONTRASENA);
-      await page.getByRole("link", { name: "Marca" }).click();
+      await page.getByRole("link", { name: "Marca", exact: true }).click();
       await page.getByLabel("Nombre comercial").fill(`Seguros ${sufijo}`);
       await page.getByLabel("Eslogan").fill("Te cuidamos siempre");
       await page.getByLabel("Color principal", { exact: true }).fill("#1d4ed8");
@@ -177,9 +177,10 @@ test.describe
         true,
       );
 
-      for (const pestana of ["Vencimientos", "Consumos", "Licencias y ventas"]) {
-        await page.getByRole("link", { name: pestana }).click();
-        await expect(page.getByRole("link", { name: pestana })).toHaveAttribute(
+      for (const pestana of ["Vencimientos", "Consumos", "Licencias"]) {
+        const pestanas = page.getByRole("navigation", { name: "Reportes" });
+        await pestanas.getByRole("link", { name: pestana }).click();
+        await expect(pestanas.getByRole("link", { name: pestana })).toHaveAttribute(
           "aria-current",
           "page",
         );

@@ -27,10 +27,12 @@ import { diasEntre, hoy } from "@/domain/fecha";
 import { fechaCorta, numero } from "@/lib/formato";
 import { productoUI } from "@/lib/productos";
 import { cn } from "@/lib/utils";
-import { puedeComprar, requerirCliente } from "@/server/auth/sesion";
+import { puedeComprar, puedeConfigurar, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { pasosCompletados } from "@/server/modules/cuentas/primeros-pasos";
 import { type ItemLicencia, licenciaDeEmpresa } from "@/server/modules/licencias/licencia-empresa";
 import { estadoDeRenovacion } from "@/server/modules/procesos/renovacion-automatica";
+import { PrimerosPasos } from "./primeros-pasos";
 import { InterruptorRenovacion } from "./renovacion";
 
 export const metadata: Metadata = { title: "Inicio" };
@@ -133,6 +135,7 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
     licencia.contratosVigentes.filter((c) => c.tipoPaquete === "TEMPORAL").map((c) => c.id),
   );
   const comercial = puedeComprar(contexto);
+  const completados = await pasosCompletados(db, contexto.empresaId, licencia.productos.length > 0);
   const nombre =
     contexto.nombreUsuario.split(",").at(-1)?.trim().split(" ")[0] ?? contexto.nombreUsuario;
 
@@ -157,6 +160,11 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
         etiqueta={fechaCorta(fechaHoy)}
         titulo={`Hola, ${nombre}`}
         descripcion="Este es el estado de tus licencias."
+      />
+
+      <PrimerosPasos
+        completados={completados}
+        permisos={{ comercial, configuracion: puedeConfigurar(contexto) }}
       />
 
       <section className="relative mb-8 overflow-hidden rounded-3xl bg-navy p-6 text-navy-foreground sm:p-8">

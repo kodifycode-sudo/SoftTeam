@@ -166,6 +166,7 @@ export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }
     ])
     .onConflictDoNothing();
 
+  await sembrarAseguradoras(db, opciones.demo);
   await asegurarAdministrador(db);
   if (opciones.demo) await sembrarDemo(db);
 }
@@ -325,7 +326,14 @@ async function sembrarDemo(db: Ejecutor) {
       })),
     );
   }
+}
 
+/**
+ * Aseguradoras de Argentina. En producción se cargan sin interfaces
+ * habilitadas: la disponibilidad real de cada interfaz la define SOFTeam.
+ * En la demo se marcan algunas para poder probar.
+ */
+async function sembrarAseguradoras(db: Ejecutor, demo: boolean) {
   await db
     .insert(t.aseguradoras)
     .values(
@@ -342,8 +350,8 @@ async function sembrarDemo(db: Ejecutor) {
         paisId: "AR",
         nombre: nombre as string,
         abreviatura: abreviatura as string,
-        interfazProdigalDisponible: prodigal as boolean,
-        interfazCotiwebDisponible: cotiweb as boolean,
+        interfazProdigalDisponible: demo && (prodigal as boolean),
+        interfazCotiwebDisponible: demo && (cotiweb as boolean),
       })),
     )
     .onConflictDoNothing();

@@ -45,21 +45,21 @@ export default async function PaginaSoporte() {
 
       <section
         aria-label="Tickets de soporte disponibles"
-        className="mb-6 grid gap-3 sm:grid-cols-3"
+        className="mb-6 grid grid-cols-3 gap-2 sm:gap-3"
       >
-        <Card className="gap-1 p-4">
-          <p className="text-sm text-muted-foreground">Disponibles</p>
+        <Card className="gap-1 p-3 sm:p-4">
+          <p className="text-xs text-muted-foreground sm:text-sm">Disponibles</p>
           <p className="text-2xl font-semibold tabular-nums">{creditos.disponibles}</p>
         </Card>
-        <Card className="gap-1 p-4">
-          <p className="text-sm text-muted-foreground">Del mes</p>
-          <p className="text-lg tabular-nums">
+        <Card className="gap-1 p-3 sm:p-4">
+          <p className="text-xs text-muted-foreground sm:text-sm">Del mes</p>
+          <p className="text-sm tabular-nums sm:text-lg">
             {creditos.mes ? `${creditos.mes.disponible} de ${creditos.mes.total}` : "No incluidos"}
           </p>
         </Card>
-        <Card className="gap-1 p-4">
-          <p className="text-sm text-muted-foreground">Sin vencimiento</p>
-          <p className="text-lg tabular-nums">
+        <Card className="gap-1 p-3 sm:p-4">
+          <p className="text-xs text-muted-foreground sm:text-sm">Sin vencimiento</p>
+          <p className="text-sm tabular-nums sm:text-lg">
             {creditos.saldo
               ? `${creditos.saldo.disponible} de ${creditos.saldo.total}`
               : "No tenés"}

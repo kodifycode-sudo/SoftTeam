@@ -10,9 +10,9 @@ import * as schema from "./schema";
 const opciones = { schema, casing: "snake_case" } as const;
 
 /** Postgres real (Neon u otro) para producción y preview. */
-export function crearDbPostgres(url: string) {
+export function crearDbPostgres(url: string, max = 5) {
   // `prepare: false` es compatible con el pooler transaccional de Neon/PgBouncer.
-  return drizzlePostgres(postgres(url, { prepare: false, max: 10 }), opciones);
+  return drizzlePostgres(postgres(url, { prepare: false, max }), opciones);
 }
 
 /**

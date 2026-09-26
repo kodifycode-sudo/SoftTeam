@@ -159,7 +159,7 @@ export default async function PaginaUsuarios() {
 
       <section
         aria-label="Usuarios licenciados"
-        className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4"
       >
         {usoAccesos.map((u) => {
           const porcentaje =
@@ -168,8 +168,8 @@ export default async function PaginaUsuarios() {
               : 0;
           const excedido = excedeLicencia(u);
           return (
-            <Card key={u.producto} className="gap-2 p-4">
-              <div className="flex items-baseline justify-between gap-2">
+            <Card key={u.producto} className="gap-2 p-3 sm:p-4">
+              <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
                 <p className="text-sm font-medium">{u.nombre}</p>
                 <p className="text-sm tabular-nums text-muted-foreground">
                   {!u.licenciado ? (

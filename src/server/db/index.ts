@@ -8,7 +8,7 @@ export type { Db } from "./cliente";
 const global = globalThis as unknown as { __stlicDb?: Promise<Db> };
 
 async function inicializar(): Promise<Db> {
-  if (env.DATABASE_URL) return crearDbPostgres(env.DATABASE_URL);
+  if (env.DATABASE_URL) return crearDbPostgres(env.DATABASE_URL, env.DATABASE_POOL_MAX);
   // Desarrollo sin Postgres: base embebida persistente, migrada y sembrada al arrancar.
   const db = await crearDbPglite(".data/pglite");
   await sembrarDatosBase(db, { demo: true });
