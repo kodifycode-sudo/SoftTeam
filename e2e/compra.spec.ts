@@ -96,4 +96,18 @@ test.describe
       await page.goto("/portal/ordenes");
       await expect(page.getByText("Pagada").first()).toBeVisible();
     });
+
+    test("el cliente desactiva la renovación automática de un paquete", async ({ page }) => {
+      await ingresar(page, email, CONTRASENA);
+      const renovacion = page.getByRole("switch", {
+        name: "Renovación automática de Prodigal Inicial",
+      });
+      await expect(renovacion).toBeChecked();
+      await renovacion.click();
+      await expect(
+        page.getByText("Listo: el paquete no se renueva ni te avisamos su vencimiento."),
+      ).toBeVisible();
+      await page.reload();
+      await expect(renovacion).not.toBeChecked();
+    });
   });

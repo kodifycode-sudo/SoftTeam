@@ -41,9 +41,15 @@ Variables obligatorias: `DATABASE_URL` (Postgres/Neon), `BETTER_AUTH_SECRET`
 secretos de los sistemas integrados) y `CRON_SECRET`.
 El administrador inicial solo se crea si se define `ADMIN_PASSWORD`.
 
-Proceso programado: `GET /api/cron/eventos` con `Authorization: Bearer <CRON_SECRET>`
-entrega los avisos pendientes a los webhooks (cada pocos minutos). Además, cada
-cambio intenta entregar sus avisos en el momento.
+Procesos programados (con `Authorization: Bearer <CRON_SECRET>`):
+
+- `GET /api/cron/procesos`, una vez por día (06:00 de Argentina, ya configurado en
+  `vercel.json`): renovación quincenal, proceso diario (excepciones de pago y
+  alertas), recordatorios de cobro y envío de avisos por mail. Es idempotente:
+  correrlo de nuevo no duplica nada. También se puede ejecutar desde
+  *Panel SOFTeam → Procesos y alertas*.
+- `GET /api/cron/eventos`, cada pocos minutos (fuera de Vercel Hobby): reintenta
+  los avisos a los webhooks. Además, cada cambio intenta entregarlos en el momento.
 
 ## API para productos
 

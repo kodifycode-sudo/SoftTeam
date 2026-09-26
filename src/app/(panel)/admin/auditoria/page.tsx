@@ -32,6 +32,9 @@ const ENTIDADES: Record<string, string> = {
   usuario_softeam: "Usuario SOFTeam",
   sistema_api: "Sistema integrado",
   cliente: "Cliente",
+  contrato: "Contrato",
+  proceso: "Proceso",
+  alerta: "Alerta",
 };
 
 const fechaHora = (d: Date) =>
@@ -56,6 +59,12 @@ const ACCIONES: Record<string, string> = {
   cancelar: "Cancelación",
   registrar_pago: "Pago registrado",
   rotar_secreto: "Secreto rotado",
+  renovacion: "Renovación generada",
+  vencer_excepcion: "Excepción de pago vencida",
+  ejecutar: "Ejecución manual",
+  descartar: "Descarte",
+  no_renovar: "Renovación automática desactivada",
+  renovar: "Renovación automática activada",
   interfaz_prodigal_alta: "Alta de interfaz Prodigal",
   interfaz_prodigal_baja: "Baja de interfaz Prodigal",
   interfaz_cotiweb_alta: "Alta de interfaz CotiWeb",

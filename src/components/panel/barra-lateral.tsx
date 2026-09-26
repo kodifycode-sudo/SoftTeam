@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  Bell,
   Briefcase,
   Building2,
+  CalendarClock,
   CreditCard,
   Gauge,
   History,
@@ -82,6 +84,12 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
           permisos: ["ADMINISTRACION"],
         },
         {
+          href: "/admin/procesos",
+          etiqueta: "Procesos y alertas",
+          icono: CalendarClock,
+          permisos: ["ADMINISTRACION", "SOPORTE"],
+        },
+        {
           href: "/admin/auditoria",
           etiqueta: "Auditoría",
           icono: History,
@@ -101,6 +109,7 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
       titulo: "Mi cuenta",
       items: [
         { href: "/portal", etiqueta: "Inicio", icono: Gauge, exacto: true },
+        { href: "/portal/avisos", etiqueta: "Avisos", icono: Bell },
         {
           href: "/portal/paquetes",
           etiqueta: "Paquetes disponibles",

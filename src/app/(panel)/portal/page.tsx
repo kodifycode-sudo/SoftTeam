@@ -27,9 +27,11 @@ import { diasEntre, hoy } from "@/domain/fecha";
 import { fechaCorta, numero } from "@/lib/formato";
 import { productoUI } from "@/lib/productos";
 import { cn } from "@/lib/utils";
-import { requerirCliente } from "@/server/auth/sesion";
+import { puedeComprar, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { type ItemLicencia, licenciaDeEmpresa } from "@/server/modules/licencias/licencia-empresa";
+import { estadoDeRenovacion } from "@/server/modules/procesos/renovacion-automatica";
+import { InterruptorRenovacion } from "./renovacion";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -82,12 +84,55 @@ function ValorItem({ item }: { item: ItemLicencia }) {
   );
 }
 
+function EstadoRenovacionPaquete({
+  contratoId,
+  paquete,
+  estado,
+  comercial,
+}: {
+  contratoId: string;
+  paquete: string;
+  estado: { noRenovar: boolean; ordenRenovacion: number | null } | undefined;
+  comercial: boolean;
+}) {
+  if (!estado) return null;
+  if (estado.ordenRenovacion) {
+    return (
+      <p className="mt-1 text-xs font-medium text-primary">
+        Renovación generada · orden #{estado.ordenRenovacion}
+      </p>
+    );
+  }
+  if (!comercial) {
+    return (
+      <p className="mt-1 text-xs text-muted-foreground">
+        {estado.noRenovar ? "Sin renovación automática" : "Se renueva solo"}
+      </p>
+    );
+  }
+  return (
+    <div className="mt-1.5">
+      <InterruptorRenovacion
+        contratoId={contratoId}
+        paquete={paquete}
+        renovar={!estado.noRenovar}
+      />
+    </div>
+  );
+}
+
 export default async function InicioPortal({ searchParams }: PageProps<"/portal">) {
   const contexto = await requerirCliente();
   const { bienvenida } = await searchParams;
   const db = await obtenerDb();
   const fechaHoy = hoy();
   const licencia = await licenciaDeEmpresa(db, contexto.empresaId, fechaHoy);
+  const renovaciones = await estadoDeRenovacion(
+    db,
+    contexto.empresaId,
+    licencia.contratosVigentes.filter((c) => c.tipoPaquete === "TEMPORAL").map((c) => c.id),
+  );
+  const comercial = puedeComprar(contexto);
   const nombre =
     contexto.nombreUsuario.split(",").at(-1)?.trim().split(" ")[0] ?? contexto.nombreUsuario;
 
@@ -229,6 +274,12 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
                         <p className="text-xs text-muted-foreground">
                           {c.hasta ? `Hasta el ${fechaCorta(c.hasta)}` : "Hasta agotar el saldo"}
                         </p>
+                        <EstadoRenovacionPaquete
+                          contratoId={c.id}
+                          paquete={c.paquete}
+                          estado={renovaciones.get(c.id)}
+                          comercial={comercial}
+                        />
                       </div>
                       {dias !== null && (
                         <Badge

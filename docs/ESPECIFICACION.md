@@ -267,8 +267,20 @@ Cualquier cambio de medio de pago, ticket o bonificación mientras está
 ## 6. Renovación, tickets y facturación consolidada
 
 - **Generación quincenal** (idempotente, días de corte configurables: 5 y 15).
-  El día 5 renueva los contratos vigentes que vencen entre el 1 y el 15; el día
-  15, los que vencen del 16 a fin de mes.
+  El día 5 renueva los contratos vigentes que vencen entre el 1 y el 15 **del
+  mes siguiente**; el día 15, los que vencen del 16 a fin de ese mes. Así la
+  orden llega con 2 a 6 semanas para pagar, y todos los contratos que se
+  renuevan siguen vigentes al momento de generarla.
+  - Se evalúa todos los días sobre las ventanas cuyo corte ya pasó (la del mes
+    anterior y la del actual): un contrato comprado después del corte también
+    se renueva, y un día sin proceso se recupera. No duplica: un contrato
+    tiene como máximo una renovación no cancelada, y cada orden tiene una
+    clave de idempotencia derivada de sus contratos.
+  - El contrato nuevo empalma con el anterior. DIRECTO: `PEND_PAGO` con las
+    fechas ya fijadas (al pagar se conservan). CORPORATIVO: `PEND_PAGO_ACTIVO`
+    sin límite.
+  - El cliente puede desactivar la renovación automática de cada paquete desde
+    el portal hasta que se genere la orden; después, hay que cancelarla.
   - Propaga la bonificación **solo si es recurrente**, aplicada sobre el precio de
     renovación vigente.
   - Medio de pago: el de renovación del cliente.
@@ -303,7 +315,7 @@ período). Reejecutar un día no duplica nada.
 
 | Proceso | Frecuencia | Qué hace |
 |---|---|---|
-| Diario | 06:00 | Vence las excepciones de pago (`PEND_PAGO_ACTIVO` con fecha pasada → `PEND_PAGO`). Genera alertas (vencimiento 15, 7 y 1 día, saldo bajo 20 %, plazo de pago por vencer, licencia vencida, **empresa sin paquete vigente**). No emite alertas de vencimiento si hay renovación automática. |
+| Diario | 06:00 (después de la renovación) | Vence las excepciones de pago (`PEND_PAGO_ACTIVO` con fecha pasada → `PEND_PAGO`). Genera alertas (vencimiento 15, 7 y 1 día, saldo bajo 20 %, plazo de pago por vencer, licencia vencida, **empresa sin paquete vigente**). No emite alertas de vencimiento si hay renovación automática. |
 | Renovación | Días de corte | Sección 6 |
 | Entrega de eventos | Continuo, con reintentos | Envía webhooks desde el outbox, con reintento y backoff |
 | Recordatorios de cobro | Configurable (10, 20 y 28) | Avisos de órdenes impagas y semáforo de antigüedad (10 y 21 días) |
@@ -434,6 +446,14 @@ Regla de dependencias: `domain` no importa nada del resto.
    administradores delegados por oficina (el alcance ya se guarda; falta
    restringir el portal), 2FA para SOFTeam, alerta cuando la licencia baja por
    debajo de lo configurado (fase 6).
-6. **Procesos:** diario, alertas, renovación quincenal, recordatorios.
+6. ✅ **Procesos:** proceso diario (excepciones de pago vencidas, alertas de
+   vencimiento, licencia vencida, saldo bajo o agotado, plazo de pago, empresa
+   sin paquetes, límite excedido), renovación quincenal, recordatorios de
+   cobro, envío de avisos por mail, pantalla de procesos y alertas, avisos y
+   renovación automática sí/no en el portal. Todo idempotente y registrado en
+   `job_run`.
+   *Pendiente:* tickets en las órdenes de renovación, actualización de la
+   suscripción de MercadoPago (fase 7), vista de la orden agrupada para el
+   cliente agrupador.
 7. **Cobro:** MercadoPago (link y suscripción), Xubio, tickets, orden agrupada.
 8. **Pulido:** reportes, exportaciones, marca blanca, tickets de soporte.

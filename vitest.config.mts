@@ -5,5 +5,7 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",
+    // Cada archivo crea su Postgres en memoria: en paralelo puede tardar.
+    hookTimeout: 60_000,
   },
 });

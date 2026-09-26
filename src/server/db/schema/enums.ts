@@ -40,6 +40,8 @@ export const tipoAlerta = pgEnum("tipo_alerta", [
   "LIMITE_EXCEDIDO",
   "PAGO_RECHAZADO",
   "LINK_PAGO_REENVIADO",
+  "RENOVACION_GENERADA",
+  "RECORDATORIO_PAGO",
 ]);
 export const estadoAlerta = pgEnum("estado_alerta", [
   "PENDIENTE",

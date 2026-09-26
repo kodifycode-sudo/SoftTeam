@@ -36,6 +36,13 @@
       "when": 1790367933223,
       "tag": "0004_interfaces_baja",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790370538741,
+      "tag": "0005_alertas_renovacion",
+      "breakpoints": true
     }
   ]
 }
