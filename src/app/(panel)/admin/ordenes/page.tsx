@@ -4,6 +4,7 @@ import Link from "next/link";
 import { z } from "zod";
 import { EstadoOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -134,7 +135,18 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
                   <Card className="gap-2 p-4">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold">#{o.numero}</p>
-                      <EstadoOrden estado={o.estado} />
+                      <span className="flex flex-wrap justify-end gap-1">
+                        <EstadoOrden estado={o.estado} />
+                        {o.requiereRevision && <Badge variant="destructive">Revisar</Badge>}
+                        {o.estado === "PEND_PAGO" && o.pagoError && (
+                          <Badge
+                            variant="outline"
+                            className="border-destructive/40 text-destructive"
+                          >
+                            Pago rechazado
+                          </Badge>
+                        )}
+                      </span>
                     </div>
                     <p className="text-sm">{o.empresa ?? o.cliente}</p>
                     <div className="flex items-center justify-between text-sm">
@@ -191,7 +203,18 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
                       )}
                     </TableCell>
                     <TableCell>
-                      <EstadoOrden estado={o.estado} />
+                      <span className="flex flex-wrap gap-1">
+                        <EstadoOrden estado={o.estado} />
+                        {o.requiereRevision && <Badge variant="destructive">Revisar</Badge>}
+                        {o.estado === "PEND_PAGO" && o.pagoError && (
+                          <Badge
+                            variant="outline"
+                            className="border-destructive/40 text-destructive"
+                          >
+                            Pago rechazado
+                          </Badge>
+                        )}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
                       {pesos(o.total)}

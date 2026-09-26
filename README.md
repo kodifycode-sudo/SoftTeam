@@ -41,6 +41,13 @@ Variables obligatorias: `DATABASE_URL` (Postgres/Neon), `BETTER_AUTH_SECRET`
 secretos de los sistemas integrados) y `CRON_SECRET`.
 El administrador inicial solo se crea si se define `ADMIN_PASSWORD`.
 
+Cobro con Mercado Pago (opcional): `MERCADOPAGO_ACCESS_TOKEN` y
+`MERCADOPAGO_WEBHOOK_SECRET` (la clave de las notificaciones). La URL de
+notificaciones es `<BETTER_AUTH_URL>/api/pagos/aviso`. Sin credenciales, en
+desarrollo el botón "Pagar ahora" abre un **simulador de pagos** (aprobar,
+rechazar o pagar otro importe) que recorre el mismo circuito que el real; en
+producción el link de pago queda deshabilitado.
+
 Procesos programados (con `Authorization: Bearer <CRON_SECRET>`):
 
 - `GET /api/cron/procesos`, una vez por día (06:00 de Argentina, ya configurado en

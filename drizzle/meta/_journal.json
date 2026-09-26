@@ -43,6 +43,13 @@
       "when": 1790370538741,
       "tag": "0005_alertas_renovacion",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790435564891,
+      "tag": "0006_cobros",
+      "breakpoints": true
     }
   ]
 }

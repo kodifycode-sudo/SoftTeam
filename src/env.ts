@@ -30,8 +30,22 @@ const esquema = z
       .optional(),
     /** Secreto con el que el planificador (cron) invoca los procesos programados. */
     CRON_SECRET: z.string().min(24).optional(),
+    /**
+     * Mercado Pago (link de pago). Sin credenciales, fuera de producción se usa
+     * el simulador de pagos; en producción el link de pago queda deshabilitado.
+     */
+    MERCADOPAGO_ACCESS_TOKEN: z.string().min(10).optional(),
+    /** Clave secreta de las notificaciones (webhooks) de Mercado Pago. */
+    MERCADOPAGO_WEBHOOK_SECRET: z.string().min(10).optional(),
   })
   .superRefine((env, ctx) => {
+    if (Boolean(env.MERCADOPAGO_ACCESS_TOKEN) !== Boolean(env.MERCADOPAGO_WEBHOOK_SECRET)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["MERCADOPAGO_WEBHOOK_SECRET"],
+        message: "Mercado Pago necesita el token y la clave de notificaciones",
+      });
+    }
     // Durante `next build` el entorno es "production" pero la app no corre:
     // las claves de producción se exigen al ejecutarla, no al compilarla.
     if (env.NODE_ENV !== "production" || process.env.NEXT_PHASE === "phase-production-build")

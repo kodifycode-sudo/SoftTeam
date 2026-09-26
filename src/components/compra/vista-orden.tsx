@@ -1,4 +1,13 @@
-import { CalendarDays, CircleCheck, Clock, CreditCard, Info, Receipt, XCircle } from "lucide-react";
+import {
+  CalendarDays,
+  CircleAlert,
+  CircleCheck,
+  Clock,
+  CreditCard,
+  Info,
+  Receipt,
+  XCircle,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +86,16 @@ export function VistaOrden({ detalle, acciones }: { detalle: DetalleOrden; accio
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:items-start">
       <div className="space-y-6">
+        {pendiente && orden.pagoError && (
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertTitle>No se pudo cobrar el último intento de pago</AlertTitle>
+            <AlertDescription>
+              {orden.pagoErrorDetalle ?? "El pago fue rechazado."} Podés volver a intentarlo con
+              otra tarjeta o medio.
+            </AlertDescription>
+          </Alert>
+        )}
         {pendiente && !medio.generaLink && medio.instrucciones && (
           <Alert className="border-primary/20 bg-primary/5">
             <Info className="text-primary" />
@@ -104,6 +123,17 @@ export function VistaOrden({ detalle, acciones }: { detalle: DetalleOrden; accio
                 <span className="block text-xs font-normal text-muted-foreground">
                   CUIT {formatearCuit(facturacion.cuit)}
                 </span>
+              )}
+              {orden.facturaNumero ? (
+                <span className="mt-1 block text-xs font-medium text-success">
+                  Comprobante {orden.facturaNumero}
+                </span>
+              ) : (
+                orden.estado === "PAGADA" && (
+                  <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                    Comprobante en emisión
+                  </span>
+                )
               )}
             </Dato>
           </CardContent>

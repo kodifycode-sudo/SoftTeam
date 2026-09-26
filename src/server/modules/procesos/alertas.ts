@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { and, asc, count, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
@@ -17,13 +18,26 @@ export interface NuevaAlerta {
   paraSofteam?: boolean;
 }
 
+const LARGO_CLAVE = 160;
+
+/**
+ * Clave de deduplicación que entra en la columna: las largas (por ejemplo,
+ * con el id de un pago) se compactan con un hash, que las mantiene únicas y
+ * deterministas.
+ */
+export function claveDeAlerta(clave: string): string {
+  if (clave.length <= LARGO_CLAVE) return clave;
+  const hash = createHash("sha256").update(clave).digest("base64url");
+  return `${clave.slice(0, LARGO_CLAVE - hash.length - 1)}#${hash}`;
+}
+
 /** Registra una alerta si todavía no existe. Devuelve si la creó. */
 export async function registrarAlerta(db: Ejecutor, a: NuevaAlerta): Promise<boolean> {
   const creada = await db
     .insert(t.alertas)
     .values({
       tipo: a.tipo,
-      claveDeduplicacion: a.clave,
+      claveDeduplicacion: claveDeAlerta(a.clave),
       mensaje: a.mensaje.slice(0, 300),
       empresaId: a.empresaId ?? null,
       contratoId: a.contratoId ?? null,

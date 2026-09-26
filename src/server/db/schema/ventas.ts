@@ -108,9 +108,15 @@ export const ordenes = pgTable(
     pagoErrorEn: instante(),
     linkReenvios: smallint().notNull().default(0),
     mpPreferenciaId: varchar({ length: 80 }),
+    /** Link de pago vigente de la orden (se reutiliza hasta que se paga). */
+    linkPagoUrl: text(),
     mpSuscripcionId: varchar({ length: 80 }),
-    mpPagoId: varchar({ length: 80 }),
+    mpPagoId: text(),
     xubioComprobanteId: varchar({ length: 80 }),
+    /** Número del comprobante ("A 0001-00000123"). */
+    facturaNumero: varchar({ length: 40 }),
+    /** Reserva de la emisión: evita facturar dos veces si dos procesos coinciden. */
+    facturacionIniciadaEn: instante(),
     facturadaEn: instante(),
     /** Evita duplicar la orden ante un doble envío del checkout o una reejecución. */
     claveIdempotencia: varchar({ length: 80 }),

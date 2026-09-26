@@ -34,6 +34,7 @@ const ENTIDADES: Record<string, string> = {
   cliente: "Cliente",
   contrato: "Contrato",
   proceso: "Proceso",
+  ticket: "Ticket",
   alerta: "Alerta",
 };
 
@@ -63,6 +64,10 @@ const ACCIONES: Record<string, string> = {
   vencer_excepcion: "Excepción de pago vencida",
   ejecutar: "Ejecución manual",
   descartar: "Descarte",
+  reenviar_link: "Link de pago reenviado",
+  pago_rechazado: "Pago rechazado",
+  facturar: "Factura emitida",
+  revisada: "Revisión cerrada",
   no_renovar: "Renovación automática desactivada",
   renovar: "Renovación automática activada",
   interfaz_prodigal_alta: "Alta de interfaz Prodigal",

@@ -372,11 +372,20 @@ período). Reejecutar un día no duplica nada.
   relacionados actualiza su fecha de modificación y encola un evento en el
   outbox, **en la misma transacción**. Los productos reciben
   `empresa.actualizada` con la empresa y la fecha, y la vuelven a leer.
-- **MercadoPago:** preferencias (link de pago), suscripciones (preapproval) y
-  webhooks de pago verificados con la firma de MercadoPago. Idempotentes por id
-  de evento.
-- **Xubio:** comprobante al confirmarse el pago. Neto gravado como base, IVA y
-  total, al cliente de facturación.
+- **Pasarela de pago (interfaz propia):** la app no depende de Mercado Pago.
+  Implementaciones: Mercado Pago (se activa con `MERCADOPAGO_ACCESS_TOKEN` y
+  `MERCADOPAGO_WEBHOOK_SECRET`) y un simulador (solo fuera de producción).
+  - El link de pago se crea una vez por orden y se reutiliza (los importes
+    están congelados).
+  - El aviso (`POST /api/pagos/aviso`) se valida con la firma de la pasarela
+    y el estado se **consulta** a la pasarela: no se confía en el aviso.
+  - Aplicar un pago es idempotente y bloquea la orden. Un pago aprobado con
+    importe o moneda distintos, o sobre una orden pagada o cancelada, no
+    activa nada: queda "a revisar" y avisa a SOFTeam.
+- **Facturación (interfaz propia):** comprobante al cobrarse la orden, al
+  cliente de facturación. La emisión se reserva para no facturar dos veces;
+  si falla, la reintenta el proceso diario. Adaptador de Xubio pendiente;
+  simulador en desarrollo.
 - **Email:** Resend + React Email (alertas, links de pago, verificación).
 
 ---
@@ -455,5 +464,15 @@ Regla de dependencias: `domain` no importa nada del resto.
    *Pendiente:* tickets en las órdenes de renovación, actualización de la
    suscripción de MercadoPago (fase 7), vista de la orden agrupada para el
    cliente agrupador.
-7. **Cobro:** MercadoPago (link y suscripción), Xubio, tickets, orden agrupada.
+7. ✅ **Cobro:** interfaz propia de pasarela y de facturación, con simulador
+   para desarrollo; adaptador de Mercado Pago (Checkout Pro y notificaciones
+   firmadas); link de pago reutilizable, avisos de pago idempotentes (pago
+   rechazado, reintento, importe distinto a revisión), reenvío del link,
+   facturación automática al cobrar con reintento diario, tickets (alta en el
+   panel, serie en las renovaciones), orden agrupada visible para el cliente
+   que factura.
+   *Pendiente:* adaptador real de Xubio (necesita credenciales y su API
+   documentada; hoy solo el simulador, y en producción las órdenes quedan
+   "pendientes de facturar"), suscripción de Mercado Pago (débito automático),
+   prueba del adaptador de Mercado Pago contra su sandbox.
 8. **Pulido:** reportes, exportaciones, marca blanca, tickets de soporte.

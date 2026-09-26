@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
-import { type Centavos, formatearMoneda } from "@/domain/dinero";
+import { type Centavos, centavos, formatearMoneda } from "@/domain/dinero";
 import { calcularOrden } from "@/domain/facturacion/calculo-orden";
 import { alicuotaIva, tipoComprobante } from "@/domain/facturacion/impuestos";
 import { resolverClienteFacturacion, validarMedioPago } from "@/domain/facturacion/medio-pago";
-import type { Fecha } from "@/domain/fecha";
+import { evaluarTicket } from "@/domain/facturacion/ticket";
+import { type Fecha, hoy as hoyArgentina, sumarDias, sumarMeses } from "@/domain/fecha";
 import { periodoRenovacion } from "@/domain/licencias/contrato";
 import { cantidadContratada } from "@/domain/licencias/licencia";
 import type { VentanaRenovacion } from "@/domain/procesos/calendario";
@@ -172,6 +173,60 @@ export async function procesoRenovacion(
   return resumen;
 }
 
+/**
+ * Ticket de la serie: si la orden que inició la serie usó un ticket, las
+ * renovaciones siguen descontando hasta agotar su tope, durante un año desde
+ * esa orden (el último mes aplica el remanente). Mismas condiciones que en
+ * una compra: sin bonificaciones, no corporativos y solo paquetes habilitados.
+ */
+async function ticketDeLaSerie(
+  tx: Ejecutor,
+  grupo: Grupo,
+  items: { paqueteId: string; bonifPorcentaje: bigint }[],
+) {
+  const origenes = new Set(grupo.items.map((i) => i.ordenOrigenId));
+  const [origenId] = origenes;
+  const primero = grupo.items[0];
+  if (origenes.size !== 1 || !origenId || !primero?.contrato.hasta) return undefined;
+  const origen = await tx.query.ordenes.findFirst({
+    columns: { ticketId: true, emitidaEn: true },
+    where: eq(t.ordenes.id, origenId),
+  });
+  if (!origen?.ticketId) return undefined;
+  const ticket = await tx.query.tickets.findFirst({ where: eq(t.tickets.id, origen.ticketId) });
+  if (!ticket) return undefined;
+  const habilitados = await tx
+    .select({ paqueteId: t.ticketPaquetes.paqueteId })
+    .from(t.ticketPaquetes)
+    .where(eq(t.ticketPaquetes.ticketId, ticket.id));
+  const [consumo] = await tx
+    .select({ total: sql<string>`coalesce(sum(${t.ordenes.ticketDescuento}), 0)::text` })
+    .from(t.ordenes)
+    .where(
+      and(
+        eq(t.ordenes.ticketId, ticket.id),
+        sql`${t.ordenes.estado} <> 'CANCELADA'`,
+        sql`(${t.ordenes.id} = ${origenId} or ${t.ordenes.ordenOrigenId} = ${origenId})`,
+      ),
+    );
+  const inicioSerie = hoyArgentina(origen.emitidaEn);
+  const evaluado = evaluarTicket({
+    // La serie vale un año desde la orden original, aunque el ticket ya no se venda.
+    ticket: {
+      ...ticket,
+      vigenteDesde: inicioSerie,
+      vigenteHasta: sumarDias(sumarMeses(inicioSerie, 12), -1),
+      paquetesHabilitados: habilitados.map((h) => h.paqueteId),
+    },
+    // Se evalúa a la fecha en que empieza el período renovado.
+    hoy: sumarDias(primero.contrato.hasta, 1),
+    tipoCliente: primero.empresa.tipoCliente,
+    items,
+    consumidoSerie: centavos(consumo?.total ?? "0"),
+  });
+  return evaluado.ok ? { id: ticket.id, aplicable: evaluado.valor } : undefined;
+}
+
 async function generarOrden(db: Db, ventana: VentanaRenovacion, grupo: Grupo): Promise<boolean> {
   const ids = grupo.items.map((i) => i.contrato.id).sort();
   const claveIdempotencia = `renovacion:${createHash("sha256")
@@ -194,21 +249,24 @@ async function generarOrden(db: Db, ventana: VentanaRenovacion, grupo: Grupo): P
     });
     if (!facturacion) throw new Error("Cliente de facturación inexistente");
 
+    const items = grupo.items.map((i) => ({
+      clave: i.contrato.id,
+      paqueteId: i.contrato.paqueteId,
+      tipoAccion: "RENOVACION" as const,
+      cantidad: i.contrato.cantidad,
+      precioCompra: i.alternativa.precioCompra,
+      precioRenovacion: i.alternativa.precioRenovacion,
+      // La bonificación se propaga solo si es recurrente.
+      bonifPorcentaje: i.contrato.bonifRecurrente ? i.contrato.bonifPorcentaje : 0n,
+      moneda: primero.pais.moneda,
+    }));
+    const ticket = await ticketDeLaSerie(tx, grupo, items);
     const calculo = calcularOrden({
       moneda: primero.pais.moneda,
-      items: grupo.items.map((i) => ({
-        clave: i.contrato.id,
-        paqueteId: i.contrato.paqueteId,
-        tipoAccion: "RENOVACION",
-        cantidad: i.contrato.cantidad,
-        precioCompra: i.alternativa.precioCompra,
-        precioRenovacion: i.alternativa.precioRenovacion,
-        // La bonificación se propaga solo si es recurrente.
-        bonifPorcentaje: i.contrato.bonifRecurrente ? i.contrato.bonifPorcentaje : 0n,
-        moneda: primero.pais.moneda,
-      })),
+      items,
       ajustePagoPorcentaje: grupo.medio.ajustePorcentaje,
       alicuotaIva: alicuotaIva(facturacion.condicionIva, primero.pais.alicuota),
+      ticket: ticket?.aplicable,
     });
     if (!calculo.ok) throw new Error(`Cálculo rechazado: ${calculo.error}`);
     const k = calculo.valor;
@@ -230,6 +288,9 @@ async function generarOrden(db: Db, ventana: VentanaRenovacion, grupo: Grupo): P
         subtotalLista: k.subtotalLista,
         bonificacionTotal: k.bonificacionTotal,
         subtotal: k.subtotal,
+        ticketId: ticket?.id ?? null,
+        ticketPorcentaje: k.ticketPorcentaje,
+        ticketDescuento: k.ticketDescuento,
         baseNeta: k.baseNeta,
         ajustePagoPorcentaje: k.ajustePagoPorcentaje,
         ajustePago: k.ajustePago,

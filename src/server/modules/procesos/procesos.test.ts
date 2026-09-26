@@ -7,7 +7,7 @@ import type { Db } from "@/server/db/cliente";
 import { crearContratoDePrueba, crearDbDePrueba, crearEmpresaDePrueba } from "@/server/db/pruebas";
 import * as t from "@/server/db/schema";
 import { registrarPago } from "../ventas/ordenes";
-import { enviarAlertasPendientes, type MailAlerta } from "./alertas";
+import { claveDeAlerta, enviarAlertasPendientes, type MailAlerta } from "./alertas";
 import { procesoDiario } from "./diario";
 import { ejecutarJob } from "./jobs";
 import { correrProcesos } from "./procesos";
@@ -414,5 +414,15 @@ describe("reprocesar a pedido", () => {
       "OK",
     );
     expect(corridas).toBe(2);
+  });
+});
+
+describe("claves de alerta", () => {
+  it("compacta las claves largas sin perder unicidad", () => {
+    const larga = (sufijo: string) => `PAGO_RECHAZADO:${"x".repeat(300)}${sufijo}`;
+    expect(claveDeAlerta("corta")).toBe("corta");
+    expect(claveDeAlerta(larga("a"))).toHaveLength(160);
+    expect(claveDeAlerta(larga("a"))).toBe(claveDeAlerta(larga("a")));
+    expect(claveDeAlerta(larga("a"))).not.toBe(claveDeAlerta(larga("b")));
   });
 });

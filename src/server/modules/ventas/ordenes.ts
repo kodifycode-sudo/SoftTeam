@@ -1,17 +1,36 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import { periodoAlta, puedeTransicionar } from "@/domain/licencias/contrato";
 import { exito, type Resultado, rechazo } from "@/domain/resultado";
-import type { Db, Ejecutor } from "@/server/db/cliente";
+import type { Db, Ejecutor, Tx } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { cargarSaldos } from "./checkout";
 
 export type EstadoOrden = "PEND_PAGO" | "PAGADA" | "CANCELADA";
 
+/**
+ * Alcance del portal: las órdenes de la empresa, más las agrupadas (planilla)
+ * que factura su cliente. Sin empresa (panel SOFTeam), todas.
+ */
+export function alcanceDeOrden(alcance: { empresaId?: string; clienteId?: string }) {
+  if (!alcance.empresaId) return undefined;
+  return or(
+    eq(t.ordenes.empresaId, alcance.empresaId),
+    alcance.clienteId
+      ? and(eq(t.ordenes.agrupada, true), eq(t.ordenes.clienteFacturacionId, alcance.clienteId))
+      : undefined,
+  );
+}
+
 export async function listarOrdenes(
   db: Ejecutor,
-  filtros: { empresaId?: string; estado?: EstadoOrden; busqueda?: string } = {},
+  filtros: {
+    empresaId?: string;
+    clienteId?: string;
+    estado?: EstadoOrden;
+    busqueda?: string;
+  } = {},
 ) {
   const numero = filtros.busqueda?.replace(/\D/g, "");
   return db
@@ -23,6 +42,10 @@ export async function listarOrdenes(
       emitidaEn: t.ordenes.emitidaEn,
       pagadaEn: t.ordenes.pagadaEn,
       pagoError: t.ordenes.pagoError,
+      agrupada: t.ordenes.agrupada,
+      tipoGeneracion: t.ordenes.tipoGeneracion,
+      requiereRevision: t.ordenes.requiereRevision,
+      facturaNumero: t.ordenes.facturaNumero,
       medio: t.mediosPago.nombre,
       empresa: t.empresas.nombre,
       empresaNumero: t.empresas.numero,
@@ -35,7 +58,7 @@ export async function listarOrdenes(
     .leftJoin(t.empresas, eq(t.empresas.id, t.ordenes.empresaId))
     .where(
       and(
-        filtros.empresaId ? eq(t.ordenes.empresaId, filtros.empresaId) : undefined,
+        alcanceDeOrden(filtros),
         filtros.estado ? eq(t.ordenes.estado, filtros.estado) : undefined,
         numero ? eq(t.ordenes.numero, Number(numero)) : undefined,
       ),
@@ -51,7 +74,7 @@ export async function listarOrdenes(
 export async function obtenerOrden(
   db: Ejecutor,
   ordenId: string,
-  alcance: { empresaId?: string } = {},
+  alcance: { empresaId?: string; clienteId?: string } = {},
 ) {
   const [orden] = await db
     .select({
@@ -67,12 +90,7 @@ export async function obtenerOrden(
     .from(t.ordenes)
     .innerJoin(t.mediosPago, eq(t.mediosPago.id, t.ordenes.medioPagoId))
     .leftJoin(t.empresas, eq(t.empresas.id, t.ordenes.empresaId))
-    .where(
-      and(
-        eq(t.ordenes.id, ordenId),
-        alcance.empresaId ? eq(t.ordenes.empresaId, alcance.empresaId) : undefined,
-      ),
-    );
+    .where(and(eq(t.ordenes.id, ordenId), alcanceDeOrden(alcance)));
   if (!orden) return undefined;
 
   const [lineas, facturacion, ticket] = await Promise.all([
@@ -119,10 +137,11 @@ export type ErrorOrden = "NO_EXISTE" | "NO_PENDIENTE";
  * saldos prepagos se acreditan una sola vez.
  */
 export async function registrarPago(
-  db: Db,
+  db: Db | Tx,
   ordenId: string,
-  actorId: string,
+  actorId: string | null,
   hoy: Fecha = hoyArgentina(),
+  opciones: { actorTipo?: string; mpPagoId?: string } = {},
 ): Promise<Resultado<{ contratosActivados: number }, ErrorOrden>> {
   return db.transaction(async (tx) => {
     const [orden] = await tx
@@ -140,6 +159,7 @@ export async function registrarPago(
         estado: "PAGADA",
         pagadaEn: ahora,
         pagoError: false,
+        ...(opciones.mpPagoId ? { mpPagoId: opciones.mpPagoId } : {}),
         version: sql`${t.ordenes.version} + 1`,
       })
       .where(eq(t.ordenes.id, ordenId));
@@ -199,11 +219,14 @@ export async function registrarPago(
     );
     await tx.insert(t.auditoria).values({
       actorId,
-      actorTipo: "usuario",
+      actorTipo: opciones.actorTipo ?? "usuario",
       entidad: "orden",
       entidadId: ordenId,
       accion: "registrar_pago",
-      despues: { contratosActivados: contratos.length },
+      despues: {
+        contratosActivados: contratos.length,
+        ...(opciones.mpPagoId ? { pago: opciones.mpPagoId } : {}),
+      },
     });
     return exito({ contratosActivados: contratos.length });
   });

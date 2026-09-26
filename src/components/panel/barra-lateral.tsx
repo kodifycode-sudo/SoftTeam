@@ -17,6 +17,7 @@ import {
   Receipt,
   ShieldCheck,
   SlidersHorizontal,
+  TicketPercent,
   UserCog,
   UsersRound,
 } from "lucide-react";
@@ -72,6 +73,12 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
       items: [
         { href: "/admin/paquetes", etiqueta: "Paquetes", icono: Package },
         { href: "/admin/medios-pago", etiqueta: "Medios de pago", icono: CreditCard },
+        {
+          href: "/admin/tickets",
+          etiqueta: "Tickets",
+          icono: TicketPercent,
+          permisos: ["ADMINISTRACION", "COMERCIAL"],
+        },
       ],
     },
     {

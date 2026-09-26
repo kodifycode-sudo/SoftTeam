@@ -1,12 +1,21 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/formulario";
 import { requerirSofteam } from "@/server/auth/sesion";
+import { obtenerFacturador, obtenerPasarela, urlBase } from "@/server/cobros";
 import { obtenerDb } from "@/server/db";
+import * as t from "@/server/db/schema";
+import { auditar } from "@/server/modules/auditoria";
+import { facturarOrden } from "@/server/modules/cobros/facturacion";
+import { reenviarLinkDePago } from "@/server/modules/cobros/pagos";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
+import { enviarAlertasPendientes } from "@/server/modules/procesos/alertas";
+import { enviarAlertaPorMail } from "@/server/modules/procesos/mail";
 import { cancelarOrden, registrarPago } from "@/server/modules/ventas/ordenes";
 
 const MENSAJES = {
@@ -31,6 +40,18 @@ export async function registrarPagoAccion(
   const resultado = await registrarPago(db, id.data, user.id);
   if (!resultado.ok) return { mensaje: MENSAJES[resultado.error] };
   programarEntregaDeEventos();
+  // La factura se emite al terminar la respuesta; si falla, la reintenta el proceso diario.
+  const facturador = obtenerFacturador();
+  const ordenId = id.data;
+  if (facturador) {
+    after(async () => {
+      try {
+        await facturarOrden(await obtenerDb(), facturador, ordenId);
+      } catch (error) {
+        console.error("[ordenes] no se pudo facturar ahora", error);
+      }
+    });
+  }
   revalidatePath("/admin/ordenes", "layout");
   redirect(`/admin/ordenes/${id.data}?aviso=pago&activados=${resultado.valor.contratosActivados}`);
 }
@@ -55,4 +76,71 @@ export async function cancelarOrdenAccion(
   programarEntregaDeEventos();
   revalidatePath("/admin/ordenes", "layout");
   redirect(`/admin/ordenes/${datos.data.ordenId}?aviso=cancelada`);
+}
+
+export async function reenviarLinkAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
+  const id = z.uuid().safeParse(formData.get("ordenId"));
+  if (!id.success) return { mensaje: "Orden inválida." };
+  const db = await obtenerDb();
+  const resultado = await reenviarLinkDePago(db, obtenerPasarela(), id.data, user.id, urlBase);
+  if (!resultado.ok) {
+    return {
+      mensaje:
+        resultado.error === "SIN_PASARELA"
+          ? "El link de pago no está configurado (faltan las credenciales de Mercado Pago)."
+          : resultado.error === "MEDIO_SIN_LINK"
+            ? "El medio de pago de esta orden no usa link."
+            : "La orden ya no está pendiente de pago.",
+    };
+  }
+  await enviarAlertasPendientes(db, enviarAlertaPorMail);
+  revalidatePath(`/admin/ordenes/${id.data}`);
+  return { ok: true, mensaje: `Link reenviado (${resultado.reenvios}.º envío).` };
+}
+
+export async function facturarAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  await requerirSofteam(["ADMINISTRACION"]);
+  const id = z.uuid().safeParse(formData.get("ordenId"));
+  if (!id.success) return { mensaje: "Orden inválida." };
+  const facturador = obtenerFacturador();
+  if (!facturador) return { mensaje: "La facturación electrónica no está configurada." };
+  try {
+    const r = await facturarOrden(await obtenerDb(), facturador, id.data);
+    revalidatePath(`/admin/ordenes/${id.data}`);
+    if (r.estado === "EMITIDA") return { ok: true, mensaje: `Comprobante ${r.numero} emitido.` };
+    return {
+      mensaje:
+        r.estado === "EN_CURSO"
+          ? "La emisión ya está en curso."
+          : r.estado === "YA_FACTURADA"
+            ? "La orden ya estaba facturada."
+            : "Solo se facturan órdenes pagadas.",
+    };
+  } catch (e) {
+    return { mensaje: `El facturador respondió con un error: ${(e as Error).message}` };
+  }
+}
+
+export async function marcarRevisadaAccion(formData: FormData): Promise<void> {
+  const { user } = await requerirSofteam(["ADMINISTRACION"]);
+  const id = z.uuid().safeParse(formData.get("ordenId"));
+  if (!id.success) return;
+  const db = await obtenerDb();
+  await db.transaction(async (tx) => {
+    await tx.update(t.ordenes).set({ requiereRevision: false }).where(eq(t.ordenes.id, id.data));
+    await auditar(tx, {
+      actorId: user.id,
+      entidad: "orden",
+      entidadId: id.data,
+      accion: "revisada",
+    });
+  });
+  revalidatePath(`/admin/ordenes/${id.data}`);
 }

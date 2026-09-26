@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EstadoOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -23,7 +24,10 @@ export const metadata: Metadata = { title: "Mis órdenes" };
 export default async function MisOrdenes() {
   const contexto = await requerirComercial();
   const db = await obtenerDb();
-  const ordenes = await listarOrdenes(db, { empresaId: contexto.empresaId });
+  const ordenes = await listarOrdenes(db, {
+    empresaId: contexto.empresaId,
+    clienteId: contexto.clienteId,
+  });
 
   return (
     <>
@@ -59,10 +63,18 @@ export default async function MisOrdenes() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold">Orden #{o.numero}</p>
                       <EstadoOrden estado={o.estado} />
+                      {o.tipoGeneracion === "RENOVACION" && (
+                        <Badge variant="secondary">Renovación</Badge>
+                      )}
+                      {o.agrupada && <Badge variant="outline">Facturación agrupada</Badge>}
+                      {o.estado === "PEND_PAGO" && o.pagoError && (
+                        <Badge variant="destructive">Pago rechazado</Badge>
+                      )}
                     </div>
                     <p className="mt-0.5 text-sm text-muted-foreground">
                       {fechaCorta(o.emitidaEn)} · {o.items} paquete{o.items === 1 ? "" : "s"} ·{" "}
                       {o.medio}
+                      {o.facturaNumero && ` · Factura ${o.facturaNumero}`}
                     </p>
                   </div>
                   <p className="shrink-0 text-right font-semibold tabular-nums">{pesos(o.total)}</p>

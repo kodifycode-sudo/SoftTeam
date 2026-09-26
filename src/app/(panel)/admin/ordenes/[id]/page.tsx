@@ -1,16 +1,18 @@
-import { ArrowLeft, Building2, CircleCheck } from "lucide-react";
+import { ArrowLeft, Building2, CircleCheck, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EstadoOrden, VistaOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { fechaCorta, pesos } from "@/lib/formato";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { obtenerOrden } from "@/server/modules/ventas/ordenes";
+import { marcarRevisadaAccion } from "../acciones";
 import { AccionesOrden } from "./acciones-orden";
+import { EmitirFactura, ReenviarLink } from "./cobro";
 
 export const metadata: Metadata = { title: "Orden" };
 
@@ -66,12 +68,37 @@ export default async function OrdenAdmin({
         }
         acciones={<EstadoOrden estado={orden.estado} />}
       />
+      {orden.requiereRevision && (
+        <Alert className="mb-6 border-warning/50 bg-warning/10">
+          <TriangleAlert className="text-[oklch(0.5_0.13_70)]" />
+          <AlertTitle>Requiere revisión</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p className="whitespace-pre-line">{orden.observaciones ?? "Revisar esta orden."}</p>
+            {rol === "ADMINISTRACION" && (
+              <form action={marcarRevisadaAccion}>
+                <input type="hidden" name="ordenId" value={orden.id} />
+                <Button type="submit" size="sm" variant="outline">
+                  Marcar como revisada
+                </Button>
+              </form>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
       <VistaOrden
         detalle={detalle}
         acciones={
-          orden.estado === "PEND_PAGO" && rol === "ADMINISTRACION" ? (
-            <AccionesOrden ordenId={orden.id} numero={orden.numero} total={pesos(orden.total)} />
-          ) : undefined
+          <div className="grid gap-2">
+            {orden.estado === "PEND_PAGO" && rol === "ADMINISTRACION" && (
+              <AccionesOrden ordenId={orden.id} numero={orden.numero} total={pesos(orden.total)} />
+            )}
+            {orden.estado === "PEND_PAGO" && detalle.medio.generaLink && rol !== "SOPORTE" && (
+              <ReenviarLink ordenId={orden.id} reenvios={orden.linkReenvios} />
+            )}
+            {orden.estado === "PAGADA" && !orden.facturadaEn && rol === "ADMINISTRACION" && (
+              <EmitirFactura ordenId={orden.id} />
+            )}
+          </div>
         }
       />
     </>

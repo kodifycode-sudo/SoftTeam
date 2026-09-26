@@ -5,6 +5,7 @@ import { z } from "zod";
 import { hoy } from "@/domain/fecha";
 import type { EstadoFormulario } from "@/lib/formulario";
 import { requerirSofteam } from "@/server/auth/sesion";
+import { obtenerFacturador } from "@/server/cobros";
 import { obtenerDb } from "@/server/db";
 import { auditar } from "@/server/modules/auditoria";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
@@ -27,7 +28,10 @@ export async function ejecutarProcesosAccion(): Promise<EstadoFormulario> {
   const { user } = await requerirSofteam(["ADMINISTRACION"]);
   const db = await obtenerDb();
   const fecha = hoy();
-  const r = await correrProcesos(db, fecha, enviarAlertaPorMail, { forzar: true });
+  const r = await correrProcesos(db, fecha, enviarAlertaPorMail, {
+    forzar: true,
+    facturador: obtenerFacturador(),
+  });
   await auditar(db, {
     actorId: user.id,
     entidad: "proceso",
