@@ -1,6 +1,5 @@
 "use server";
 
-import { APIError } from "better-auth/api";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -11,6 +10,7 @@ import {
   valoresDe,
 } from "@/lib/formulario";
 import { obtenerAuth } from "@/server/auth";
+import { codigoDeError, esErrorDeAuth, esLimiteDeIntentos } from "@/server/auth/errores";
 import { obtenerDb } from "@/server/db";
 import {
   confirmarAlta,
@@ -20,31 +20,6 @@ import {
   guardarSolicitudAlta,
 } from "@/server/modules/cuentas/alta";
 import { vincularColaboradores } from "@/server/modules/cuentas/usuarios";
-
-interface ErrorDeAuth {
-  statusCode: number;
-  body?: { code?: string };
-}
-
-/**
- * Errores de Better Auth. Se reconocen por su forma además de por su clase:
- * con recarga en caliente el bundler puede tener dos copias de `APIError` y
- * `instanceof` fallar, lo que convertiría un login incorrecto en un error 500.
- */
-function esErrorDeAuth(e: unknown): e is ErrorDeAuth {
-  return (
-    e instanceof APIError ||
-    (typeof e === "object" &&
-      e !== null &&
-      (e as { name?: unknown }).name === "APIError" &&
-      typeof (e as { statusCode?: unknown }).statusCode === "number")
-  );
-}
-
-const codigoDeError = (e: unknown): string | undefined =>
-  esErrorDeAuth(e) ? e.body?.code : undefined;
-
-const esLimiteDeIntentos = (e: unknown) => esErrorDeAuth(e) && e.statusCode === 429;
 
 const rutaVerificar = (email: string) => `/registro/verificar?email=${encodeURIComponent(email)}`;
 
@@ -63,12 +38,18 @@ export async function ingresar(_: EstadoFormulario, formData: FormData): Promise
 
   const auth = await obtenerAuth();
   let esSofteam = false;
+  let pideSegundoFactor = false;
   try {
     const resultado = await auth.api.signInEmail({ body: datos.data, headers: await headers() });
-    esSofteam = Boolean(resultado.user.rolSofteam);
-    // Accesos que le dieron antes de tener usuario (invitaciones).
-    if (!esSofteam) {
-      await vincularColaboradores(await obtenerDb(), resultado.user.id, resultado.user.email);
+    // Con 2FA activo todavía no hay sesión: falta el código de la app.
+    if ("twoFactorRedirect" in resultado && resultado.twoFactorRedirect) {
+      pideSegundoFactor = true;
+    } else {
+      esSofteam = Boolean(resultado.user.rolSofteam);
+      // Accesos que le dieron antes de tener usuario (invitaciones).
+      if (!esSofteam) {
+        await vincularColaboradores(await obtenerDb(), resultado.user.id, resultado.user.email);
+      }
     }
   } catch (error) {
     if (codigoDeError(error) === "EMAIL_NOT_VERIFIED") {
@@ -86,6 +67,76 @@ export async function ingresar(_: EstadoFormulario, formData: FormData): Promise
     if (esErrorDeAuth(error)) {
       // Mismo mensaje exista o no el mail: no se revela quién tiene cuenta.
       return { mensaje: "El mail o la contraseña no son correctos.", valores: recordar };
+    }
+    throw error;
+  }
+  if (pideSegundoFactor) {
+    const destino = rutaInternaSegura(valores.destino, "");
+    redirect(`/ingresar/codigo${destino ? `?destino=${encodeURIComponent(destino)}` : ""}`);
+  }
+  redirect(rutaInternaSegura(valores.destino, esSofteam ? "/admin" : "/portal"));
+}
+
+// ─── Segundo factor ────────────────────────────────────────────────────────
+
+const esquemaSegundoFactor = z.discriminatedUnion("tipo", [
+  z.object({
+    tipo: z.literal("app"),
+    codigo: z.string().regex(/^\d{6}$/, { error: "Ingresá los 6 números de la app" }),
+  }),
+  z.object({
+    tipo: z.literal("respaldo"),
+    codigo: z.string().trim().min(8, { error: "Ingresá uno de tus códigos de respaldo" }).max(20),
+  }),
+]);
+
+/**
+ * Completa un ingreso con 2FA: valida el código de la app (o uno de
+ * respaldo) contra la cookie temporal que dejó el ingreso y recién ahí crea
+ * la sesión. "Confiar en este dispositivo" evita pedirlo 30 días en este
+ * navegador.
+ */
+export async function verificarSegundoFactor(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const valores = valoresDe(formData);
+  const datos = esquemaSegundoFactor.safeParse(valores);
+  if (!datos.success) return { errores: erroresPorCampo(datos.error) };
+
+  const auth = await obtenerAuth();
+  const body = { code: datos.data.codigo, trustDevice: valores.confiar === "on" };
+  let esSofteam = false;
+  try {
+    const resultado =
+      datos.data.tipo === "app"
+        ? await auth.api.verifyTOTP({ body, headers: await headers() })
+        : await auth.api.verifyBackupCode({ body, headers: await headers() });
+    esSofteam = Boolean((resultado.user as { rolSofteam?: string | null }).rolSofteam);
+    if (!esSofteam) {
+      await vincularColaboradores(await obtenerDb(), resultado.user.id, resultado.user.email);
+    }
+  } catch (error) {
+    const codigo = codigoDeError(error);
+    if (codigo === "INVALID_TWO_FACTOR_COOKIE") {
+      // Pasaron más de 10 minutos desde la contraseña: se vuelve a empezar.
+      redirect("/ingresar?aviso=codigo-vencido");
+    }
+    if (codigo === "ACCOUNT_TEMPORARILY_LOCKED" || esLimiteDeIntentos(error)) {
+      return {
+        mensaje: "Demasiados códigos incorrectos. Esperá unos minutos y volvé a probar.",
+      };
+    }
+    if (esErrorDeAuth(error)) {
+      return {
+        errores: {
+          codigo: [
+            datos.data.tipo === "app"
+              ? "El código no es correcto. Fijate que la hora del celular esté bien."
+              : "Ese código de respaldo no es válido o ya se usó.",
+          ],
+        },
+      };
     }
     throw error;
   }

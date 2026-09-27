@@ -1,4 +1,4 @@
-import { CircleCheck } from "lucide-react";
+import { CircleCheck, Clock } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -21,6 +21,14 @@ export default async function PaginaIngresar({ searchParams }: PageProps<"/ingre
           <CircleCheck />
           <AlertDescription className="text-success">
             Listo, guardamos tu contraseña. Ya podés ingresar.
+          </AlertDescription>
+        </Alert>
+      )}
+      {aviso === "codigo-vencido" && (
+        <Alert>
+          <Clock />
+          <AlertDescription>
+            Pasaron más de 10 minutos. Por seguridad, volvé a ingresar tu contraseña.
           </AlertDescription>
         </Alert>
       )}

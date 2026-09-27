@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronsUpDown, LogOut, ShieldCheck } from "lucide-react";
+import { ChevronsUpDown, KeyRound, LogOut, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { salir } from "@/app/(auth)/acciones";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -24,6 +25,8 @@ export interface UsuarioMenu {
   email: string;
   /** Rol a mostrar ("Administración SOFTeam", "Administrador"). */
   rol: string;
+  /** Página de seguridad de la cuenta (verificación en dos pasos), si la tiene. */
+  seguridad?: string;
 }
 
 function iniciales(nombre: string): string {
@@ -74,6 +77,11 @@ export function MenuUsuario({ usuario }: { usuario: UsuarioMenu }) {
             <DropdownMenuItem disabled>
               <ShieldCheck /> {usuario.rol}
             </DropdownMenuItem>
+            {usuario.seguridad && (
+              <DropdownMenuItem render={<Link href={usuario.seguridad} />}>
+                <KeyRound /> Seguridad de la cuenta
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => void salir()}>
               <LogOut /> Cerrar sesión

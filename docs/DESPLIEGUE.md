@@ -102,6 +102,10 @@ Sin el dominio verificado, los mails no salen o caen en spam.
 3. Cambiar la contraseña: salir, **¿Olvidaste tu contraseña?**, recibir el
    código y elegir una nueva.
 4. Borrar `ADMIN_PASSWORD` de las variables de Vercel.
+5. Activar la verificación en dos pasos: *menú de usuario → Seguridad de la
+   cuenta*. Recomendado para todo el equipo de SOFTeam; si alguien pierde el
+   celular y los códigos de respaldo, Administración se la quita desde
+   *Usuarios SOFTeam*.
 
 Correr la migración de nuevo es seguro: todo es idempotente.
 

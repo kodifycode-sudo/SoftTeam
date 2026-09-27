@@ -4,6 +4,7 @@ import {
   CreditCard,
   FileClock,
   Package,
+  ShieldAlert,
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
@@ -11,6 +12,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Indicador } from "@/components/panel/indicador";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -32,6 +34,7 @@ import { fechaCorta, numero, pesos } from "@/lib/formato";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { indicadoresTablero } from "@/server/modules/cuentas/consultas";
+import { tieneDosFactores } from "@/server/modules/cuentas/dos-factores";
 
 export const metadata: Metadata = { title: "Tablero" };
 
@@ -65,7 +68,10 @@ const ACCESOS = [
 export default async function Tablero() {
   const { user } = await requerirSofteam();
   const db = await obtenerDb();
-  const datos = await indicadoresTablero(db, hoy());
+  const [datos, dosFactores] = await Promise.all([
+    indicadoresTablero(db, hoy()),
+    tieneDosFactores(db, user.id),
+  ]);
   const nombre = user.name.split(/[\s,]+/)[0];
 
   return (
@@ -75,6 +81,25 @@ export default async function Tablero() {
         titulo={`Hola, ${nombre}`}
         descripcion="Así está la cartera de clientes y el cobro hoy."
       />
+
+      {!dosFactores && (
+        <Alert className="mb-6 border-warning/50 bg-warning/10">
+          <ShieldAlert />
+          <AlertTitle>Protegé tu usuario con la verificación en dos pasos</AlertTitle>
+          <AlertDescription>
+            <p>
+              Con tu usuario se pueden ver y cambiar los datos de todos los clientes. Además de la
+              contraseña, pedí un código de tu celular al ingresar.
+            </p>
+            <Link
+              href="/admin/seguridad"
+              className={buttonVariants({ size: "sm", variant: "outline", className: "mt-2" })}
+            >
+              Activarla ahora
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Indicador

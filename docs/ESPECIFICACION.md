@@ -497,8 +497,12 @@ Regla de dependencias: `domain` no importa nada del resto.
    también respetan el alcance: el pedido queda en el canal u oficina de
    quien lo abre (y una oficina consume primero su crédito); el delegado ve
    los avisos de contratos y órdenes de sus oficinas y las respuestas a sus
-   pedidos.
-   *Pendiente:* 2FA para SOFTeam, alerta cuando la licencia baja por
+   pedidos. Verificación en dos pasos para SOFTeam (opcional, con aviso en el
+   tablero): app de autenticación (TOTP) con QR, 10 códigos de respaldo de un
+   solo uso, "confiar en este dispositivo" 30 días, bloqueo de 15 minutos tras
+   5 códigos incorrectos; Administración puede quitársela a quien perdió el
+   celular (cierra sus sesiones y queda auditado).
+   *Pendiente:* alerta cuando la licencia baja por
    debajo de lo configurado (fase 6).
 6. ✅ **Procesos:** proceso diario (excepciones de pago vencidas, alertas de
    vencimiento, licencia vencida, saldo bajo o agotado, plazo de pago, empresa

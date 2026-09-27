@@ -30,9 +30,19 @@ export function valoresDe(formData: FormData): Record<string, string> {
   return valores;
 }
 
-/** Ruta interna segura para redirigir después del login (evita redirecciones abiertas). */
+/**
+ * Ruta interna segura para redirigir después del login (evita redirecciones
+ * abiertas). Rechaza `//host` y también `/\host`: los navegadores tratan la
+ * barra invertida como una barra y lo convierten en otro sitio. Tampoco
+ * acepta caracteres de control (un salto de línea podría partir la cabecera).
+ */
 export function rutaInternaSegura(ruta: unknown, porDefecto: string): string {
-  return typeof ruta === "string" && ruta.startsWith("/") && !ruta.startsWith("//")
-    ? ruta
-    : porDefecto;
+  if (typeof ruta !== "string" || !ruta.startsWith("/") || ruta.startsWith("//")) {
+    return porDefecto;
+  }
+  const insegura = [...ruta].some((c) => {
+    const codigo = c.charCodeAt(0);
+    return c === "\\" || codigo < 32 || codigo === 127;
+  });
+  return insegura ? porDefecto : ruta;
 }

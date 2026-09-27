@@ -16,7 +16,13 @@ import { ROLES_SOFTEAM_INFO as ROLES } from "@/lib/roles";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarUsuariosSofteam } from "@/server/modules/cuentas/usuarios-softeam";
-import { InvitarUsuario, QuitarAcceso, ReenviarInvitacion, SelectorRol } from "./dialogos";
+import {
+  InvitarUsuario,
+  QuitarAcceso,
+  QuitarDosFactores,
+  ReenviarInvitacion,
+  SelectorRol,
+} from "./dialogos";
 
 export const metadata: Metadata = { title: "Usuarios SOFTeam" };
 
@@ -31,9 +37,16 @@ function Estado({ u }: { u: Usuario }) {
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+    <span className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
       <Clock className="size-3.5" />
       {u.ultimoIngreso ? `Último ingreso ${fechaCorta(u.ultimoIngreso)}` : "Nunca ingresó"}
+      {u.dosFactores ? (
+        <Badge variant="outline" className="gap-1 border-success/50 bg-success/10 text-success">
+          <ShieldCheck className="size-3" /> 2FA
+        </Badge>
+      ) : (
+        <Badge variant="outline">Sin 2FA</Badge>
+      )}
     </span>
   );
 }
@@ -43,6 +56,7 @@ function Acciones({ u, propio }: { u: Usuario; propio: boolean }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-1">
       {!u.verificado && <ReenviarInvitacion email={u.email} />}
+      {u.dosFactores && <QuitarDosFactores id={u.id} nombre={u.nombre} />}
       <QuitarAcceso id={u.id} nombre={u.nombre} />
     </div>
   );

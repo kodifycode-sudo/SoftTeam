@@ -15,6 +15,8 @@ export const usuarios = pgTable("usuarios", {
   image: text(),
   /** Rol interno de SOFTeam. `null` = usuario de un cliente. No lo puede fijar el propio usuario. */
   rolSofteam: rolSofteam(),
+  /** Segundo factor (app de autenticación) activo: el ingreso pide el código. */
+  twoFactorEnabled: boolean().notNull().default(false),
   createdAt: instante().notNull().defaultNow(),
   updatedAt: instante()
     .notNull()
@@ -81,6 +83,28 @@ export const verificaciones = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [index().on(t.identifier)],
+);
+
+/**
+ * Segundo factor de cada usuario (plugin two-factor de Better Auth). El
+ * secreto TOTP y los códigos de respaldo se guardan cifrados con el secreto
+ * de la app; `verified` queda en falso hasta que el usuario confirma el
+ * primer código.
+ */
+export const dosFactores = pgTable(
+  "dos_factores",
+  {
+    id: text().primaryKey(),
+    secret: text().notNull(),
+    backupCodes: text().notNull(),
+    userId: text()
+      .notNull()
+      .references(() => usuarios.id, { onDelete: "cascade" }),
+    verified: boolean().notNull().default(true),
+    failedVerificationCount: integer().notNull().default(0),
+    lockedUntil: instante(),
+  },
+  (t) => [index().on(t.userId), index().on(t.secret)],
 );
 
 /** Límite de intentos persistente (sirve en serverless, donde la memoria no se comparte). */

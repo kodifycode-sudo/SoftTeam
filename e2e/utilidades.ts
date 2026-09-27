@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test as base, expect, type Page } from "@playwright/test";
 
@@ -101,11 +102,35 @@ export async function registrarCliente(page: Page, razonSocial: string, email: s
 }
 
 export async function ingresar(page: Page, email: string, contrasena: string) {
+  await enviarContrasena(page, email, contrasena);
+  await expect(page).toHaveURL(/\/(admin|portal)/);
+}
+
+/** Ingresa mail y contraseña sin esperar el panel (con 2FA, sigue el código). */
+export async function enviarContrasena(page: Page, email: string, contrasena: string) {
   await page.goto("/ingresar");
   await page.getByLabel("Mail", { exact: true }).fill(email);
   await page.getByLabel("Contraseña").fill(contrasena);
   await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/(admin|portal)/);
+}
+
+/**
+ * Código TOTP de 6 dígitos (RFC 6238, pasos de 30 s) para una clave en
+ * base32, como el que muestra la app de autenticación.
+ */
+export function codigoTotp(claveBase32: string): string {
+  const alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const c of claveBase32.replace(/=+$/, "").toUpperCase()) {
+    bits += alfabeto.indexOf(c).toString(2).padStart(5, "0");
+  }
+  const bytes = Buffer.from((bits.match(/.{8}/g) ?? []).map((b) => Number.parseInt(b, 2)));
+  const contador = Buffer.alloc(8);
+  contador.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)));
+  const hmac = createHmac("sha1", bytes).update(contador).digest();
+  const inicio = (hmac[hmac.length - 1] ?? 0) & 0xf;
+  const numero = (hmac.readUInt32BE(inicio) & 0x7fffffff) % 1_000_000;
+  return String(numero).padStart(6, "0");
 }
 
 export const ADMIN = { email: "admin@softeam.local", contrasena: "Softeam.2026!" };

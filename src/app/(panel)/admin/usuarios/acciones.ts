@@ -5,6 +5,10 @@ import { z } from "zod";
 import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import {
+  type ErrorQuitarDosFactores,
+  quitarDosFactores,
+} from "@/server/modules/cuentas/dos-factores";
 import { enviarInvitacion } from "@/server/modules/cuentas/invitaciones";
 import { buscarUsuarioPorEmail } from "@/server/modules/cuentas/usuarios";
 import {
@@ -86,4 +90,27 @@ export async function reenviarInvitacionAccion(
     "el panel de SOFTeam",
   );
   return { ok: true, mensaje: `Reenviamos la invitación a ${usuario.email}.` };
+}
+
+const MENSAJES_DOS_FACTORES: Record<ErrorQuitarDosFactores, string> = {
+  PROPIO: "Tu propia verificación se desactiva desde Seguridad de la cuenta.",
+  NO_EXISTE: "El usuario ya no existe.",
+  SIN_DOS_FACTORES: "Ese usuario no tiene la verificación en dos pasos activa.",
+};
+
+/** Administración le quita el 2FA a quien perdió el celular y los códigos de respaldo. */
+export async function quitarDosFactoresAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION"]);
+  const id = z.string().min(1).safeParse(formData.get("id"));
+  if (!id.success) return { mensaje: "Usuario inválido." };
+  const resultado = await quitarDosFactores(await obtenerDb(), id.data, user.id);
+  if (!resultado.ok) return { mensaje: MENSAJES_DOS_FACTORES[resultado.error] };
+  revalidatePath("/admin/usuarios");
+  return {
+    ok: true,
+    mensaje: "Listo: entra solo con la contraseña y puede volver a activar la verificación.",
+  };
 }

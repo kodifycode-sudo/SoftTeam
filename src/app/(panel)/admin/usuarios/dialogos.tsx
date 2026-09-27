@@ -1,6 +1,6 @@
 "use client";
 
-import { MailPlus, Send, UserMinus, UserPlus } from "lucide-react";
+import { MailPlus, Send, ShieldOff, UserMinus, UserPlus } from "lucide-react";
 import { useActionState, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -24,7 +24,12 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { ESTADO_INICIAL } from "@/lib/formulario";
 import { ROLES_SOFTEAM_INFO as ROLES } from "@/lib/roles";
-import { cambiarRolAccion, invitarUsuarioAccion, reenviarInvitacionAccion } from "./acciones";
+import {
+  cambiarRolAccion,
+  invitarUsuarioAccion,
+  quitarDosFactoresAccion,
+  reenviarInvitacionAccion,
+} from "./acciones";
 
 function ContenidoInvitar({ cerrar }: { cerrar: () => void }) {
   const [estado, accion] = useActionState(invitarUsuarioAccion, ESTADO_INICIAL);
@@ -161,6 +166,53 @@ export function QuitarAcceso({ id, nombre }: { id: string; nombre: string }) {
           </DialogDescription>
         </DialogHeader>
         {abierto && <ContenidoQuitar id={id} nombre={nombre} cerrar={() => setAbierto(false)} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Quitar el 2FA de otro usuario (perdió el celular y los códigos de respaldo). */
+export function QuitarDosFactores({ id, nombre }: { id: string; nombre: string }) {
+  const [abierto, setAbierto] = useState(false);
+  // La fila cambia en la misma actualización: el aviso sale desde el envío.
+  async function quitar(datos: FormData) {
+    const resultado = await quitarDosFactoresAccion(ESTADO_INICIAL, datos);
+    if (!resultado.mensaje) return;
+    if (resultado.ok) {
+      toast.success(resultado.mensaje);
+      setAbierto(false);
+    } else {
+      toast.error(resultado.mensaje);
+    }
+  }
+  return (
+    <Dialog open={abierto} onOpenChange={setAbierto}>
+      <DialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Quitar verificación en dos pasos de ${nombre}`}
+          />
+        }
+      >
+        <ShieldOff data-icon="inline-start" /> Quitar 2FA
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>¿Quitar la verificación en dos pasos?</DialogTitle>
+          <DialogDescription>
+            Hacelo solo si {nombre} perdió el celular y los códigos de respaldo, y confirmaste que
+            es esa persona. Se cierran sus sesiones y vuelve a entrar solo con la contraseña.
+          </DialogDescription>
+        </DialogHeader>
+        <form action={quitar}>
+          <input type="hidden" name="id" value={id} />
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="ghost" />}>Cancelar</DialogClose>
+            <BotonEnviar variant="destructive">Quitar 2FA</BotonEnviar>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

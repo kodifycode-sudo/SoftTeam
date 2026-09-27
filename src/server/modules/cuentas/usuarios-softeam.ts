@@ -16,6 +16,7 @@ export async function listarUsuariosSofteam(db: Ejecutor) {
       email: t.usuarios.email,
       rol: t.usuarios.rolSofteam,
       verificado: t.usuarios.emailVerified,
+      dosFactores: t.usuarios.twoFactorEnabled,
       desde: t.usuarios.createdAt,
       // Columna externa calificada a mano: sin joins, Drizzle la escribiría sin
       // tabla ("id") y dentro de la subconsulta se leería como la de sesiones.

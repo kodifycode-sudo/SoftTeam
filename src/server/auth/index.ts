@@ -2,11 +2,12 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { emailOTP } from "better-auth/plugins";
+import { emailOTP, twoFactor } from "better-auth/plugins";
 import { env } from "@/env";
 import { type Db, obtenerDb } from "@/server/db";
 import {
   cuentasAuth,
+  dosFactores,
   limitesIntentos,
   sesiones,
   usuarios,
@@ -37,6 +38,7 @@ function crearAuth(db: Db) {
         account: cuentasAuth,
         verification: verificaciones,
         rateLimit: limitesIntentos,
+        twoFactor: dosFactores,
       },
     }),
     emailAndPassword: {
@@ -71,6 +73,9 @@ function crearAuth(db: Db) {
         "/email-otp/verify-email": { window: 60, max: 10 },
         "/email-otp/request-password-reset": { window: 60, max: 3 },
         "/email-otp/reset-password": { window: 60, max: 10 },
+        "/two-factor/verify-totp": { window: 60, max: 5 },
+        "/two-factor/verify-backup-code": { window: 60, max: 5 },
+        "/two-factor/enable": { window: 60, max: 5 },
       },
     },
     plugins: [
@@ -92,6 +97,15 @@ function crearAuth(db: Db) {
             codigo: otp,
           });
         },
+      }),
+      // Segundo factor con app de autenticación (TOTP) y códigos de respaldo.
+      // Lo usa SOFTeam; el ingreso con 2FA activo pide el código antes de
+      // crear la sesión.
+      twoFactor({
+        issuer: "STLic",
+        backupCodeOptions: { amount: 10, length: 10 },
+        // Tras 5 códigos incorrectos, 15 minutos sin poder intentar.
+        accountLockout: { enabled: true, maxFailedAttempts: 5, durationSeconds: 15 * 60 },
       }),
       // Debe ir último: aplica las cookies de sesión en Server Actions.
       nextCookies(),

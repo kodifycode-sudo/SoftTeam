@@ -13,7 +13,12 @@ export default async function LayoutAdmin({ children }: LayoutProps<"/admin">) {
   return (
     <EstructuraPanel
       variante="admin"
-      usuario={{ nombre: user.name, email: user.email, rol: ROLES[rol] }}
+      usuario={{
+        nombre: user.name,
+        email: user.email,
+        rol: ROLES[rol],
+        seguridad: "/admin/seguridad",
+      }}
       permisos={[rol]}
       encabezado={
         <>
