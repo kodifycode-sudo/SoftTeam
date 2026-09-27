@@ -89,6 +89,12 @@ const PARAMETROS: { clave: string; valor: unknown; descripcion: string }[] = [
     valor: 20,
     descripcion: "Porcentaje de saldo restante que dispara el aviso de saldo bajo.",
   },
+  {
+    clave: "oficinas.pedido_facturacion",
+    valor: false,
+    descripcion:
+      "Si la empresa puede pedir desde el portal que las compras de una oficina se facturen a otro cliente. Apagado: solo lo asigna SOFTeam.",
+  },
 ];
 
 export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }): Promise<void> {

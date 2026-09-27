@@ -9,6 +9,7 @@ import {
   cancelarPedidoFacturacion,
   type ErrorPedidoFacturacion,
   esquemaPedidoFacturacion,
+  pedidoFacturacionHabilitado,
   pedirFacturacionOficina,
 } from "@/server/modules/cuentas/facturacion-oficinas";
 import { crearOficina, esquemaOficina } from "@/server/modules/cuentas/oficinas";
@@ -70,18 +71,17 @@ export async function pedirFacturacionAccion(
   formData: FormData,
 ): Promise<EstadoFormulario> {
   const contexto = await requerirComercial();
+  const db = await obtenerDb();
+  if (!(await pedidoFacturacionHabilitado(db))) {
+    return { mensaje: "Para cambiar la facturación de una oficina, escribile a SOFTeam." };
+  }
   const valores = valoresDe(formData);
   const datos = esquemaPedidoFacturacion.safeParse(valores);
   if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
-  const resultado = await pedirFacturacionOficina(
-    await obtenerDb(),
-    contexto.empresaId,
-    datos.data,
-    {
-      usuarioId: contexto.usuarioId,
-      alcance: contexto.alcance,
-    },
-  );
+  const resultado = await pedirFacturacionOficina(db, contexto.empresaId, datos.data, {
+    usuarioId: contexto.usuarioId,
+    alcance: contexto.alcance,
+  });
   if (!resultado.ok) {
     return {
       ...(MENSAJES_PEDIDO[resultado.error] ?? { mensaje: "No se pudo enviar el pedido." }),

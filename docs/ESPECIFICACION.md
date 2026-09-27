@@ -161,6 +161,32 @@ renovación. Resultado: licencias duplicadas.
 - **Visibilidad** de usuarios y contratos: toda la empresa, un canal (`CC`) o una
   oficina (`CC-OOO`).
 
+#### A quién se factura
+
+| Nivel | Qué es |
+|---|---|
+| Grupo económico | Agrupa clientes (CUIT distintos). Su cliente facturador recibe la factura consolidada cuando el medio de pago es de planilla |
+| Cliente | Razón social con CUIT: contrata y recibe la factura. Puede tener varias empresas |
+| Empresa | Instalación licenciada (número que usan los productos): licencia, usuarios y datos propios |
+| Oficina | Punto de venta dentro de una empresa |
+
+Una orden se factura al cliente de la empresa, salvo:
+
+1. **Planilla de un grupo económico:** al cliente facturador del grupo.
+2. **Oficina pagada por otra razón social:** al cliente de facturación de la
+   oficina. Es el caso de una oficina que comparte la instalación (cartera,
+   usuarios) pero la paga otro CUIT, por ejemplo un productor independiente
+   dentro de la red de un organizador, que necesita la factura a su nombre.
+   Si la oficina es independiente en todo, lo correcto es darla de alta como
+   cliente y empresa propios.
+
+**Decisión pendiente (2026-09-27):** confirmar con Comercial si el caso 2
+existe en los clientes reales. Hasta entonces, el cliente de facturación de
+una oficina **solo lo asigna SOFTeam** (ficha del cliente) y el pedido desde
+el portal está oculto: parámetro `oficinas.pedido_facturacion` en `false`.
+El flujo del pedido (la empresa lo pide, SOFTeam aprueba o rechaza con motivo)
+ya está hecho y probado; habilitarlo es cambiar el parámetro a `true`.
+
 ### 4.4 Consumos (libro de movimientos)
 
 - Cada movimiento (carga, consumo, ajuste) es **una fila inmutable** en
@@ -444,10 +470,9 @@ Regla de dependencias: `domain` no importa nada del resto.
    Facturación a otro cliente: SOFTeam (Administración o Comercial) asigna a
    una oficina un cliente de STLic activo; sus compras y renovaciones se le
    facturan con su comprobante, salvo planilla de un grupo económico. Si ese
-   cliente se desactiva, se vuelve a facturar a la empresa. La empresa (general
-   o comercial, en las oficinas de su alcance) puede pedir el cambio desde
-   Oficinas: queda un pedido pendiente por oficina, SOFTeam lo aprueba o lo
-   rechaza con motivo desde la ficha del cliente, y la empresa recibe el aviso.
+   cliente se desactiva, se vuelve a facturar a la empresa. El pedido desde el
+   portal (la empresa lo pide y SOFTeam lo aprueba o rechaza) está hecho pero
+   apagado por parámetro hasta confirmar el caso (ver 4.3, "A quién se factura").
    *Pendiente de esta fase:* renovación manual desde "Mis paquetes",
    bonificación de paquetes por SOFTeam.
 4. ✅ **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con

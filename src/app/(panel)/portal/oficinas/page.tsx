@@ -5,7 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { puedeComprar, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
-import { pedidosPendientes } from "@/server/modules/cuentas/facturacion-oficinas";
+import {
+  pedidoFacturacionHabilitado,
+  pedidosPendientes,
+} from "@/server/modules/cuentas/facturacion-oficinas";
 import { listarCanales, listarOficinas } from "@/server/modules/cuentas/oficinas";
 import { NuevaOficina } from "./nueva-oficina";
 import { FacturacionDeOficina } from "./pedir-facturacion";
@@ -15,8 +18,9 @@ export const metadata: Metadata = { title: "Oficinas" };
 export default async function PaginaOficinas() {
   const contexto = await requerirCliente();
   const db = await obtenerDb();
-  // Quien administra paquetes y pagos puede pedir que otra razón social pague una oficina.
-  const comercial = puedeComprar(contexto);
+  // Quien administra paquetes y pagos puede pedir que otra razón social pague una
+  // oficina, si el parámetro "oficinas.pedido_facturacion" lo habilita.
+  const comercial = puedeComprar(contexto) && (await pedidoFacturacionHabilitado(db));
   const [oficinas, canales, pedidos] = await Promise.all([
     listarOficinas(db, contexto.empresaId, contexto.alcance),
     listarCanales(db, contexto.empresaId),

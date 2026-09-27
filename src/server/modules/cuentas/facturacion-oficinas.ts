@@ -5,6 +5,7 @@ import { esCuitValido, formatearCuit, normalizarCuit } from "@/domain/cuentas/cu
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { leerParametro } from "../parametros";
 import { registrarAlerta } from "../procesos/alertas";
 
 /** Oficinas de las empresas con el cliente al que se facturan sus compras delegadas. */
@@ -124,6 +125,14 @@ async function aplicarFacturacion(
 }
 
 // ─── Pedidos de la empresa ───────────────────────────────────────────────────
+
+/**
+ * Los pedidos desde el portal están apagados hasta confirmar con Comercial
+ * que existen oficinas pagadas por otra razón social (ver ESPECIFICACION,
+ * 4.3). Mientras tanto, solo SOFTeam asigna el cliente de facturación.
+ */
+export const pedidoFacturacionHabilitado = (db: Ejecutor) =>
+  leerParametro(db, "oficinas.pedido_facturacion", z.boolean(), false);
 
 export const esquemaPedidoFacturacion = z.object({
   oficinaId: z.uuid(),
