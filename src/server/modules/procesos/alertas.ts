@@ -187,6 +187,7 @@ const ASUNTOS: Partial<Record<TipoAlerta, string>> = {
   LICENCIA_VENCIDA: "Venció un paquete",
   EMPRESA_SIN_PAQUETE: "Tu empresa no tiene paquetes vigentes",
   LIMITE_EXCEDIDO: "Tenés más usuarios o interfaces que los licenciados",
+  LICENCIA_POR_BAJAR: "Al vencer un paquete vas a quedar con más de lo licenciado",
   RENOVACION_GENERADA: "Generamos tu orden de renovación",
   RECORDATORIO_PAGO: "Tenés una orden pendiente de pago",
   SOPORTE_RESPUESTA: "Soporte respondió tu consulta",

@@ -9,6 +9,7 @@ export const ETIQUETA_ALERTA = {
   LICENCIA_VENCIDA: "Paquete vencido",
   EMPRESA_SIN_PAQUETE: "Sin paquetes vigentes",
   LIMITE_EXCEDIDO: "Límite excedido",
+  LICENCIA_POR_BAJAR: "La licencia va a bajar",
   PAGO_RECHAZADO: "Pago rechazado",
   LINK_PAGO_REENVIADO: "Link de pago reenviado",
   RENOVACION_GENERADA: "Renovación generada",

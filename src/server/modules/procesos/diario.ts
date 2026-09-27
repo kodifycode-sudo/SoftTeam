@@ -296,27 +296,89 @@ async function alertasDeEmpresa(db: Db, hoy: Fecha, contar: Contar) {
       continue;
     }
 
-    const uso = await usoDeLimites(db, empresa.id, hoy);
-    const excesos = [
-      ...PRODUCTOS_CON_ACCESO.filter((p) => excedeLicencia(uso.usuarios[p])).map(
-        (p) =>
-          `usuarios de ${NOMBRE_PRODUCTO[p]}: ${uso.usuarios[p].enUso} activos de ${uso.usuarios[p].licenciados}`,
-      ),
-      ...TIPOS_INTERFAZ.filter((i) => excedeLicencia(uso.interfaces[i])).map(
-        (i) =>
-          `interfaces de ${i === "prodigal" ? "Prodigal" : "CotiWeb"}: ${uso.interfaces[i].enUso} activas de ${uso.interfaces[i].licenciados}`,
-      ),
-    ];
+    const excesos = excesosDeLimites(await usoDeLimites(db, empresa.id, hoy));
     if (excesos.length > 0) {
+      const textos = excesos.map((e) => e.texto);
       contar(
         "LIMITE_EXCEDIDO",
         await registrarAlerta(db, {
           tipo: "LIMITE_EXCEDIDO",
-          clave: `LIMITE_EXCEDIDO:${empresa.id}:${mes}:${excesos.join("|")}`,
-          mensaje: `Tenés más de lo licenciado (${excesos.join("; ")}). Dá de baja lo que sobra o sumá un paquete.`,
+          clave: `LIMITE_EXCEDIDO:${empresa.id}:${mes}:${textos.join("|")}`,
+          mensaje: `Tenés más de lo licenciado (${textos.join("; ")}). Dá de baja lo que sobra o sumá un paquete.`,
           empresaId: empresa.id,
         }),
       );
     }
+
+    await alertaDeLicenciaPorBajar(
+      db,
+      empresa.id,
+      hoy,
+      licencia.contratosVigentes,
+      excesos,
+      contar,
+    );
+  }
+}
+
+/** Usuarios o interfaces por encima de lo licenciado, con una clave estable para compararlos. */
+function excesosDeLimites(uso: Awaited<ReturnType<typeof usoDeLimites>>) {
+  return [
+    ...PRODUCTOS_CON_ACCESO.filter((p) => excedeLicencia(uso.usuarios[p])).map((p) => ({
+      clave: `usuarios:${p}`,
+      texto: `usuarios de ${NOMBRE_PRODUCTO[p]}: ${uso.usuarios[p].enUso} activos de ${uso.usuarios[p].licenciados ?? 0}`,
+    })),
+    ...TIPOS_INTERFAZ.filter((i) => excedeLicencia(uso.interfaces[i])).map((i) => ({
+      clave: `interfaces:${i}`,
+      texto: `interfaces de ${i === "prodigal" ? "Prodigal" : "CotiWeb"}: ${uso.interfaces[i].enUso} activas de ${uso.interfaces[i].licenciados ?? 0}`,
+    })),
+  ];
+}
+
+/** Anticipación del aviso de que la licencia va a quedar por debajo de lo configurado. */
+const DIAS_AVISO_LICENCIA = 15;
+
+/**
+ * Aviso anticipado: si al vencer un paquete en los próximos días (y no
+ * renovarse, o no pagarse la renovación) la empresa queda con más usuarios o
+ * interfaces de los licenciados, se avisa antes, para que renueve o elija qué
+ * dar de baja a tiempo. Se calcula la licencia del día siguiente a cada
+ * vencimiento, con las renovaciones ya vigentes para esa fecha. Un aviso por
+ * vencimiento y por combinación de excesos.
+ */
+async function alertaDeLicenciaPorBajar(
+  db: Db,
+  empresaId: string,
+  hoy: Fecha,
+  vigentes: { paquete: string; hasta: Fecha | null }[],
+  excesosDeHoy: { clave: string }[],
+  contar: Contar,
+) {
+  const limite = sumarDias(hoy, DIAS_AVISO_LICENCIA);
+  const vencimientos = [
+    ...new Set(
+      vigentes.flatMap((c) => (c.hasta && c.hasta >= hoy && c.hasta <= limite ? [c.hasta] : [])),
+    ),
+  ].sort();
+  const yaExcedidos = new Set(excesosDeHoy.map((e) => e.clave));
+
+  for (const vence of vencimientos) {
+    const despues = sumarDias(vence, 1);
+    const nuevos = excesosDeLimites(await usoDeLimites(db, empresaId, despues)).filter(
+      (e) => !yaExcedidos.has(e.clave),
+    );
+    if (nuevos.length === 0) continue;
+    const paquetes = vigentes.filter((c) => c.hasta === vence).map((c) => c.paquete);
+    contar(
+      "LICENCIA_POR_BAJAR",
+      await registrarAlerta(db, {
+        tipo: "LICENCIA_POR_BAJAR",
+        clave: `LICENCIA_POR_BAJAR:${empresaId}:${vence}:${nuevos.map((e) => e.clave).join("|")}`,
+        mensaje: `El ${fechaCorta(vence)} vence ${paquetes.join(", ")}. Si no se renueva, vas a tener más de lo licenciado (${nuevos.map((e) => e.texto).join("; ")}). Renovalo o elegí qué dar de baja antes de esa fecha.`,
+        empresaId,
+      }),
+    );
+    // El primer vencimiento que deja de más alcanza: los siguientes lo repetirían.
+    return;
   }
 }

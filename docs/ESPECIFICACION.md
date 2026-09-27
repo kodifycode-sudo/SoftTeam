@@ -211,6 +211,12 @@ Usuarios activos por producto ≤ licenciados, e interfaces activas por asegurad
 automáticamente: se genera una alerta y el administrador elige qué desactivar.
 La baja de una interfaz rige desde el mes siguiente.
 
+Además, el proceso diario **avisa antes**: si en los próximos 15 días vence un
+paquete y, sin su renovación, la empresa quedaría con más usuarios o
+interfaces de los licenciados, avisa qué vence, cuándo y cómo quedaría, para
+que renueve o elija qué dar de baja a tiempo. Una renovación ya vigente para
+esa fecha evita el aviso.
+
 ---
 
 ## 5. Orden y cálculo
@@ -502,11 +508,10 @@ Regla de dependencias: `domain` no importa nada del resto.
    solo uso, "confiar en este dispositivo" 30 días, bloqueo de 15 minutos tras
    5 códigos incorrectos; Administración puede quitársela a quien perdió el
    celular (cierra sus sesiones y queda auditado).
-   *Pendiente:* alerta cuando la licencia baja por
-   debajo de lo configurado (fase 6).
 6. ✅ **Procesos:** proceso diario (excepciones de pago vencidas, alertas de
    vencimiento, licencia vencida, saldo bajo o agotado, plazo de pago, empresa
-   sin paquetes, límite excedido), renovación quincenal, recordatorios de
+   sin paquetes, límite excedido y aviso anticipado de que la licencia va a
+   quedar por debajo de lo configurado), renovación quincenal, recordatorios de
    cobro, envío de avisos por mail, pantalla de procesos y alertas, avisos y
    renovación automática sí/no en el portal. Todo idempotente y registrado en
    `job_run`.

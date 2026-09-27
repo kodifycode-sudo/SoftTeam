@@ -85,6 +85,13 @@
       "when": 1790524996962,
       "tag": "0011_dos_factores",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790526814512,
+      "tag": "0012_licencia_por_bajar",
+      "breakpoints": true
     }
   ]
 }

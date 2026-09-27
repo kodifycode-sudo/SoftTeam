@@ -38,6 +38,7 @@ export const tipoAlerta = pgEnum("tipo_alerta", [
   "LICENCIA_VENCIDA",
   "EMPRESA_SIN_PAQUETE",
   "LIMITE_EXCEDIDO",
+  "LICENCIA_POR_BAJAR",
   "PAGO_RECHAZADO",
   "LINK_PAGO_REENVIADO",
   "RENOVACION_GENERADA",

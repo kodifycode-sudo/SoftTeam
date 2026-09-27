@@ -168,6 +168,72 @@ describe("proceso diario", () => {
     const excedido = (await alertasDe(empresa.id)).find((a) => a.tipo === "LIMITE_EXCEDIDO");
     expect(excedido?.mensaje).toContain("usuarios de Prodigal: 3 activos de 2");
   });
+
+  /** Dos paquetes de 2 usuarios de Prodigal (uno vence el 31/12 y otro el 20/10) y 3 usuarios activos. */
+  async function licenciaQueVaABajar(prefijo: string) {
+    const { empresa, orden } = await empresaConContrato({ hasta: fecha("2026-12-31") });
+    const vence = await crearContratoDePrueba(
+      db,
+      { empresaId: empresa.id, ordenId: orden.id },
+      {
+        codigoPaquete: "PRO-INICIAL",
+        estado: "ACTIVO",
+        desde: fecha("2026-10-01"),
+        hasta: fecha("2026-10-20"),
+      },
+    );
+    await db.insert(t.colaboradores).values(
+      [1, 2, 3].map((n) => ({
+        empresaId: empresa.id,
+        nombre: `Usuario ${n}`,
+        email: `${prefijo}${n}.${empresa.numero}@test.com`,
+        accesoProdigal: true,
+      })),
+    );
+    return { empresa, orden, vence };
+  }
+
+  it("avisa antes de que un vencimiento deje la licencia por debajo de lo configurado", async () => {
+    const { empresa } = await licenciaQueVaABajar("b");
+    const porBajar = async () =>
+      (await alertasDe(empresa.id)).filter((a) => a.tipo === "LICENCIA_POR_BAJAR");
+
+    // A más de 15 días del vencimiento, todavía no.
+    await procesoDiario(db, fecha("2026-10-02"));
+    expect(await porBajar()).toEqual([]);
+
+    await procesoDiario(db, fecha("2026-10-10"));
+    const [aviso] = await porBajar();
+    expect(aviso?.mensaje).toContain("vence Prodigal");
+    expect(aviso?.mensaje).toContain("usuarios de Prodigal: 3 activos de 2");
+    // Hoy alcanza: todavía no hay exceso.
+    expect((await alertasDe(empresa.id)).some((a) => a.tipo === "LIMITE_EXCEDIDO")).toBe(false);
+
+    // Volver a correr el proceso no duplica el aviso.
+    await procesoDiario(db, fecha("2026-10-11"));
+    expect(await porBajar()).toHaveLength(1);
+  });
+
+  it("no avisa si la renovación ya está vigente para esa fecha", async () => {
+    const { empresa, orden, vence } = await licenciaQueVaABajar("r");
+    const renovacion = await crearContratoDePrueba(
+      db,
+      { empresaId: empresa.id, ordenId: orden.id },
+      {
+        codigoPaquete: "PRO-INICIAL",
+        estado: "ACTIVO",
+        desde: fecha("2026-10-21"),
+        hasta: fecha("2026-11-20"),
+      },
+    );
+    await db
+      .update(t.contratos)
+      .set({ contratoAnteriorId: vence.id })
+      .where(eq(t.contratos.id, renovacion.id));
+
+    await procesoDiario(db, fecha("2026-10-10"));
+    expect((await alertasDe(empresa.id)).some((a) => a.tipo === "LICENCIA_POR_BAJAR")).toBe(false);
+  });
 });
 
 describe("renovación", () => {
