@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
-import { requerirConfiguracion } from "@/server/auth/sesion";
+import { requerirConfiguracionEmpresa } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { leerMarca } from "@/server/modules/configuracion/marca";
 import { FormularioMarca } from "./formulario";
@@ -8,7 +8,7 @@ import { FormularioMarca } from "./formulario";
 export const metadata: Metadata = { title: "Marca" };
 
 export default async function PaginaMarca() {
-  const contexto = await requerirConfiguracion();
+  const contexto = await requerirConfiguracionEmpresa();
   const marca = await leerMarca(await obtenerDb(), contexto.empresaId);
   return (
     <>

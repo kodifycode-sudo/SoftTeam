@@ -42,6 +42,7 @@ export async function cambiarRenovacionAccion(
     datos.data.contratoId,
     renovar,
     contexto.usuarioId,
+    contexto.alcance,
   );
   if (!resultado.ok) {
     return {

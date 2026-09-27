@@ -3,8 +3,9 @@ import { and, asc, eq, or } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { forbidden, redirect } from "next/navigation";
 import { cache } from "react";
+import { type Alcance, alcanceDe, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { obtenerDb } from "@/server/db";
-import { clientes, colaboradores, empresas } from "@/server/db/schema";
+import { canales, clientes, colaboradores, empresas, oficinas } from "@/server/db/schema";
 import { type RolSofteam, rolSofteamActual } from "@/server/modules/cuentas/usuarios-softeam";
 import { obtenerAuth } from ".";
 
@@ -58,6 +59,13 @@ export interface ContextoCliente {
   adminGeneral: boolean;
   adminComercial: boolean;
   adminOperativo: boolean;
+  /**
+   * Qué parte de la empresa administra. El administrador general siempre
+   * tiene toda la empresa; los demás pueden ser delegados de un canal u oficina.
+   */
+  alcance: Alcance;
+  /** "Oficina 01-002 · Centro" o "Canal 01 · Norte" (`null` con toda la empresa). */
+  alcanceNombre: string | null;
   /** Empresas que puede administrar (para el selector). */
   empresas: { id: string; nombre: string; numero: number }[];
 }
@@ -82,9 +90,17 @@ export const requerirCliente = cache(async (): Promise<ContextoCliente> => {
       adminGeneral: colaboradores.adminGeneral,
       adminComercial: colaboradores.adminComercial,
       adminOperativo: colaboradores.adminOperativo,
+      canalId: colaboradores.canalId,
+      oficinaId: colaboradores.oficinaId,
+      canalCodigo: canales.codigo,
+      canalNombre: canales.nombre,
+      oficinaCodigo: oficinas.codigo,
+      oficinaNombre: oficinas.nombre,
     })
     .from(colaboradores)
     .innerJoin(empresas, eq(empresas.id, colaboradores.empresaId))
+    .leftJoin(canales, eq(canales.id, colaboradores.canalId))
+    .leftJoin(oficinas, eq(oficinas.id, colaboradores.oficinaId))
     .innerJoin(clientes, eq(clientes.id, empresas.clienteId))
     .where(
       and(
@@ -105,11 +121,21 @@ export const requerirCliente = cache(async (): Promise<ContextoCliente> => {
   const elegida = (await cookies()).get(COOKIE_EMPRESA)?.value;
   const actual = filas.find((f) => f.empresaId === elegida) ?? (filas[0] as (typeof filas)[number]);
 
+  const { canalId, oficinaId, canalCodigo, canalNombre, oficinaCodigo, oficinaNombre, ...datos } =
+    actual;
+  const alcance = actual.adminGeneral ? TODA_LA_EMPRESA : alcanceDe({ canalId, oficinaId });
   return {
     usuarioId: sesion.user.id,
     nombreUsuario: sesion.user.name,
     email: sesion.user.email,
-    ...actual,
+    ...datos,
+    alcance,
+    alcanceNombre:
+      alcance.tipo === "oficina"
+        ? `Oficina ${canalCodigo}-${oficinaCodigo} · ${oficinaNombre}`
+        : alcance.tipo === "canal"
+          ? `Canal ${canalCodigo} · ${canalNombre}`
+          : null,
     empresas: filas.map((f) => ({
       id: f.empresaId,
       nombre: f.empresaNombre,
@@ -121,11 +147,37 @@ export const requerirCliente = cache(async (): Promise<ContextoCliente> => {
 /** Permisos del portal: comercial (paquetes y pagos) u operativo (configuración). */
 export const puedeComprar = (c: ContextoCliente) => c.adminGeneral || c.adminComercial;
 export const puedeConfigurar = (c: ContextoCliente) => c.adminGeneral || c.adminOperativo;
+/** Lo que es de toda la empresa (aseguradoras, políticas, marca, oficinas): no para delegados. */
+export const puedeConfigurarEmpresa = (c: ContextoCliente) =>
+  puedeConfigurar(c) && c.alcance.tipo === "empresa";
+/**
+ * Contratar: la empresa o, en la compra delegada, una oficina. Un delegado de
+ * canal ve las compras de sus oficinas pero no compra (no hay una oficina a
+ * la que asignar los paquetes).
+ */
+export const puedeContratar = (c: ContextoCliente) => puedeComprar(c) && c.alcance.tipo !== "canal";
+/** Oficina a la que se asigna lo que se compra (`null`: toda la empresa). */
+export const oficinaDeCompra = (c: ContextoCliente) =>
+  c.alcance.tipo === "oficina" ? c.alcance.oficinaId : null;
 
 /** Exige permiso de configuración (páginas de usuarios, aseguradoras, productores y políticas). */
 export async function requerirConfiguracion(): Promise<ContextoCliente> {
   const contexto = await requerirCliente();
   if (!puedeConfigurar(contexto)) forbidden();
+  return contexto;
+}
+
+/** Exige configurar lo que es de toda la empresa (no alcanza con ser delegado). */
+export async function requerirConfiguracionEmpresa(): Promise<ContextoCliente> {
+  const contexto = await requerirCliente();
+  if (!puedeConfigurarEmpresa(contexto)) forbidden();
+  return contexto;
+}
+
+/** Exige poder contratar paquetes (carrito y checkout). */
+export async function requerirContratacion(): Promise<ContextoCliente> {
+  const contexto = await requerirCliente();
+  if (!puedeContratar(contexto)) forbidden();
   return contexto;
 }
 

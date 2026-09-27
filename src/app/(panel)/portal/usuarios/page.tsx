@@ -111,16 +111,20 @@ export default async function PaginaUsuarios() {
   const contexto = await requerirConfiguracion();
   const db = await obtenerDb();
   const [colaboradores, uso, canales, oficinas] = await Promise.all([
-    listarColaboradores(db, contexto.empresaId),
+    listarColaboradores(db, contexto.empresaId, contexto.alcance),
     usoDeLimites(db, contexto.empresaId),
     listarCanales(db, contexto.empresaId),
-    listarOficinas(db, contexto.empresaId),
+    listarOficinas(db, contexto.empresaId, contexto.alcance),
   ]);
 
+  // Un delegado solo asigna lo que administra: su canal (y sus oficinas) o su oficina.
+  const { alcance } = contexto;
   const alcances: OpcionAlcance[] = [
-    { valor: "empresa", etiqueta: "Toda la empresa" },
+    ...(alcance.tipo === "empresa" ? [{ valor: "empresa", etiqueta: "Toda la empresa" }] : []),
     ...canales.flatMap((c) => [
-      { valor: `canal:${c.id}`, etiqueta: `Canal ${c.codigo} · ${c.nombre}` },
+      ...(alcance.tipo === "empresa" || (alcance.tipo === "canal" && alcance.canalId === c.id)
+        ? [{ valor: `canal:${c.id}`, etiqueta: `Canal ${c.codigo} · ${c.nombre}` }]
+        : []),
       ...oficinas
         .filter((o) => o.canalId === c.id)
         .map((o) => ({
@@ -140,7 +144,11 @@ export default async function PaginaUsuarios() {
     <>
       <EncabezadoPagina
         titulo="Usuarios"
-        descripcion="Quiénes usan los productos de la empresa y quiénes administran la cuenta."
+        descripcion={
+          contexto.alcanceNombre
+            ? `Usuarios de ${contexto.alcanceNombre}. Las licencias son de toda la empresa: los contadores muestran el total.`
+            : "Quiénes usan los productos de la empresa y quiénes administran la cuenta."
+        }
         acciones={<BotonNuevoColaborador {...comunes} />}
       />
 

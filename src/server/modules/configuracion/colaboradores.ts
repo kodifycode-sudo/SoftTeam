@@ -1,5 +1,6 @@
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
+import { type Alcance, abarca, alcanceDe, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import {
   type ErrorLimite,
   type ErrorPermisos,
@@ -13,11 +14,17 @@ import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { colaboradorEnAlcance } from "../cuentas/alcance";
 import { asegurarUsuario, normalizarEmail, type UsuarioLogin } from "../cuentas/usuarios";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { COLUMNA_ACCESO, usoDeLimites } from "./limites";
 
-export async function listarColaboradores(db: Ejecutor, empresaId: string) {
+/** Colaboradores de la empresa (o solo los del alcance de un delegado). */
+export async function listarColaboradores(
+  db: Ejecutor,
+  empresaId: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
+) {
   return db
     .select({
       id: t.colaboradores.id,
@@ -50,7 +57,7 @@ export async function listarColaboradores(db: Ejecutor, empresaId: string) {
     .from(t.colaboradores)
     .leftJoin(t.canales, eq(t.canales.id, t.colaboradores.canalId))
     .leftJoin(t.usuarios, eq(t.usuarios.id, t.colaboradores.usuarioId))
-    .where(eq(t.colaboradores.empresaId, empresaId))
+    .where(and(eq(t.colaboradores.empresaId, empresaId), colaboradorEnAlcance(alcance)))
     .orderBy(sql`${t.colaboradores.activo} desc`, asc(t.colaboradores.nombre));
 }
 
@@ -92,6 +99,8 @@ export interface Actor {
   adminGeneral: boolean;
   adminComercial: boolean;
   adminOperativo: boolean;
+  /** Un delegado solo ve y gestiona colaboradores de su canal u oficina. */
+  alcance: Alcance;
 }
 
 export type ErrorColaborador =
@@ -99,6 +108,7 @@ export type ErrorColaborador =
   | ErrorLimite
   | "NO_EXISTE"
   | "ALCANCE_INVALIDO"
+  | "GENERAL_TODA_LA_EMPRESA"
   | "EMAIL_DUPLICADO"
   | "PRODIGAL_DUPLICADO"
   | "ES_SOFTEAM";
@@ -297,10 +307,12 @@ async function bloquearEmpresa(tx: Ejecutor, empresaId: string) {
     .for("update");
 }
 
-async function cargar(tx: Ejecutor, empresaId: string, id: string) {
-  return tx.query.colaboradores.findFirst({
+/** Colaborador de la empresa, si está dentro del alcance de quien lo gestiona. */
+async function cargar(tx: Ejecutor, empresaId: string, id: string, alcance: Alcance) {
+  const fila = await tx.query.colaboradores.findFirst({
     where: and(eq(t.colaboradores.id, id), eq(t.colaboradores.empresaId, empresaId)),
   });
+  return fila && abarca(alcance, alcanceDe(fila)) ? fila : undefined;
 }
 
 /** Alta o modificación de un colaborador desde el portal. */
@@ -313,10 +325,17 @@ export async function guardarColaborador(
 ): Promise<ResultadoColaborador> {
   return db.transaction(async (tx) => {
     await bloquearEmpresa(tx, empresaId);
-    const antes = entrada.id ? await cargar(tx, empresaId, entrada.id) : undefined;
+    const antes = entrada.id ? await cargar(tx, empresaId, entrada.id, actor.alcance) : undefined;
     if (entrada.id && !antes) return { ok: false, error: "NO_EXISTE" };
     const alcance = await resolverAlcance(tx, empresaId, entrada.alcance);
-    if (!alcance) return { ok: false, error: "ALCANCE_INVALIDO" };
+    // Un delegado solo asigna su canal u oficina (o una oficina de su canal).
+    if (!alcance || !abarca(actor.alcance, alcanceDe(alcance))) {
+      return { ok: false, error: "ALCANCE_INVALIDO" };
+    }
+    // El administrador general administra todo: no puede tener un alcance menor.
+    if (entrada.adminGeneral && alcance.canalId) {
+      return { ok: false, error: "GENERAL_TODA_LA_EMPRESA" };
+    }
     return aplicar(
       tx,
       empresaId,
@@ -354,7 +373,7 @@ export async function cambiarEstadoColaborador(
 ): Promise<ResultadoColaborador> {
   return db.transaction(async (tx) => {
     await bloquearEmpresa(tx, empresaId);
-    const antes = await cargar(tx, empresaId, id);
+    const antes = await cargar(tx, empresaId, id, actor.alcance);
     if (!antes) return { ok: false, error: "NO_EXISTE" };
     return aplicar(tx, empresaId, antes, { ...antes, activo }, actor, hoy);
   });

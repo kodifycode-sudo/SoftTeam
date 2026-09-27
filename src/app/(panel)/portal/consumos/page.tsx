@@ -41,7 +41,12 @@ const fechaHora = (d: Date) =>
 
 export default async function PaginaConsumos() {
   const contexto = await requerirCliente();
-  const consumos = await consumosDeEmpresa(await obtenerDb(), contexto.empresaId, 200);
+  const consumos = await consumosDeEmpresa(
+    await obtenerDb(),
+    contexto.empresaId,
+    200,
+    contexto.alcance,
+  );
 
   return (
     <>

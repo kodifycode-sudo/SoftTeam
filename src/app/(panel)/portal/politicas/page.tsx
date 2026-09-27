@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
-import { requerirConfiguracion } from "@/server/auth/sesion";
+import { requerirConfiguracionEmpresa } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { leerPoliticas } from "@/server/modules/configuracion/politicas";
 import { FormularioPoliticas } from "./formulario";
@@ -8,7 +8,7 @@ import { FormularioPoliticas } from "./formulario";
 export const metadata: Metadata = { title: "Políticas" };
 
 export default async function PaginaPoliticas() {
-  const contexto = await requerirConfiguracion();
+  const contexto = await requerirConfiguracionEmpresa();
   const politicas = await leerPoliticas(await obtenerDb(), contexto.empresaId);
   return (
     <>

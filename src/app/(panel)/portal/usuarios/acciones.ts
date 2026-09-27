@@ -15,6 +15,7 @@ import {
   type ResultadoColaborador,
 } from "@/server/modules/configuracion/colaboradores";
 import { NOMBRE_PRODUCTO } from "@/server/modules/configuracion/limites";
+import { colaboradorEnAlcance } from "@/server/modules/cuentas/alcance";
 import { enviarInvitacion } from "@/server/modules/cuentas/invitaciones";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 
@@ -24,6 +25,7 @@ const actorDe = (c: ContextoCliente): Actor => ({
   adminGeneral: c.adminGeneral,
   adminComercial: c.adminComercial,
   adminOperativo: c.adminOperativo,
+  alcance: c.alcance,
 });
 
 /** Traduce un rechazo a un mensaje (general o de un campo). */
@@ -40,7 +42,16 @@ function rechazo(
     case "PRODIGAL_DUPLICADO":
       return { errores: { usuarioProdigal: ["Ese usuario de Prodigal ya está en uso."] }, valores };
     case "ALCANCE_INVALIDO":
-      return { errores: { alcance: ["Elegí un canal u oficina de la empresa."] }, valores };
+      return { errores: { alcance: ["Elegí un canal u oficina que administres."] }, valores };
+    case "GENERAL_TODA_LA_EMPRESA":
+      return {
+        errores: {
+          alcance: [
+            "Un administrador general ve toda la empresa. Para una oficina, dale permisos de paquetes o de configuración.",
+          ],
+        },
+        valores,
+      };
     case "LIMITE_ALCANZADO":
       return {
         mensaje: `Ya usás todos los usuarios de ${producto} (${r.detalle}). Dá de baja a alguien o sumá usuarios con un paquete.`,
@@ -153,7 +164,13 @@ export async function reenviarInvitacionColaboradorAccion(
     .select({ nombre: t.colaboradores.nombre, activo: t.colaboradores.activo, usuario: t.usuarios })
     .from(t.colaboradores)
     .innerJoin(t.usuarios, eq(t.usuarios.id, t.colaboradores.usuarioId))
-    .where(and(eq(t.colaboradores.id, id.data), eq(t.colaboradores.empresaId, contexto.empresaId)));
+    .where(
+      and(
+        eq(t.colaboradores.id, id.data),
+        eq(t.colaboradores.empresaId, contexto.empresaId),
+        colaboradorEnAlcance(contexto.alcance),
+      ),
+    );
   if (!fila?.activo) return { mensaje: "Ese usuario no tiene acceso a STLic." };
   await enviarInvitacion(
     {

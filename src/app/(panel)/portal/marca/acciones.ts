@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
-import { requerirConfiguracion } from "@/server/auth/sesion";
+import { requerirConfiguracionEmpresa } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { type CambioLogo, esquemaMarca, guardarMarca } from "@/server/modules/configuracion/marca";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
@@ -17,7 +17,7 @@ export async function guardarMarcaAccion(
   _: EstadoFormulario,
   formData: FormData,
 ): Promise<EstadoFormulario> {
-  const contexto = await requerirConfiguracion();
+  const contexto = await requerirConfiguracionEmpresa();
   const valores = valoresDe(formData);
   const vacio = (campo: string) => valores[campo]?.trim() || undefined;
   const datos = esquemaMarca.safeParse({

@@ -163,6 +163,9 @@ function ContenidoColaborador({
                 </option>
               ))}
             </SelectNativo>
+            <FieldDescription>
+              Con un canal u oficina y algún permiso, administra solo esa parte de la empresa.
+            </FieldDescription>
             <FieldError errors={estado.errores?.alcance?.map((message) => ({ message }))} />
           </Field>
           <Campo

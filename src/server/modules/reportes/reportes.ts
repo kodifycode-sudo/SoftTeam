@@ -1,8 +1,10 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { centavos } from "@/domain/dinero";
 import { diasEntre, type Fecha, inicioDeMes, sumarDias, sumarMeses } from "@/domain/fecha";
 import type { Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
+import { oficinaEnAlcance } from "../cuentas/alcance";
 
 /*
  * Reportes para SOFTeam. Los meses se cuentan en hora de Argentina (UTC−3,
@@ -343,7 +345,13 @@ export async function incidentesPorEstado(db: Ejecutor) {
 // ─── Portal ──────────────────────────────────────────────────────────────────
 
 /** Historial de consumos de una empresa, lo más reciente primero. */
-export async function consumosDeEmpresa(db: Ejecutor, empresaId: string, limite = 500) {
+/** Consumos de la empresa (un delegado ve los de sus oficinas). */
+export async function consumosDeEmpresa(
+  db: Ejecutor,
+  empresaId: string,
+  limite = 500,
+  alcance: Alcance = TODA_LA_EMPRESA,
+) {
   return db
     .select({
       id: t.consumos.id,
@@ -360,7 +368,9 @@ export async function consumosDeEmpresa(db: Ejecutor, empresaId: string, limite 
       >`(select c.codigo || '-' || o.codigo from ${t.oficinas} o join ${t.canales} c on c.id = o.canal_id where o.id = "consumos"."oficina_id")`,
     })
     .from(t.consumos)
-    .where(eq(t.consumos.empresaId, empresaId))
+    .where(
+      and(eq(t.consumos.empresaId, empresaId), oficinaEnAlcance(t.consumos.oficinaId, alcance)),
+    )
     .orderBy(desc(t.consumos.registradoEn))
     .limit(limite);
 }

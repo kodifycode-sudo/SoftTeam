@@ -14,7 +14,11 @@ export async function pagarOrdenAccion(formData: FormData): Promise<void> {
   if (!id.success) redirect("/portal/ordenes");
   const link = await obtenerLinkDePago(await obtenerDb(), obtenerPasarela(), id.data, {
     urlBase,
-    alcance: { empresaId: contexto.empresaId, clienteId: contexto.clienteId },
+    alcance: {
+      empresaId: contexto.empresaId,
+      clienteId: contexto.clienteId,
+      alcance: contexto.alcance,
+    },
   });
   if (!link.ok) redirect(`/portal/ordenes/${id.data}?pago=no-disponible`);
   redirect(link.url);

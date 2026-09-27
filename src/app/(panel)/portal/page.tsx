@@ -23,6 +23,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { abarcaOficina } from "@/domain/cuentas/alcance";
 import { diasEntre, hoy } from "@/domain/fecha";
 import { fechaCorta, numero } from "@/lib/formato";
 import { productoUI } from "@/lib/productos";
@@ -129,10 +130,15 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
   const db = await obtenerDb();
   const fechaHoy = hoy();
   const licencia = await licenciaDeEmpresa(db, contexto.empresaId, fechaHoy);
+  // La licencia es de toda la empresa; un delegado ve y renueva solo los paquetes de sus oficinas.
+  const delegado = contexto.alcance.tipo !== "empresa";
+  const vencimientos = licencia.contratosVigentes.filter((c) =>
+    abarcaOficina(contexto.alcance, c.oficina),
+  );
   const renovaciones = await estadoDeRenovacion(
     db,
     contexto.empresaId,
-    licencia.contratosVigentes.filter((c) => c.tipoPaquete === "TEMPORAL").map((c) => c.id),
+    vencimientos.filter((c) => c.tipoPaquete === "TEMPORAL").map((c) => c.id),
   );
   const comercial = puedeComprar(contexto);
   const completados = await pasosCompletados(db, contexto.empresaId, licencia.productos.length > 0);
@@ -159,13 +165,19 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
       <EncabezadoPagina
         etiqueta={fechaCorta(fechaHoy)}
         titulo={`Hola, ${nombre}`}
-        descripcion="Este es el estado de tus licencias."
+        descripcion={
+          contexto.alcanceNombre
+            ? `Administrás ${contexto.alcanceNombre}. La licencia es de toda la empresa.`
+            : "Este es el estado de tus licencias."
+        }
       />
 
-      <PrimerosPasos
-        completados={completados}
-        permisos={{ comercial, configuracion: puedeConfigurar(contexto) }}
-      />
+      {!delegado && (
+        <PrimerosPasos
+          completados={completados}
+          permisos={{ comercial, configuracion: puedeConfigurar(contexto) }}
+        />
+      )}
 
       <section className="relative mb-8 overflow-hidden rounded-3xl bg-navy p-6 text-navy-foreground sm:p-8">
         <div
@@ -264,11 +276,20 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
               <CardTitle className="flex items-center gap-2">
                 <CalendarClock className="size-4 text-primary" /> Vencimientos
               </CardTitle>
-              <CardDescription>Paquetes vigentes y cuándo vencen.</CardDescription>
+              <CardDescription>
+                {delegado
+                  ? "Paquetes asignados a tus oficinas y cuándo vencen."
+                  : "Paquetes vigentes y cuándo vencen."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
+              {vencimientos.length === 0 && (
+                <p className="py-3 text-sm text-muted-foreground">
+                  Todavía no hay paquetes asignados a tus oficinas.
+                </p>
+              )}
               <ul className="divide-y">
-                {licencia.contratosVigentes.map((c) => {
+                {vencimientos.map((c) => {
                   const dias = c.hasta ? diasEntre(fechaHoy, c.hasta) : null;
                   return (
                     <li key={c.id} className="flex items-center justify-between gap-3 py-3">

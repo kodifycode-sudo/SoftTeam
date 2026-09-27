@@ -50,8 +50,8 @@ export default async function PaginaProductor({
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const db = await obtenerDb();
   const [productor, oficinas, aseguradoras, uso] = await Promise.all([
-    obtenerProductor(db, contexto.empresaId, id),
-    listarOficinas(db, contexto.empresaId),
+    obtenerProductor(db, contexto.empresaId, id, contexto.alcance),
+    listarOficinas(db, contexto.empresaId, contexto.alcance),
     listarAseguradorasEmpresa(db, contexto.empresaId),
     usoDeLimites(db, contexto.empresaId),
   ]);
@@ -96,6 +96,7 @@ export default async function PaginaProductor({
                 etiqueta: `${o.canalCodigo}-${o.codigo} · ${o.nombre}`,
               }))}
               tieneInstitorio={uso.funciones.has("prodigal.institorio")}
+              sinOficina={contexto.alcance.tipo === "empresa"}
             />
             <form action={cambiarEstadoProductorAccion}>
               <input type="hidden" name="id" value={productor.id} />

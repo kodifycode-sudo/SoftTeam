@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { excedeLicencia, TIPOS_INTERFAZ, type TipoInterfaz } from "@/domain/cuentas/limites";
 import { fechaCorta } from "@/lib/formato";
 import { cn } from "@/lib/utils";
-import { requerirConfiguracion } from "@/server/auth/sesion";
+import { requerirConfiguracionEmpresa } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import {
   type EstadoInterfaz,
@@ -39,7 +39,7 @@ function ayudaInterfaz(i: EstadoInterfaz, trabaja: boolean, licenciado: boolean)
 export default async function PaginaAseguradoras({
   searchParams,
 }: PageProps<"/portal/aseguradoras">) {
-  const contexto = await requerirConfiguracion();
+  const contexto = await requerirConfiguracionEmpresa();
   const { q } = await searchParams;
   const busqueda = typeof q === "string" ? q.trim().toLowerCase() : "";
   const db = await obtenerDb();

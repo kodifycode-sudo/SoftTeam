@@ -26,6 +26,7 @@ export default async function OrdenPortal({
   const detalle = await obtenerOrden(db, id, {
     empresaId: contexto.empresaId,
     clienteId: contexto.clienteId,
+    alcance: contexto.alcance,
   });
   if (!detalle) notFound();
 

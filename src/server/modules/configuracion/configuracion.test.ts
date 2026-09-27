@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+import { TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { fecha } from "@/domain/fecha";
 import type { Db } from "@/server/db/cliente";
 import { crearContratoDePrueba, crearDbDePrueba, crearEmpresaDePrueba } from "@/server/db/pruebas";
@@ -52,6 +53,7 @@ async function preparar(codigoPaquete = "PRO-INICIAL") {
     adminGeneral: true,
     adminComercial: false,
     adminOperativo: false,
+    alcance: TODA_LA_EMPRESA,
   };
   return { empresa, admin: admin!, actor };
 }

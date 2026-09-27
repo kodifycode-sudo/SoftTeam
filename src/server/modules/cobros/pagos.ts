@@ -6,7 +6,7 @@ import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
 import { registrarAlerta } from "../procesos/alertas";
-import { alcanceDeOrden, registrarPago } from "../ventas/ordenes";
+import { type AlcanceOrden, alcanceDeOrden, registrarPago } from "../ventas/ordenes";
 
 const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -21,7 +21,7 @@ export async function obtenerLinkDePago(
   db: Ejecutor,
   pasarela: Pasarela | null,
   ordenId: string,
-  opciones: { urlBase: string; alcance?: { empresaId?: string; clienteId?: string } },
+  opciones: { urlBase: string; alcance?: AlcanceOrden },
 ): Promise<{ ok: true; url: string } | { ok: false; error: ErrorLink }> {
   if (!ES_UUID.test(ordenId)) return { ok: false, error: "NO_EXISTE" };
   const [fila] = await db

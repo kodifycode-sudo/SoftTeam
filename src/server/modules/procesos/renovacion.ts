@@ -143,7 +143,8 @@ export async function procesoRenovacion(
     const agrupada = medio.planilla;
     const clave = agrupada
       ? `agrupada:${clienteFacturacionId}:${medio.id}`
-      : `empresa:${c.empresa.id}:${medio.id}`;
+      : // Cada oficina con compra delegada renueva en su propia orden.
+        `empresa:${c.empresa.id}:${c.contrato.oficinaId ?? "empresa"}:${medio.id}`;
     const grupo = porClave.get(clave) ?? {
       clave,
       medio,

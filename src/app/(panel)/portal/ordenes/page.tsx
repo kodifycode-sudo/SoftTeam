@@ -27,6 +27,7 @@ export default async function MisOrdenes() {
   const ordenes = await listarOrdenes(db, {
     empresaId: contexto.empresaId,
     clienteId: contexto.clienteId,
+    alcance: contexto.alcance,
   });
 
   return (

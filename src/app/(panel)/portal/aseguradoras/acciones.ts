@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { fechaCorta } from "@/lib/formato";
 import type { EstadoFormulario } from "@/lib/formulario";
-import { requerirConfiguracion } from "@/server/auth/sesion";
+import { requerirConfiguracionEmpresa } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import {
   cambiarAseguradora,
@@ -18,7 +18,7 @@ export async function cambiarAseguradoraAccion(
   _: EstadoFormulario,
   formData: FormData,
 ): Promise<EstadoFormulario> {
-  const contexto = await requerirConfiguracion();
+  const contexto = await requerirConfiguracionEmpresa();
   const datos = esquemaCambioAseguradora.safeParse({
     aseguradoraId: formData.get("aseguradoraId"),
     cambio: formData.get("cambio"),

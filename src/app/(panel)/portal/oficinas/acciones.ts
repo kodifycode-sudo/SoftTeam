@@ -12,11 +12,16 @@ export async function crearOficinaAccion(
   formData: FormData,
 ): Promise<EstadoFormulario> {
   const contexto = await requerirCliente();
-  if (!contexto.adminGeneral && !contexto.adminOperativo) {
+  const { alcance } = contexto;
+  if ((!contexto.adminGeneral && !contexto.adminOperativo) || alcance.tipo === "oficina") {
     return { mensaje: "No tenés permiso para configurar oficinas." };
   }
   const valores = valoresDe(formData);
   const nuevoCanal = valores.canalId === "nuevo";
+  // Un delegado de canal solo suma oficinas a su canal.
+  if (alcance.tipo === "canal" && (nuevoCanal || valores.canalId !== alcance.canalId)) {
+    return { errores: { canalId: ["Solo podés crear oficinas en tu canal."] }, valores };
+  }
   const datos = esquemaOficina.safeParse({
     nombre: valores.nombre,
     telefono: valores.telefono || undefined,

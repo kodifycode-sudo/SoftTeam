@@ -14,10 +14,15 @@ export default async function PaginaOficinas() {
   const contexto = await requerirCliente();
   const db = await obtenerDb();
   const [oficinas, canales] = await Promise.all([
-    listarOficinas(db, contexto.empresaId),
+    listarOficinas(db, contexto.empresaId, contexto.alcance),
     listarCanales(db, contexto.empresaId),
   ]);
-  const puedeConfigurar = contexto.adminGeneral || contexto.adminOperativo;
+  const { alcance } = contexto;
+  // Un delegado de oficina solo ve la suya; uno de canal puede sumar oficinas a su canal.
+  const puedeConfigurar =
+    (contexto.adminGeneral || contexto.adminOperativo) && alcance.tipo !== "oficina";
+  const canalesPropios =
+    alcance.tipo === "canal" ? canales.filter((c) => c.id === alcance.canalId) : canales;
   const porCanal = canales
     .map((c) => ({ ...c, oficinas: oficinas.filter((o) => o.canalId === c.id) }))
     .filter((c) => c.oficinas.length > 0);
@@ -26,11 +31,20 @@ export default async function PaginaOficinas() {
     <>
       <EncabezadoPagina
         titulo="Oficinas"
-        descripcion="Las oficinas se agrupan en canales. Sirven para limitar qué ve cada usuario y para repartir los consumos."
+        descripcion={
+          contexto.alcanceNombre
+            ? `Las oficinas que administrás (${contexto.alcanceNombre}).`
+            : "Las oficinas se agrupan en canales. Sirven para limitar qué ve cada usuario y para repartir los consumos."
+        }
         acciones={
           puedeConfigurar && (
             <NuevaOficina
-              canales={canales.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre }))}
+              canales={canalesPropios.map((c) => ({
+                id: c.id,
+                codigo: c.codigo,
+                nombre: c.nombre,
+              }))}
+              permitirCanalNuevo={alcance.tipo === "empresa"}
             />
           )
         }

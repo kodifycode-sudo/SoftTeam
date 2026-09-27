@@ -438,9 +438,11 @@ Regla de dependencias: `domain` no importa nada del resto.
 3. ✅ **Compra:** carrito persistente, checkout con cálculo completo (medio de
    pago, IVA, ticket), confirmación transaccional e idempotente, vista de
    orden, registro de pago y cancelación desde SOFTeam. El carrito puede
-   mezclar paquetes temporales y consumibles.
-   *Pendiente de esta fase:* renovación manual desde "Mis paquetes", compra
-   delegada por oficina, bonificación de paquetes por SOFTeam.
+   mezclar paquetes temporales y consumibles. Compra delegada: un
+   administrador de oficina tiene su propio carrito y los contratos quedan
+   asignados a su oficina (también sus renovaciones, en una orden aparte).
+   *Pendiente de esta fase:* renovación manual desde "Mis paquetes", facturar
+   la compra delegada a otro cliente, bonificación de paquetes por SOFTeam.
 4. ✅ **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con
    listado de sincronización, EmpresaFull v1, licencia vigente y consumos
    idempotentes; secretos cifrados (AES-256-GCM); webhooks por outbox con
@@ -454,9 +456,13 @@ Regla de dependencias: `domain` no importa nada del resto.
    rol, menú según rol o permiso, pantalla de auditoría, recuperación de la
    contraseña, catálogo de aseguradoras editable por SOFTeam (interfaces
    disponibles y discontinuación: quien ya trabaja con una discontinuada la
-   conserva hasta darla de baja).
-   *Pendiente:* administradores delegados por oficina (el alcance ya se guarda; falta
-   restringir el portal), 2FA para SOFTeam, alerta cuando la licencia baja por
+   conserva hasta darla de baja). Administradores delegados por canal u
+   oficina: ven y gestionan solo usuarios, productores, oficinas, paquetes,
+   órdenes y consumos de su alcance; lo que es de toda la empresa
+   (aseguradoras, políticas, marca) queda para quien administra toda la
+   empresa. El administrador general siempre tiene toda la empresa; un
+   delegado de canal ve las compras de sus oficinas pero no compra.
+   *Pendiente:* 2FA para SOFTeam, alerta cuando la licencia baja por
    debajo de lo configurado (fase 6).
 6. ✅ **Procesos:** proceso diario (excepciones de pago vencidas, alertas de
    vencimiento, licencia vencida, saldo bajo o agotado, plazo de pago, empresa

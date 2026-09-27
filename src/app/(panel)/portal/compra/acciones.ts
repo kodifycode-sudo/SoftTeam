@@ -4,21 +4,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/formulario";
-import { type ContextoCliente, requerirCliente } from "@/server/auth/sesion";
+import { oficinaDeCompra, puedeContratar, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 import { agregarAlCarrito, cambiarCantidad } from "@/server/modules/ventas/carrito";
 import { confirmarOrden } from "@/server/modules/ventas/checkout";
 import { mensajeRechazoCompra } from "./mensajes";
 
-const puedeComprar = (c: ContextoCliente) => c.adminGeneral || c.adminComercial;
-
 export async function agregarAlCarritoAccion(
   _: EstadoFormulario,
   formData: FormData,
 ): Promise<EstadoFormulario> {
   const contexto = await requerirCliente();
-  if (!puedeComprar(contexto)) return { mensaje: "Tu usuario no puede contratar paquetes." };
+  if (!puedeContratar(contexto)) return { mensaje: "Tu usuario no puede contratar paquetes." };
   const datos = z
     .object({ alternativaId: z.uuid(), cantidad: z.coerce.number().int().min(1).max(99) })
     .safeParse({
@@ -30,6 +28,7 @@ export async function agregarAlCarritoAccion(
   const db = await obtenerDb();
   const resultado = await agregarAlCarrito(db, {
     empresaId: contexto.empresaId,
+    oficinaId: oficinaDeCompra(contexto),
     usuarioId: contexto.usuarioId,
     ...datos.data,
   });
@@ -47,13 +46,17 @@ export async function agregarAlCarritoAccion(
 
 export async function cambiarCantidadAccion(formData: FormData): Promise<void> {
   const contexto = await requerirCliente();
-  if (!puedeComprar(contexto)) return;
+  if (!puedeContratar(contexto)) return;
   const datos = z
     .object({ itemId: z.uuid(), cantidad: z.coerce.number().int().min(0).max(99) })
     .safeParse({ itemId: formData.get("itemId"), cantidad: formData.get("cantidad") });
   if (!datos.success) return;
   const db = await obtenerDb();
-  await cambiarCantidad(db, { empresaId: contexto.empresaId, ...datos.data });
+  await cambiarCantidad(db, {
+    empresaId: contexto.empresaId,
+    oficinaId: oficinaDeCompra(contexto),
+    ...datos.data,
+  });
   revalidatePath("/portal", "layout");
 }
 
@@ -62,7 +65,7 @@ export async function confirmarOrdenAccion(
   formData: FormData,
 ): Promise<EstadoFormulario> {
   const contexto = await requerirCliente();
-  if (!puedeComprar(contexto)) return { mensaje: "Tu usuario no puede contratar paquetes." };
+  if (!puedeContratar(contexto)) return { mensaje: "Tu usuario no puede contratar paquetes." };
   const datos = z
     .object({
       medioPagoId: z.uuid(),
@@ -83,6 +86,7 @@ export async function confirmarOrdenAccion(
   const db = await obtenerDb();
   const resultado = await confirmarOrden(db, {
     empresaId: contexto.empresaId,
+    oficinaId: oficinaDeCompra(contexto),
     usuarioId: contexto.usuarioId,
     medioPagoId: datos.data.medioPagoId,
     ticketCodigo: datos.data.ticketCodigo,

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
-import { requerirConfiguracion } from "@/server/auth/sesion";
+import { requerirConfiguracionEmpresa } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { esquemaPoliticas, guardarPoliticas } from "@/server/modules/configuracion/politicas";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
@@ -11,7 +11,7 @@ export async function guardarPoliticasAccion(
   _: EstadoFormulario,
   formData: FormData,
 ): Promise<EstadoFormulario> {
-  const contexto = await requerirConfiguracion();
+  const contexto = await requerirConfiguracionEmpresa();
   const valores = valoresDe(formData);
   const sinTope = valores.sinTope === "on";
   const datos = esquemaPoliticas.safeParse({

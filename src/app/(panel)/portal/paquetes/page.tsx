@@ -13,7 +13,11 @@ import {
 } from "@/components/ui/empty";
 import { hoy } from "@/domain/fecha";
 import { cn } from "@/lib/utils";
-import { requerirCliente } from "@/server/auth/sesion";
+import {
+  puedeContratar,
+  requerirCliente,
+  puedeComprar as tienePermisoComercial,
+} from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarPaquetes } from "@/server/modules/catalogo/paquetes";
 import { AgregarAlCarrito } from "../compra/agregar";
@@ -22,7 +26,7 @@ export const metadata: Metadata = { title: "Paquetes disponibles" };
 
 export default async function PaquetesDisponibles({ searchParams }: PageProps<"/portal/paquetes">) {
   const contexto = await requerirCliente();
-  const puedeComprar = contexto.adminGeneral || contexto.adminComercial;
+  const puedeComprar = puedeContratar(contexto);
   const { tipo } = await searchParams;
   const tipoElegido = tipo === "CONSUMIBLE" ? "CONSUMIBLE" : "TEMPORAL";
   const db = await obtenerDb();
@@ -33,7 +37,11 @@ export default async function PaquetesDisponibles({ searchParams }: PageProps<"/
     <>
       <EncabezadoPagina
         titulo="Paquetes disponibles"
-        descripcion="Combiná los paquetes que necesites: tu licencia es la suma de todos los que tengas vigentes."
+        descripcion={
+          contexto.alcance.tipo === "oficina"
+            ? `Lo que contrates queda asignado a ${contexto.alcanceNombre} y suma a la licencia de la empresa.`
+            : "Combiná los paquetes que necesites: tu licencia es la suma de todos los que tengas vigentes."
+        }
       />
 
       {!puedeComprar && (
@@ -41,7 +49,9 @@ export default async function PaquetesDisponibles({ searchParams }: PageProps<"/
           <Info className="text-primary" />
           <AlertTitle>Solo consulta</AlertTitle>
           <AlertDescription>
-            Para contratar paquetes hace falta un administrador general o comercial de la empresa.
+            {tienePermisoComercial(contexto)
+              ? "Administrás un canal: la compra delegada es por oficina. Pedile a un administrador de la oficina o de la empresa que contrate."
+              : "Para contratar paquetes hace falta un administrador general o comercial de la empresa."}
           </AlertDescription>
         </Alert>
       )}

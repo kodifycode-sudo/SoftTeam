@@ -1,7 +1,9 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
+import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { oficinaEnAlcance } from "../cuentas/alcance";
 
 export interface EstadoRenovacion {
   noRenovar: boolean;
@@ -54,6 +56,7 @@ export async function cambiarRenovacionAutomatica(
   contratoId: string,
   renovar: boolean,
   actorId: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
 ): Promise<{ ok: true } | { ok: false; error: ErrorRenovacion }> {
   return db.transaction(async (tx) => {
     const [contrato] = await tx
@@ -63,6 +66,8 @@ export async function cambiarRenovacionAutomatica(
         and(
           eq(t.contratos.id, contratoId),
           eq(t.contratos.empresaId, empresaId),
+          // Un delegado solo decide sobre los paquetes de sus oficinas.
+          oficinaEnAlcance(t.contratos.oficinaId, alcance),
           eq(t.contratos.tipoPaquete, "TEMPORAL"),
           inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
         ),

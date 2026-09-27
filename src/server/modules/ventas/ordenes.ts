@@ -1,20 +1,32 @@
 import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import type { Alcance } from "@/domain/cuentas/alcance";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import { periodoAlta, puedeTransicionar } from "@/domain/licencias/contrato";
 import { exito, type Resultado, rechazo } from "@/domain/resultado";
 import type { Db, Ejecutor, Tx } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
+import { ordenEnAlcance } from "../cuentas/alcance";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { cargarSaldos } from "./checkout";
 
 export type EstadoOrden = "PEND_PAGO" | "PAGADA" | "CANCELADA";
 
+export interface AlcanceOrden {
+  empresaId?: string;
+  clienteId?: string;
+  /** Administrador delegado: solo las órdenes con contratos de sus oficinas. */
+  alcance?: Alcance;
+}
+
 /**
  * Alcance del portal: las órdenes de la empresa, más las agrupadas (planilla)
- * que factura su cliente. Sin empresa (panel SOFTeam), todas.
+ * que factura su cliente. Un delegado ve solo las compras de sus oficinas.
+ * Sin empresa (panel SOFTeam), todas.
  */
-export function alcanceDeOrden(alcance: { empresaId?: string; clienteId?: string }) {
+export function alcanceDeOrden(alcance: AlcanceOrden) {
   if (!alcance.empresaId) return undefined;
+  const delegado = alcance.alcance ? ordenEnAlcance(alcance.alcance) : undefined;
+  if (delegado) return and(eq(t.ordenes.empresaId, alcance.empresaId), delegado);
   return or(
     eq(t.ordenes.empresaId, alcance.empresaId),
     alcance.clienteId
@@ -25,9 +37,7 @@ export function alcanceDeOrden(alcance: { empresaId?: string; clienteId?: string
 
 export async function listarOrdenes(
   db: Ejecutor,
-  filtros: {
-    empresaId?: string;
-    clienteId?: string;
+  filtros: AlcanceOrden & {
     estado?: EstadoOrden;
     busqueda?: string;
   } = {},
@@ -71,11 +81,7 @@ export async function listarOrdenes(
  * Orden con sus líneas, contratos y medio de pago. Con `empresaId`, solo la
  * devuelve si pertenece a esa empresa (el portal nunca ve órdenes ajenas).
  */
-export async function obtenerOrden(
-  db: Ejecutor,
-  ordenId: string,
-  alcance: { empresaId?: string; clienteId?: string } = {},
-) {
+export async function obtenerOrden(db: Ejecutor, ordenId: string, alcance: AlcanceOrden = {}) {
   const [orden] = await db
     .select({
       orden: t.ordenes,

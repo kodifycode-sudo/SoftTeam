@@ -32,7 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { pesos, porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
-import { requerirComercial } from "@/server/auth/sesion";
+import { oficinaDeCompra, requerirContratacion } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarCarrito } from "@/server/modules/ventas/carrito";
 import { cotizarCarrito, mediosParaEmpresa } from "@/server/modules/ventas/checkout";
@@ -83,14 +83,13 @@ function BotonCantidad({
 }
 
 export default async function Carrito({ searchParams }: PageProps<"/portal/carrito">) {
-  const contexto = await requerirComercial();
+  const contexto = await requerirContratacion();
+  const oficinaId = oficinaDeCompra(contexto);
   const sp = await searchParams;
   const medioElegido = texto(sp.medio);
   const ticketPedido = texto(sp.ticket)?.trim().toUpperCase() || undefined;
   const db = await obtenerDb();
-  const puedeComprar = contexto.adminGeneral || contexto.adminComercial;
-
-  const items = await listarCarrito(db, contexto.empresaId);
+  const items = await listarCarrito(db, contexto.empresaId, oficinaId);
   if (items.length === 0) {
     return (
       <>
@@ -122,15 +121,20 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
   let cotizacion = await cotizarCarrito(db, contexto.empresaId, {
     medioPagoId: medioElegido,
     ticketCodigo: ticketPedido,
+    oficinaId,
   });
   if (!cotizacion.ok && esRechazoDeTicket(cotizacion.error)) {
     errorTicket = mensajeRechazoCompra(cotizacion.error);
-    cotizacion = await cotizarCarrito(db, contexto.empresaId, { medioPagoId: medioElegido });
+    cotizacion = await cotizarCarrito(db, contexto.empresaId, {
+      medioPagoId: medioElegido,
+      oficinaId,
+    });
   }
   if (!cotizacion.ok && cotizacion.error === "MEDIO_NO_HABILITADO" && medioElegido) {
     aviso = mensajeRechazoCompra(cotizacion.error);
     cotizacion = await cotizarCarrito(db, contexto.empresaId, {
       ticketCodigo: errorTicket ? undefined : ticketPedido,
+      oficinaId,
     });
   }
   if (!cotizacion.ok) aviso = mensajeRechazoCompra(cotizacion.error, cotizacion.detalle);
@@ -143,7 +147,11 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
     <>
       <EncabezadoPagina
         titulo="Tu carrito"
-        descripcion="Revisá los paquetes, elegí cómo pagar y confirmá la orden."
+        descripcion={
+          contexto.alcanceNombre
+            ? `Compra para ${contexto.alcanceNombre}: los paquetes quedan asignados a tu oficina.`
+            : "Revisá los paquetes, elegí cómo pagar y confirmá la orden."
+        }
       />
       {aviso && (
         <Alert variant="destructive" className="mb-6">
@@ -334,18 +342,12 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
                     ? "Tus paquetes se habilitan al confirmar. El pago se gestiona según tu convenio."
                     : "Tus paquetes se activan cuando se acredita el pago. La vigencia empieza ese día: no perdés días."}
                 </p>
-                {puedeComprar ? (
-                  <ConfirmarOrden
-                    medioPagoId={c.medio.id}
-                    ticketCodigo={ticketActual ?? null}
-                    claveIdempotencia={crypto.randomUUID()}
-                    total={pesos(c.calculo.total)}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Para confirmar hace falta un administrador general o comercial.
-                  </p>
-                )}
+                <ConfirmarOrden
+                  medioPagoId={c.medio.id}
+                  ticketCodigo={ticketActual ?? null}
+                  claveIdempotencia={crypto.randomUUID()}
+                  total={pesos(c.calculo.total)}
+                />
               </>
             ) : (
               <p className="text-sm text-muted-foreground">

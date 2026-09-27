@@ -86,11 +86,14 @@ function ContenidoProductor({
   productor,
   oficinas,
   tieneInstitorio,
+  sinOficina = true,
   cerrar,
 }: {
   productor?: DatosProductor;
   oficinas: { id: string; etiqueta: string }[];
   tieneInstitorio: boolean;
+  /** Un delegado asigna siempre una de sus oficinas. */
+  sinOficina?: boolean;
   cerrar: () => void;
 }) {
   const [estado, accion] = useActionState(guardarProductorAccion, ESTADO_INICIAL);
@@ -188,7 +191,7 @@ function ContenidoProductor({
             estado={estado}
             valorInicial={v("oficinaId")}
           >
-            <option value="">Sin oficina</option>
+            {sinOficina && <option value="">Sin oficina</option>}
             {oficinas.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.etiqueta}
@@ -255,6 +258,7 @@ function DialogoProductor({
   productor?: DatosProductor;
   oficinas: { id: string; etiqueta: string }[];
   tieneInstitorio: boolean;
+  sinOficina?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   return (
@@ -281,6 +285,7 @@ function DialogoProductor({
 export function NuevoProductor(props: {
   oficinas: { id: string; etiqueta: string }[];
   tieneInstitorio: boolean;
+  sinOficina?: boolean;
 }) {
   return (
     <DialogoProductor
@@ -298,6 +303,7 @@ export function EditarProductor(props: {
   productor: DatosProductor;
   oficinas: { id: string; etiqueta: string }[];
   tieneInstitorio: boolean;
+  sinOficina?: boolean;
 }) {
   return (
     <DialogoProductor

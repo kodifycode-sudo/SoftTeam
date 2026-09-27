@@ -29,6 +29,8 @@ export interface ContratoVigenteResumen {
   tipoPaquete: "TEMPORAL" | "CONSUMIBLE";
   hasta: Fecha | null;
   cantidad: number;
+  /** Oficina a la que está asignado (compra delegada); `null`: toda la empresa. */
+  oficina: { id: string; canalId: string } | null;
 }
 
 export interface LicenciaEmpresa {
@@ -55,9 +57,12 @@ export async function licenciaDeEmpresa(
       pendPagoActivoHasta: t.contratos.pendPagoActivoHasta,
       cantidad: t.contratos.cantidad,
       paquete: t.paquetes.nombre,
+      oficinaId: t.oficinas.id,
+      oficinaCanalId: t.oficinas.canalId,
     })
     .from(t.contratos)
     .innerJoin(t.paquetes, eq(t.paquetes.id, t.contratos.paqueteId))
+    .leftJoin(t.oficinas, eq(t.oficinas.id, t.contratos.oficinaId))
     .where(
       and(
         eq(t.contratos.empresaId, empresaId),
@@ -195,6 +200,8 @@ export async function licenciaDeEmpresa(
       tipoPaquete: c.tipoPaquete,
       hasta: c.hasta,
       cantidad: c.cantidad,
+      oficina:
+        c.oficinaId && c.oficinaCanalId ? { id: c.oficinaId, canalId: c.oficinaCanalId } : null,
     })),
   };
 }

@@ -20,7 +20,7 @@ import { programarEntregaDeEventos } from "@/server/modules/integraciones/progra
 
 const ERRORES_PRODUCTOR: Record<ErrorProductor, EstadoFormulario["errores"] | string> = {
   NO_EXISTE: "El productor ya no existe.",
-  OFICINA_INVALIDA: { oficinaId: ["Elegí una oficina de la empresa."] },
+  OFICINA_INVALIDA: { oficinaId: ["Elegí una oficina que administres."] },
   CUIT_DUPLICADO: { cuit: ["Ya hay un productor con este CUIT."] },
   SIN_INSTITORIO: {
     agenteInstitorio: ["Tu licencia no incluye agente institorio (lo trae Prodigal Full)."],
@@ -59,7 +59,14 @@ export async function guardarProductorAccion(
     };
   }
   const db = await obtenerDb();
-  const resultado = await guardarProductor(db, contexto.empresaId, datos.data, contexto.usuarioId);
+  const resultado = await guardarProductor(
+    db,
+    contexto.empresaId,
+    datos.data,
+    contexto.usuarioId,
+    undefined,
+    contexto.alcance,
+  );
   if (!resultado.ok) {
     const error = ERRORES_PRODUCTOR[resultado.error];
     return typeof error === "string"
@@ -85,6 +92,7 @@ export async function cambiarEstadoProductorAccion(formData: FormData): Promise<
     datos.data.id,
     datos.data.activo === "true",
     contexto.usuarioId,
+    contexto.alcance,
   );
   programarEntregaDeEventos();
   revalidatePath("/portal/productores");
@@ -109,7 +117,13 @@ export async function agregarCodigoAccion(
   const datos = esquemaCodigo.safeParse(valores);
   if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
   const db = await obtenerDb();
-  const resultado = await agregarCodigo(db, contexto.empresaId, datos.data, contexto.usuarioId);
+  const resultado = await agregarCodigo(
+    db,
+    contexto.empresaId,
+    datos.data,
+    contexto.usuarioId,
+    contexto.alcance,
+  );
   if (!resultado.ok) return { ...ERRORES_CODIGO[resultado.error], valores };
   programarEntregaDeEventos();
   revalidatePath(`/portal/productores/${datos.data.productorId}`);
@@ -121,7 +135,7 @@ export async function quitarCodigoAccion(formData: FormData): Promise<void> {
   const datos = z.object({ id: z.uuid(), productorId: z.uuid() }).safeParse(valoresDe(formData));
   if (!datos.success) return;
   const db = await obtenerDb();
-  await quitarCodigo(db, contexto.empresaId, datos.data.id, contexto.usuarioId);
+  await quitarCodigo(db, contexto.empresaId, datos.data.id, contexto.usuarioId, contexto.alcance);
   programarEntregaDeEventos();
   revalidatePath(`/portal/productores/${datos.data.productorId}`);
 }

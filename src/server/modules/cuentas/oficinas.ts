@@ -1,10 +1,16 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
+import { oficinaEnAlcance } from "./alcance";
 
-export async function listarOficinas(db: Ejecutor, empresaId: string) {
+export async function listarOficinas(
+  db: Ejecutor,
+  empresaId: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
+) {
   return db
     .select({
       id: t.oficinas.id,
@@ -20,7 +26,7 @@ export async function listarOficinas(db: Ejecutor, empresaId: string) {
     })
     .from(t.oficinas)
     .innerJoin(t.canales, eq(t.canales.id, t.oficinas.canalId))
-    .where(eq(t.oficinas.empresaId, empresaId))
+    .where(and(eq(t.oficinas.empresaId, empresaId), oficinaEnAlcance(t.oficinas.id, alcance)))
     .orderBy(asc(t.canales.codigo), asc(t.oficinas.codigo));
 }
 

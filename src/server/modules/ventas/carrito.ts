@@ -6,7 +6,21 @@ import { vendibleHoy } from "../catalogo/paquetes";
 
 export const CANTIDAD_MAXIMA = 99;
 
-export async function listarCarrito(db: Ejecutor, empresaId: string) {
+/**
+ * Carrito de la empresa o, en la compra delegada, de una oficina: cada una
+ * arma y confirma el suyo sin mezclarse.
+ */
+const delCarrito = (empresaId: string, oficinaId: string | null) =>
+  and(
+    eq(t.carritoItems.empresaId, empresaId),
+    oficinaId ? eq(t.carritoItems.oficinaId, oficinaId) : isNull(t.carritoItems.oficinaId),
+  );
+
+export async function listarCarrito(
+  db: Ejecutor,
+  empresaId: string,
+  oficinaId: string | null = null,
+) {
   return db
     .select({
       id: t.carritoItems.id,
@@ -27,17 +41,21 @@ export async function listarCarrito(db: Ejecutor, empresaId: string) {
     .from(t.carritoItems)
     .innerJoin(t.alternativas, eq(t.alternativas.id, t.carritoItems.alternativaId))
     .innerJoin(t.paquetes, eq(t.paquetes.id, t.alternativas.paqueteId))
-    .where(eq(t.carritoItems.empresaId, empresaId))
+    .where(delCarrito(empresaId, oficinaId))
     .orderBy(asc(t.carritoItems.creadoEn));
 }
 
 export type ItemCarrito = Awaited<ReturnType<typeof listarCarrito>>[number];
 
-export async function cantidadEnCarrito(db: Ejecutor, empresaId: string): Promise<number> {
+export async function cantidadEnCarrito(
+  db: Ejecutor,
+  empresaId: string,
+  oficinaId: string | null = null,
+): Promise<number> {
   const [fila] = await db
     .select({ total: sql<number>`coalesce(sum(${t.carritoItems.cantidad}), 0)::int` })
     .from(t.carritoItems)
-    .where(eq(t.carritoItems.empresaId, empresaId));
+    .where(delCarrito(empresaId, oficinaId));
   return fila?.total ?? 0;
 }
 
@@ -50,7 +68,14 @@ export type ErrorCarrito = "NO_DISPONIBLE" | "CANTIDAD_INVALIDA" | "NO_EXISTE";
  */
 export async function agregarAlCarrito(
   db: Db,
-  entrada: { empresaId: string; alternativaId: string; cantidad: number; usuarioId: string },
+  entrada: {
+    empresaId: string;
+    /** Compra delegada: la oficina que compra (`null`: toda la empresa). */
+    oficinaId?: string | null;
+    alternativaId: string;
+    cantidad: number;
+    usuarioId: string;
+  },
   hoy: Fecha = hoyArgentina(),
 ): Promise<{ ok: true } | { ok: false; error: ErrorCarrito }> {
   if (
@@ -82,10 +107,9 @@ export async function agregarAlCarrito(
       .from(t.carritoItems)
       .where(
         and(
-          eq(t.carritoItems.empresaId, entrada.empresaId),
+          delCarrito(entrada.empresaId, entrada.oficinaId ?? null),
           eq(t.carritoItems.alternativaId, entrada.alternativaId),
           eq(t.carritoItems.tipoAccion, "ALTA"),
-          isNull(t.carritoItems.oficinaId),
         ),
       )
       .for("update");
@@ -95,6 +119,7 @@ export async function agregarAlCarrito(
     } else {
       await tx.insert(t.carritoItems).values({
         empresaId: entrada.empresaId,
+        oficinaId: entrada.oficinaId ?? null,
         alternativaId: entrada.alternativaId,
         cantidad: entrada.cantidad,
         agregadoPor: entrada.usuarioId,
@@ -107,7 +132,7 @@ export async function agregarAlCarrito(
 /** Cambia la cantidad de una línea (0 la quita). Siempre acotado a la empresa. */
 export async function cambiarCantidad(
   db: Db,
-  entrada: { empresaId: string; itemId: string; cantidad: number },
+  entrada: { empresaId: string; oficinaId?: string | null; itemId: string; cantidad: number },
 ): Promise<{ ok: true } | { ok: false; error: ErrorCarrito }> {
   if (
     !Number.isInteger(entrada.cantidad) ||
@@ -118,7 +143,7 @@ export async function cambiarCantidad(
   }
   const donde = and(
     eq(t.carritoItems.id, entrada.itemId),
-    eq(t.carritoItems.empresaId, entrada.empresaId),
+    delCarrito(entrada.empresaId, entrada.oficinaId ?? null),
   );
   const filas =
     entrada.cantidad === 0

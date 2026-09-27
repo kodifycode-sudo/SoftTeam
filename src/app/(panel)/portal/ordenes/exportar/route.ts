@@ -12,6 +12,7 @@ export async function GET() {
   const ordenes = await listarOrdenes(await obtenerDb(), {
     empresaId: contexto.empresaId,
     clienteId: contexto.clienteId,
+    alcance: contexto.alcance,
   });
   return respuestaCsv("mis ordenes", ordenes, [
     { titulo: "Orden", valor: (f) => f.numero },

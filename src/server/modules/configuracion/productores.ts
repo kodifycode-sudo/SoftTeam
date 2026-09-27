@@ -1,17 +1,27 @@
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
+import { type Alcance, abarcaOficina, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { esCuitValido, normalizarCuit } from "@/domain/cuentas/cuit";
 import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { oficinaEnAlcance } from "../cuentas/alcance";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { usoDeLimites } from "./limites";
 
 const FUNCION_INSTITORIO = "prodigal.institorio";
 
-export async function listarProductores(db: Ejecutor, empresaId: string) {
+/** Productor de la empresa visible para el alcance (un delegado ve los de sus oficinas). */
+const delAlcance = (empresaId: string, alcance: Alcance) =>
+  and(eq(t.productores.empresaId, empresaId), oficinaEnAlcance(t.productores.oficinaId, alcance));
+
+export async function listarProductores(
+  db: Ejecutor,
+  empresaId: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
+) {
   return db
     .select({
       id: t.productores.id,
@@ -30,13 +40,18 @@ export async function listarProductores(db: Ejecutor, empresaId: string) {
       codigos: sql<number>`(select count(*)::int from ${t.productorCodigos} pc where pc.productor_id = "productores"."id" and pc.activo)`,
     })
     .from(t.productores)
-    .where(eq(t.productores.empresaId, empresaId))
+    .where(delAlcance(empresaId, alcance))
     .orderBy(sql`${t.productores.activo} desc`, asc(t.productores.nombre));
 }
 
-export async function obtenerProductor(db: Ejecutor, empresaId: string, id: string) {
+export async function obtenerProductor(
+  db: Ejecutor,
+  empresaId: string,
+  id: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
+) {
   const productor = await db.query.productores.findFirst({
-    where: and(eq(t.productores.id, id), eq(t.productores.empresaId, empresaId)),
+    where: and(eq(t.productores.id, id), delAlcance(empresaId, alcance)),
   });
   if (!productor) return undefined;
   const codigos = await db
@@ -95,6 +110,7 @@ export async function guardarProductor(
   entrada: EntradaProductor,
   actorId: string,
   hoy: Fecha = hoyArgentina(),
+  alcance: Alcance = TODA_LA_EMPRESA,
 ): Promise<{ ok: true; id: string } | { ok: false; error: ErrorProductor }> {
   return db.transaction(async (tx) => {
     await tx
@@ -104,17 +120,20 @@ export async function guardarProductor(
       .for("update");
     const antes = entrada.id
       ? await tx.query.productores.findFirst({
-          where: and(eq(t.productores.id, entrada.id), eq(t.productores.empresaId, empresaId)),
+          where: and(eq(t.productores.id, entrada.id), delAlcance(empresaId, alcance)),
         })
       : undefined;
     if (entrada.id && !antes) return { ok: false, error: "NO_EXISTE" };
 
-    if (entrada.oficinaId) {
-      const oficina = await tx.query.oficinas.findFirst({
-        columns: { id: true },
-        where: and(eq(t.oficinas.id, entrada.oficinaId), eq(t.oficinas.empresaId, empresaId)),
-      });
-      if (!oficina) return { ok: false, error: "OFICINA_INVALIDA" };
+    // Un delegado asigna el productor a una de sus oficinas (sin oficina es de toda la empresa).
+    const oficina = entrada.oficinaId
+      ? await tx.query.oficinas.findFirst({
+          columns: { id: true, canalId: true },
+          where: and(eq(t.oficinas.id, entrada.oficinaId), eq(t.oficinas.empresaId, empresaId)),
+        })
+      : null;
+    if ((entrada.oficinaId && !oficina) || !abarcaOficina(alcance, oficina ?? null)) {
+      return { ok: false, error: "OFICINA_INVALIDA" };
     }
     if (entrada.cuit) {
       const repetido = await tx.query.productores.findFirst({
@@ -180,12 +199,13 @@ export async function cambiarEstadoProductor(
   id: string,
   activo: boolean,
   actorId: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const [actualizado] = await tx
       .update(t.productores)
       .set({ activo })
-      .where(and(eq(t.productores.id, id), eq(t.productores.empresaId, empresaId)))
+      .where(and(eq(t.productores.id, id), delAlcance(empresaId, alcance)))
       .returning({ id: t.productores.id });
     if (!actualizado) return false;
     await registrarCambioEmpresa(tx, [empresaId]);
@@ -226,10 +246,11 @@ export async function agregarCodigo(
   empresaId: string,
   entrada: EntradaCodigo,
   actorId: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
 ): Promise<{ ok: true } | { ok: false; error: ErrorCodigo }> {
   return db.transaction(async (tx) => {
     const productor = await tx.query.productores.findFirst({
-      where: and(eq(t.productores.id, entrada.productorId), eq(t.productores.empresaId, empresaId)),
+      where: and(eq(t.productores.id, entrada.productorId), delAlcance(empresaId, alcance)),
     });
     if (!productor) return { ok: false, error: "NO_EXISTE" };
     const rolValido =
@@ -285,6 +306,7 @@ export async function quitarCodigo(
   empresaId: string,
   codigoId: string,
   actorId: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const [fila] = await tx
@@ -296,7 +318,7 @@ export async function quitarCodigo(
       })
       .from(t.productorCodigos)
       .innerJoin(t.productores, eq(t.productores.id, t.productorCodigos.productorId))
-      .where(and(eq(t.productorCodigos.id, codigoId), eq(t.productores.empresaId, empresaId)));
+      .where(and(eq(t.productorCodigos.id, codigoId), delAlcance(empresaId, alcance)));
     if (!fila) return false;
     await tx
       .update(t.productorCodigos)

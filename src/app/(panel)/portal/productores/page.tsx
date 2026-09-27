@@ -48,8 +48,8 @@ export default async function PaginaProductores() {
   const contexto = await requerirConfiguracion();
   const db = await obtenerDb();
   const [productores, oficinas, uso] = await Promise.all([
-    listarProductores(db, contexto.empresaId),
-    listarOficinas(db, contexto.empresaId),
+    listarProductores(db, contexto.empresaId, contexto.alcance),
+    listarOficinas(db, contexto.empresaId, contexto.alcance),
     usoDeLimites(db, contexto.empresaId),
   ]);
   const opcionesOficina = oficinas.map((o) => ({
@@ -61,11 +61,16 @@ export default async function PaginaProductores() {
     <>
       <EncabezadoPagina
         titulo="Productores"
-        descripcion="Productores, organizadores y subproductores, con sus códigos en cada aseguradora."
+        descripcion={
+          contexto.alcanceNombre
+            ? `Productores de ${contexto.alcanceNombre}, con sus códigos en cada aseguradora.`
+            : "Productores, organizadores y subproductores, con sus códigos en cada aseguradora."
+        }
         acciones={
           <NuevoProductor
             oficinas={opcionesOficina}
             tieneInstitorio={uso.funciones.has("prodigal.institorio")}
+            sinOficina={contexto.alcance.tipo === "empresa"}
           />
         }
       />

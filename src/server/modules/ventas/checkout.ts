@@ -106,13 +106,18 @@ export const descripcionLinea = (item: ItemCarrito) =>
 export async function cotizarCarrito(
   db: Ejecutor,
   empresaId: string,
-  opciones: { medioPagoId?: string | undefined; ticketCodigo?: string | undefined } = {},
+  opciones: {
+    medioPagoId?: string | undefined;
+    ticketCodigo?: string | undefined;
+    /** Compra delegada: cotiza el carrito de esa oficina. */
+    oficinaId?: string | null;
+  } = {},
   hoy: Fecha = hoyArgentina(),
 ): Promise<Resultado<Cotizacion, RechazoCompra>> {
   const ctx = await contextoVenta(db, empresaId);
   if (!ctx) return rechazo("EMPRESA_INEXISTENTE");
 
-  const items = await listarCarrito(db, empresaId);
+  const items = await listarCarrito(db, empresaId, opciones.oficinaId ?? null);
   if (items.length === 0) return rechazo("SIN_ITEMS");
 
   // Todo lo que está en el carrito tiene que seguir a la venta hoy.
@@ -223,6 +228,8 @@ export async function cotizarCarrito(
 
 export interface EntradaConfirmacion {
   empresaId: string;
+  /** Compra delegada: los contratos quedan asignados a esta oficina. */
+  oficinaId?: string | null;
   usuarioId: string;
   medioPagoId?: string | undefined;
   ticketCodigo?: string | undefined;
@@ -259,7 +266,11 @@ export async function confirmarOrden(
     const cotizacion = await cotizarCarrito(
       tx,
       entrada.empresaId,
-      { medioPagoId: entrada.medioPagoId, ticketCodigo: entrada.ticketCodigo },
+      {
+        medioPagoId: entrada.medioPagoId,
+        ticketCodigo: entrada.ticketCodigo,
+        oficinaId: entrada.oficinaId ?? null,
+      },
       hoy,
     );
     if (!cotizacion.ok) return cotizacion;
@@ -323,6 +334,7 @@ export async function confirmarOrden(
         .insert(t.contratos)
         .values({
           empresaId: entrada.empresaId,
+          oficinaId: entrada.oficinaId ?? null,
           paqueteId: item.paqueteId,
           alternativaId: item.alternativaId,
           ordenId: orden.id,
@@ -366,7 +378,12 @@ export async function confirmarOrden(
       });
     }
 
-    await tx.delete(t.carritoItems).where(eq(t.carritoItems.empresaId, entrada.empresaId));
+    await tx.delete(t.carritoItems).where(
+      inArray(
+        t.carritoItems.id,
+        c.lineas.map((l) => l.item.id),
+      ),
+    );
     // Un corporativo cambia su licencia en el acto: se avisa a los productos.
     if (habilitado) await registrarCambioEmpresa(tx, [entrada.empresaId]);
     await tx.insert(t.auditoria).values({
@@ -381,6 +398,7 @@ export async function confirmarOrden(
         total: k.total.toString(),
         medio: c.medio.id,
         estadoContratos: estado,
+        ...(entrada.oficinaId ? { oficinaId: entrada.oficinaId } : {}),
       },
     });
     return exito({ ordenId: orden.id, numero: orden.numero, repetida: false });

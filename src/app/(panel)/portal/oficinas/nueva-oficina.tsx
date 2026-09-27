@@ -22,8 +22,11 @@ import { crearOficinaAccion } from "./acciones";
 
 export function NuevaOficina({
   canales,
+  permitirCanalNuevo = true,
 }: {
   canales: { id: string; codigo: string; nombre: string }[];
+  /** Un delegado de canal solo suma oficinas a su canal. */
+  permitirCanalNuevo?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [estado, accion] = useActionState(crearOficinaAccion, ESTADO_INICIAL);
@@ -64,7 +67,7 @@ export function NuevaOficina({
                     {c.codigo} · {c.nombre}
                   </option>
                 ))}
-                <option value="nuevo">+ Crear un canal nuevo…</option>
+                {permitirCanalNuevo && <option value="nuevo">+ Crear un canal nuevo…</option>}
               </SelectNativo>
               <FieldError errors={estado.errores?.canalId?.map((message) => ({ message }))} />
             </Field>
