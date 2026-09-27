@@ -313,6 +313,15 @@ Cualquier cambio de medio de pago, ticket o bonificación mientras está
     sin límite.
   - El cliente puede desactivar la renovación automática de cada paquete desde
     el portal hasta que se genere la orden; después, hay que cancelarla.
+- **Renovación manual** desde los vencimientos del portal: el cliente renueva
+  un paquete vigente antes de la generación automática (o aunque la haya
+  apagado), eligiendo la duración (por ejemplo, de mensual a anual). Va al
+  carrito como renovación: misma cantidad, precio de renovación, bonificación
+  recurrente propagada, sin ticket y con los medios de pago habilitados para
+  renovación si el carrito es solo de renovaciones. Las fechas empalman con el
+  vencimiento. Si mientras estaba en el carrito se generó la renovación
+  automática, la confirmación la rechaza: nunca hay dos renovaciones de un
+  contrato. Un paquete ya vencido no se renueva: se contrata de nuevo.
   - Propaga la bonificación **solo si es recurrente**, aplicada sobre el precio de
     renovación vigente.
   - Medio de pago: el de renovación del cliente.
@@ -479,8 +488,8 @@ Regla de dependencias: `domain` no importa nada del resto.
    cliente se desactiva, se vuelve a facturar a la empresa. El pedido desde el
    portal (la empresa lo pide y SOFTeam lo aprueba o rechaza) está hecho pero
    apagado por parámetro hasta confirmar el caso (ver 4.3, "A quién se factura").
-   *Pendiente de esta fase:* renovación manual desde "Mis paquetes",
-   bonificación de paquetes por SOFTeam.
+   Renovación manual desde los vencimientos del portal (ver sección 6).
+   *Pendiente de esta fase:* bonificación de paquetes por SOFTeam.
 4. ✅ **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con
    listado de sincronización, EmpresaFull v1, licencia vigente y consumos
    idempotentes; secretos cifrados (AES-256-GCM); webhooks por outbox con

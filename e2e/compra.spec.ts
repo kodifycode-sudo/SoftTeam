@@ -110,4 +110,26 @@ test.describe
       await page.reload();
       await expect(renovacion).not.toBeChecked();
     });
+
+    test("renueva a mano pasando a anual, aunque apagó la automática", async ({ page }) => {
+      await ingresar(page, email, CONTRASENA);
+      await page.getByRole("button", { name: "Renovar Prodigal Inicial" }).click();
+      const dialogo = page.getByRole("dialog");
+      await expect(dialogo.getByText("la que tenés hoy")).toBeVisible();
+      await dialogo.getByRole("radio", { name: /Anual/ }).check();
+      await capturar(page, "25-portal-renovar");
+      await dialogo.getByRole("button", { name: "Agregar al carrito" }).click();
+
+      await expect(page).toHaveURL(/\/portal\/carrito/);
+      await expect(page.getByText("Renovación", { exact: true })).toBeVisible();
+      await expect(page.getByText(/Anual · .* c\/u · desde el/)).toBeVisible();
+      await expect(page.getByRole("button", { name: "Una unidad más" })).toHaveCount(0);
+      await page.getByRole("checkbox", { name: /Revisé los paquetes/ }).click();
+      await page.getByRole("button", { name: "Confirmar orden" }).click();
+      await expect(page.getByText("¡Orden confirmada!")).toBeVisible();
+
+      // Ya renovado: no se ofrece de nuevo.
+      await page.goto("/portal");
+      await expect(page.getByRole("button", { name: "Renovar Prodigal Inicial" })).toHaveCount(0);
+    });
   });

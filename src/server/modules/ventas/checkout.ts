@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import {
   type CalculoOrden,
   calcularOrden,
@@ -13,7 +13,7 @@ import {
 } from "@/domain/facturacion/medio-pago";
 import { evaluarTicket, type RechazoTicket } from "@/domain/facturacion/ticket";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
-import { estadoInicial, periodoAlta } from "@/domain/licencias/contrato";
+import { estadoInicial, periodoAlta, periodoRenovacion } from "@/domain/licencias/contrato";
 import { cantidadContratada } from "@/domain/licencias/licencia";
 import { exito, type Resultado, rechazo } from "@/domain/resultado";
 import type { Db, Ejecutor } from "@/server/db/cliente";
@@ -27,7 +27,8 @@ export type RechazoCompra =
   | RechazoTicket
   | "MEDIO_NO_HABILITADO"
   | "ITEM_NO_DISPONIBLE"
-  | "EMPRESA_INEXISTENTE";
+  | "EMPRESA_INEXISTENTE"
+  | "YA_RENOVADO";
 
 /**
  * Datos de la empresa, su cliente y su país que definen cómo se cobra. En la
@@ -42,6 +43,7 @@ async function contextoVenta(db: Ejecutor, empresaId: string, oficinaId: string 
       clienteId: t.clientes.id,
       grupoId: t.clientes.grupoId,
       medioPagoAltaId: t.clientes.medioPagoAltaId,
+      medioPagoRenovacionId: t.clientes.medioPagoRenovacionId,
       moneda: t.paises.moneda,
       alicuotaGeneral: t.paises.alicuotaIvaGeneral,
     })
@@ -83,14 +85,24 @@ async function contextoVenta(db: Ejecutor, empresaId: string, oficinaId: string 
   };
 }
 
+/**
+ * Instancia de la compra para los medios de pago: un carrito de solo
+ * renovaciones es una renovación; si suma algo nuevo, es un alta o adicional.
+ */
+const instanciaDe = (items: readonly { tipoAccion: string }[], instancia: Instancia): Instancia =>
+  items.length > 0 && items.every((i) => i.tipoAccion === "RENOVACION") ? "RENOVACION" : instancia;
+
 /** Medios de pago utilizables por la empresa en esta instancia (para el checkout). */
-export async function mediosParaEmpresa(db: Ejecutor, empresaId: string) {
+export async function mediosParaEmpresa(
+  db: Ejecutor,
+  empresaId: string,
+  items: readonly { tipoAccion: string }[] = [],
+) {
   const ctx = await contextoVenta(db, empresaId);
   if (!ctx) return [];
+  const instancia = instanciaDe(items, ctx.instancia);
   const medios = await db.select().from(t.mediosPago).orderBy(asc(t.mediosPago.orden));
-  return medios.filter(
-    (m) => validarMedioPago(m, { paisId: ctx.paisId, instancia: ctx.instancia }).ok,
-  );
+  return medios.filter((m) => validarMedioPago(m, { paisId: ctx.paisId, instancia }).ok);
 }
 
 export interface LineaCotizada {
@@ -142,7 +154,8 @@ export async function cotizarCarrito(
   const items = await listarCarrito(db, empresaId, opciones.oficinaId ?? null);
   if (items.length === 0) return rechazo("SIN_ITEMS");
 
-  // Todo lo que está en el carrito tiene que seguir a la venta hoy.
+  // Lo nuevo tiene que seguir a la venta hoy (público y vigente). Una
+  // renovación solo exige que la alternativa siga activa, como la automática.
   const vendibles = await db
     .select({ id: t.alternativas.id })
     .from(t.alternativas)
@@ -154,21 +167,44 @@ export async function cotizarCarrito(
           items.map((i) => i.alternativaId),
         ),
         eq(t.alternativas.activa, true),
-        eq(t.paquetes.privado, false),
         eq(t.paquetes.paisId, ctx.paisId),
+      ),
+    );
+  const aLaVenta = await db
+    .select({ id: t.alternativas.id })
+    .from(t.alternativas)
+    .innerJoin(t.paquetes, eq(t.paquetes.id, t.alternativas.paqueteId))
+    .where(
+      and(
+        inArray(
+          t.alternativas.id,
+          items.filter((i) => i.tipoAccion === "ALTA").map((i) => i.alternativaId),
+        ),
+        eq(t.paquetes.privado, false),
         vendibleHoy(hoy),
       ),
     );
-  const noDisponible = items.find((i) => !vendibles.some((v) => v.id === i.alternativaId));
+  const noDisponible = items.find(
+    (i) =>
+      !vendibles.some((v) => v.id === i.alternativaId) ||
+      (i.tipoAccion === "ALTA" && !aLaVenta.some((v) => v.id === i.alternativaId)),
+  );
   if (noDisponible) return rechazo("ITEM_NO_DISPONIBLE", noDisponible.paquete);
 
-  const medioId = opciones.medioPagoId ?? ctx.medioPagoAltaId ?? undefined;
+  const instancia = instanciaDe(items, ctx.instancia);
+  const medioPreferido =
+    instancia === "RENOVACION"
+      ? (ctx.medioPagoRenovacionId ?? ctx.medioPagoAltaId)
+      : ctx.medioPagoAltaId;
   const candidatos = await db.select().from(t.mediosPago).orderBy(asc(t.mediosPago.orden));
   const validos = candidatos.filter(
-    (m) => validarMedioPago(m, { paisId: ctx.paisId, instancia: ctx.instancia }).ok,
+    (m) => validarMedioPago(m, { paisId: ctx.paisId, instancia }).ok,
   );
+  const medioId =
+    opciones.medioPagoId ??
+    (validos.some((m) => m.id === medioPreferido) ? medioPreferido : undefined);
   const medio = medioId ? candidatos.find((m) => m.id === medioId) : validos[0];
-  const medioValido = validarMedioPago(medio, { paisId: ctx.paisId, instancia: ctx.instancia });
+  const medioValido = validarMedioPago(medio, { paisId: ctx.paisId, instancia });
   if (!medioValido.ok || !medio) return rechazo("MEDIO_NO_HABILITADO");
 
   const clienteFacturacionId = resolverClienteFacturacion({
@@ -201,7 +237,7 @@ export async function cotizarCarrito(
       items: items.map((i) => ({
         paqueteId: i.paqueteId,
         tipoAccion: i.tipoAccion,
-        bonifPorcentaje: 0n,
+        bonifPorcentaje: i.tipoAccion === "RENOVACION" ? i.bonifRenovacion : 0n,
       })),
     });
     if (!evaluado.ok) return evaluado;
@@ -218,7 +254,8 @@ export async function cotizarCarrito(
       cantidad: i.cantidad,
       precioCompra: i.precioCompra,
       precioRenovacion: i.precioRenovacion,
-      bonifPorcentaje: 0n,
+      // La bonificación recurrente del contrato se propaga a su renovación.
+      bonifPorcentaje: i.tipoAccion === "RENOVACION" ? i.bonifRenovacion : 0n,
       moneda: ctx.moneda,
     })),
     ajustePagoPorcentaje: medio.ajustePorcentaje,
@@ -235,7 +272,7 @@ export async function cotizarCarrito(
       calculo: calculo.valor.items[i] as CalculoOrden["items"][number],
     })),
     medio,
-    instancia: ctx.instancia,
+    instancia,
     tipoCliente: ctx.tipoCliente,
     moneda: ctx.moneda,
     clienteId: ctx.clienteId,
@@ -300,6 +337,31 @@ export async function confirmarOrden(
     const c = cotizacion.valor;
     const k = c.calculo;
 
+    // Renovaciones: el contrato sigue vigente y nadie lo renovó mientras
+    // estaba en el carrito (por ejemplo, la renovación automática).
+    const idsAnteriores = c.lineas.flatMap((l) =>
+      l.item.contratoAnteriorId ? [l.item.contratoAnteriorId] : [],
+    );
+    const anteriores = idsAnteriores.length
+      ? await tx
+          .select()
+          .from(t.contratos)
+          .where(
+            and(
+              inArray(t.contratos.id, idsAnteriores),
+              eq(t.contratos.empresaId, entrada.empresaId),
+              inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
+              sql`not exists (select 1 from ${t.contratos} r where r.contrato_anterior_id = ${t.contratos.id} and r.estado <> 'CANCELADO')`,
+            ),
+          )
+          .for("update")
+      : [];
+    const yaRenovado = c.lineas.find(
+      (l) =>
+        l.item.contratoAnteriorId && !anteriores.some((a) => a.id === l.item.contratoAnteriorId),
+    );
+    if (yaRenovado) return rechazo("YA_RENOVADO", yaRenovado.item.paquete);
+
     const [orden] = await tx
       .insert(t.ordenes)
       .values({
@@ -351,16 +413,25 @@ export async function confirmarOrden(
     for (const { item, descripcion, calculo } of c.lineas) {
       const temporal = item.tipoPaquete === "TEMPORAL";
       const meses = temporal ? item.meses : null;
-      // Un corporativo arranca hoy; un directo recién cuando paga.
-      const periodo = habilitado && temporal && meses ? periodoAlta(hoy, meses) : null;
+      const anterior = anteriores.find((a) => a.id === item.contratoAnteriorId);
+      // Una renovación empalma con el vencimiento (fechas fijas desde ya, como
+      // la automática). Un alta: un corporativo arranca hoy; un directo, al pagar.
+      const periodo =
+        anterior?.hasta && meses
+          ? periodoRenovacion(anterior.hasta, meses)
+          : habilitado && temporal && meses
+            ? periodoAlta(hoy, meses)
+            : null;
+      const recurrente = anterior?.bonifRecurrente ?? false;
       const [contrato] = await tx
         .insert(t.contratos)
         .values({
           empresaId: entrada.empresaId,
-          oficinaId: entrada.oficinaId ?? null,
+          oficinaId: anterior ? anterior.oficinaId : (entrada.oficinaId ?? null),
           paqueteId: item.paqueteId,
           alternativaId: item.alternativaId,
           ordenId: orden.id,
+          contratoAnteriorId: anterior?.id ?? null,
           tipoAccion: item.tipoAccion,
           tipoPaquete: item.tipoPaquete,
           cantidad: item.cantidad,
@@ -369,7 +440,9 @@ export async function confirmarOrden(
           desde: periodo?.desde ?? (habilitado ? hoy : null),
           hasta: periodo?.hasta ?? null,
           precioLista: calculo.precioLista,
-          bonifPorcentaje: 0n,
+          bonifPorcentaje: recurrente && anterior ? anterior.bonifPorcentaje : 0n,
+          bonifRecurrente: recurrente,
+          bonifMotivo: recurrente && anterior ? anterior.bonifMotivo : null,
           precioFinal: calculo.precioFinal,
         })
         .returning({ id: t.contratos.id });
@@ -388,7 +461,10 @@ export async function confirmarOrden(
           })),
         );
       }
-      if (habilitado) await cargarSaldos(tx, contrato.id, recursos, item.cantidad, "Carga inicial");
+      // El saldo de una renovación es del período siguiente: se acredita al pagarla.
+      if (habilitado && !anterior) {
+        await cargarSaldos(tx, contrato.id, recursos, item.cantidad, "Carga inicial");
+      }
 
       await tx.insert(t.ordenItems).values({
         ordenId: orden.id,

@@ -14,6 +14,8 @@ export function mensajeRechazoCompra(error: RechazoCompra, detalle?: string): st
       return "Tu carrito está vacío.";
     case "MEDIO_NO_HABILITADO":
       return "Ese medio de pago no está disponible para esta compra. Elegí otro.";
+    case "YA_RENOVADO":
+      return `${detalle ?? "Un paquete"} ya tiene su renovación generada. Quitalo del carrito para continuar.`;
     case "ITEM_NO_DISPONIBLE":
       return `${detalle ?? "Un paquete"} ya no está a la venta. Quitalo del carrito para continuar.`;
     default:

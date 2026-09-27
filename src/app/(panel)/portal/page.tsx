@@ -24,15 +24,23 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { abarcaOficina } from "@/domain/cuentas/alcance";
-import { diasEntre, hoy } from "@/domain/fecha";
-import { fechaCorta, numero } from "@/lib/formato";
+import { diasEntre, hoy, sumarDias } from "@/domain/fecha";
+import { fechaCorta, numero, pesos } from "@/lib/formato";
 import { productoUI } from "@/lib/productos";
 import { cn } from "@/lib/utils";
-import { puedeComprar, puedeConfigurar, requerirCliente } from "@/server/auth/sesion";
+import {
+  oficinaDeCompra,
+  puedeComprar,
+  puedeConfigurar,
+  puedeContratar,
+  requerirCliente,
+} from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { pasosCompletados } from "@/server/modules/cuentas/primeros-pasos";
 import { type ItemLicencia, licenciaDeEmpresa } from "@/server/modules/licencias/licencia-empresa";
 import { estadoDeRenovacion } from "@/server/modules/procesos/renovacion-automatica";
+import { type Renovable, renovablesDeEmpresa } from "@/server/modules/ventas/carrito";
+import { RenovarPaquete } from "./compra/renovar";
 import { PrimerosPasos } from "./primeros-pasos";
 import { InterruptorRenovacion } from "./renovacion";
 
@@ -124,6 +132,31 @@ function EstadoRenovacionPaquete({
   );
 }
 
+/** "Renovar" para un paquete que se puede renovar a mano (si no, nada). */
+function BotonRenovar({
+  paquete,
+  renovable,
+}: {
+  paquete: string;
+  renovable: Renovable | undefined;
+}) {
+  if (!renovable?.hasta) return null;
+  return (
+    <RenovarPaquete
+      paquete={paquete}
+      contratoId={renovable.id}
+      alternativaActual={renovable.alternativaId}
+      desde={fechaCorta(sumarDias(renovable.hasta, 1))}
+      opciones={renovable.alternativas.map((a) => ({
+        id: a.id,
+        nombre: a.nombre,
+        meses: a.meses,
+        precio: pesos(a.precioRenovacion * BigInt(renovable.cantidad)),
+      }))}
+    />
+  );
+}
+
 export default async function InicioPortal({ searchParams }: PageProps<"/portal">) {
   const contexto = await requerirCliente();
   const { bienvenida } = await searchParams;
@@ -141,6 +174,10 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
     vencimientos.filter((c) => c.tipoPaquete === "TEMPORAL").map((c) => c.id),
   );
   const comercial = puedeComprar(contexto);
+  // Renovación manual: los paquetes de la bolsa que compra (empresa u oficina).
+  const renovables = puedeContratar(contexto)
+    ? await renovablesDeEmpresa(db, contexto.empresaId, oficinaDeCompra(contexto), fechaHoy)
+    : [];
   const completados = await pasosCompletados(db, contexto.empresaId, licencia.productos.length > 0);
   const nombre =
     contexto.nombreUsuario.split(",").at(-1)?.trim().split(" ")[0] ?? contexto.nombreUsuario;
@@ -310,18 +347,24 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
                           comercial={comercial}
                         />
                       </div>
-                      {dias !== null && (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "shrink-0 tabular-nums",
-                            dias <= 15 &&
-                              "border-warning/50 bg-warning/10 text-[oklch(0.5_0.13_70)] dark:text-warning",
-                          )}
-                        >
-                          {dias === 0 ? "Vence hoy" : `${dias} día${dias === 1 ? "" : "s"}`}
-                        </Badge>
-                      )}
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        {dias !== null && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "tabular-nums",
+                              dias <= 15 &&
+                                "border-warning/50 bg-warning/10 text-[oklch(0.5_0.13_70)] dark:text-warning",
+                            )}
+                          >
+                            {dias === 0 ? "Vence hoy" : `${dias} día${dias === 1 ? "" : "s"}`}
+                          </Badge>
+                        )}
+                        <BotonRenovar
+                          paquete={c.paquete}
+                          renovable={renovables.find((r) => r.id === c.id)}
+                        />
+                      </div>
                     </li>
                   );
                 })}

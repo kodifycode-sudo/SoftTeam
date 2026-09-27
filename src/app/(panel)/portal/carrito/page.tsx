@@ -30,7 +30,8 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import { pesos, porcentajeTexto } from "@/lib/formato";
+import { sumarDias } from "@/domain/fecha";
+import { fechaCorta, pesos, porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { oficinaDeCompra, requerirContratacion } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
@@ -121,7 +122,7 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
     );
   }
 
-  const medios = await mediosParaEmpresa(db, contexto.empresaId);
+  const medios = await mediosParaEmpresa(db, contexto.empresaId, items);
   // Si el ticket o el medio no aplican, se cotiza sin ellos y se explica por qué.
   let aviso: string | null = null;
   let errorTicket: string | null = null;
@@ -191,33 +192,56 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
                       className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium">{item.paquete}</p>
+                        <p className="flex flex-wrap items-center gap-2 font-medium">
+                          {item.paquete}
+                          {item.tipoAccion === "RENOVACION" && (
+                            <Badge variant="secondary">Renovación</Badge>
+                          )}
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          {item.alternativa} · {pesos(item.precioCompra)} c/u
+                          {item.alternativa} ·{" "}
+                          {pesos(
+                            item.tipoAccion === "RENOVACION"
+                              ? item.precioRenovacion
+                              : item.precioCompra,
+                          )}{" "}
+                          c/u
                           {item.tipoPaquete === "CONSUMIBLE" && " · sin vencimiento"}
+                          {item.anteriorHasta &&
+                            ` · desde el ${fechaCorta(sumarDias(item.anteriorHasta, 1))}`}
                         </p>
                       </div>
                       <div className="flex items-center justify-between gap-4 sm:justify-end">
-                        <fieldset className="flex items-center rounded-lg border">
-                          <legend className="sr-only">Cantidad de {item.paquete}</legend>
+                        {item.tipoAccion === "RENOVACION" ? (
                           <BotonCantidad
                             itemId={item.id}
-                            cantidad={item.cantidad - 1}
-                            etiqueta="Una unidad menos"
+                            cantidad={0}
+                            etiqueta={`Quitar la renovación de ${item.paquete}`}
                           >
-                            {item.cantidad === 1 ? <Trash2 /> : <Minus />}
+                            <Trash2 />
                           </BotonCantidad>
-                          <span className="w-8 text-center text-sm font-medium tabular-nums">
-                            {item.cantidad}
-                          </span>
-                          <BotonCantidad
-                            itemId={item.id}
-                            cantidad={Math.min(item.cantidad + 1, 99)}
-                            etiqueta="Una unidad más"
-                          >
-                            <Plus />
-                          </BotonCantidad>
-                        </fieldset>
+                        ) : (
+                          <fieldset className="flex items-center rounded-lg border">
+                            <legend className="sr-only">Cantidad de {item.paquete}</legend>
+                            <BotonCantidad
+                              itemId={item.id}
+                              cantidad={item.cantidad - 1}
+                              etiqueta="Una unidad menos"
+                            >
+                              {item.cantidad === 1 ? <Trash2 /> : <Minus />}
+                            </BotonCantidad>
+                            <span className="w-8 text-center text-sm font-medium tabular-nums">
+                              {item.cantidad}
+                            </span>
+                            <BotonCantidad
+                              itemId={item.id}
+                              cantidad={Math.min(item.cantidad + 1, 99)}
+                              etiqueta="Una unidad más"
+                            >
+                              <Plus />
+                            </BotonCantidad>
+                          </fieldset>
+                        )}
                         <span className="w-32 text-right font-semibold tabular-nums">
                           {linea ? pesos(linea.calculo.precioFinal) : "—"}
                         </span>

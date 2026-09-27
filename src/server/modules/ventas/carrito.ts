@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
@@ -37,6 +37,13 @@ export async function listarCarrito(
       codigo: t.paquetes.codigo,
       tipoPaquete: t.paquetes.tipo,
       paqueteActivo: t.paquetes.activo,
+      /** Renovación manual: el contrato que se renueva, su vencimiento y su bonificación recurrente. */
+      contratoAnteriorId: t.carritoItems.contratoAnteriorId,
+      anteriorHasta: sql<Fecha | null>`(select c.hasta from ${t.contratos} c where c.id = ${t.carritoItems.contratoAnteriorId})`,
+      bonifRenovacion:
+        sql<bigint>`coalesce((select case when c.bonif_recurrente then c.bonif_porcentaje else 0 end from ${t.contratos} c where c.id = ${t.carritoItems.contratoAnteriorId}), 0)`.mapWith(
+          t.contratos.bonifPorcentaje,
+        ),
     })
     .from(t.carritoItems)
     .innerJoin(t.alternativas, eq(t.alternativas.id, t.carritoItems.alternativaId))
@@ -129,7 +136,11 @@ export async function agregarAlCarrito(
   });
 }
 
-/** Cambia la cantidad de una línea (0 la quita). Siempre acotado a la empresa. */
+/**
+ * Cambia la cantidad de una línea (0 la quita). Siempre acotado a la empresa.
+ * Una renovación renueva el contrato tal cual: se puede quitar, no cambiar la
+ * cantidad.
+ */
 export async function cambiarCantidad(
   db: Db,
   entrada: { empresaId: string; oficinaId?: string | null; itemId: string; cantidad: number },
@@ -144,6 +155,7 @@ export async function cambiarCantidad(
   const donde = and(
     eq(t.carritoItems.id, entrada.itemId),
     delCarrito(entrada.empresaId, entrada.oficinaId ?? null),
+    entrada.cantidad > 0 ? eq(t.carritoItems.tipoAccion, "ALTA") : undefined,
   );
   const filas =
     entrada.cantidad === 0
@@ -154,4 +166,125 @@ export async function cambiarCantidad(
           .where(donde)
           .returning({ id: t.carritoItems.id });
   return filas.length ? { ok: true } : { ok: false, error: "NO_EXISTE" };
+}
+
+// ─── Renovación manual ───────────────────────────────────────────────────────
+
+/**
+ * Condiciones para renovar un contrato a mano: temporal, vigente, de la bolsa
+ * (empresa u oficina) que compra, sin una renovación no cancelada y sin estar
+ * ya en el carrito.
+ */
+const renovable = (empresaId: string, oficinaId: string | null, hoy: Fecha) =>
+  and(
+    eq(t.contratos.empresaId, empresaId),
+    oficinaId ? eq(t.contratos.oficinaId, oficinaId) : isNull(t.contratos.oficinaId),
+    eq(t.contratos.tipoPaquete, "TEMPORAL"),
+    inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
+    isNotNull(t.contratos.hasta),
+    gte(t.contratos.hasta, hoy),
+    sql`not exists (select 1 from ${t.contratos} r where r.contrato_anterior_id = ${t.contratos.id} and r.estado <> 'CANCELADO')`,
+    sql`not exists (select 1 from ${t.carritoItems} ci where ci.contrato_anterior_id = ${t.contratos.id})`,
+  );
+
+/**
+ * Paquetes que la empresa (u oficina) puede renovar ahora, con las
+ * alternativas activas de cada uno (con su precio de renovación).
+ */
+export async function renovablesDeEmpresa(
+  db: Ejecutor,
+  empresaId: string,
+  oficinaId: string | null,
+  hoy: Fecha = hoyArgentina(),
+) {
+  const contratos = await db
+    .select({
+      id: t.contratos.id,
+      paqueteId: t.contratos.paqueteId,
+      alternativaId: t.contratos.alternativaId,
+      cantidad: t.contratos.cantidad,
+      hasta: t.contratos.hasta,
+    })
+    .from(t.contratos)
+    .where(renovable(empresaId, oficinaId, hoy));
+  if (contratos.length === 0) return [];
+  const alternativas = await db
+    .select({
+      id: t.alternativas.id,
+      paqueteId: t.alternativas.paqueteId,
+      nombre: t.alternativas.nombre,
+      meses: t.alternativas.meses,
+      precioRenovacion: t.alternativas.precioRenovacion,
+    })
+    .from(t.alternativas)
+    .where(
+      and(
+        inArray(t.alternativas.paqueteId, [...new Set(contratos.map((c) => c.paqueteId))]),
+        eq(t.alternativas.activa, true),
+        isNotNull(t.alternativas.meses),
+      ),
+    )
+    .orderBy(asc(t.alternativas.meses));
+  return contratos
+    .map((c) => ({ ...c, alternativas: alternativas.filter((a) => a.paqueteId === c.paqueteId) }))
+    .filter((c) => c.alternativas.length > 0);
+}
+
+export type Renovable = Awaited<ReturnType<typeof renovablesDeEmpresa>>[number];
+
+export type ErrorRenovacionManual = "NO_RENOVABLE" | "ALTERNATIVA_INVALIDA";
+
+/**
+ * Agrega al carrito la renovación de un contrato vigente, con la alternativa
+ * elegida (puede pasar de mensual a anual). Renueva la misma cantidad; las
+ * fechas empalman con el vencimiento al confirmar.
+ */
+export async function agregarRenovacion(
+  db: Db,
+  entrada: {
+    empresaId: string;
+    oficinaId?: string | null;
+    contratoId: string;
+    alternativaId: string;
+    usuarioId: string;
+  },
+  hoy: Fecha = hoyArgentina(),
+): Promise<{ ok: true } | { ok: false; error: ErrorRenovacionManual }> {
+  return db.transaction(async (tx) => {
+    const [contrato] = await tx
+      .select({
+        id: t.contratos.id,
+        paqueteId: t.contratos.paqueteId,
+        cantidad: t.contratos.cantidad,
+      })
+      .from(t.contratos)
+      .where(
+        and(
+          eq(t.contratos.id, entrada.contratoId),
+          renovable(entrada.empresaId, entrada.oficinaId ?? null, hoy),
+        ),
+      )
+      .for("update");
+    if (!contrato) return { ok: false, error: "NO_RENOVABLE" };
+    const alternativa = await tx.query.alternativas.findFirst({
+      columns: { id: true },
+      where: and(
+        eq(t.alternativas.id, entrada.alternativaId),
+        eq(t.alternativas.paqueteId, contrato.paqueteId),
+        eq(t.alternativas.activa, true),
+        isNotNull(t.alternativas.meses),
+      ),
+    });
+    if (!alternativa) return { ok: false, error: "ALTERNATIVA_INVALIDA" };
+    await tx.insert(t.carritoItems).values({
+      empresaId: entrada.empresaId,
+      oficinaId: entrada.oficinaId ?? null,
+      alternativaId: alternativa.id,
+      tipoAccion: "RENOVACION",
+      contratoAnteriorId: contrato.id,
+      cantidad: contrato.cantidad,
+      agregadoPor: entrada.usuarioId,
+    });
+    return { ok: true };
+  });
 }

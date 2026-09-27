@@ -7,7 +7,11 @@ import type { EstadoFormulario } from "@/lib/formulario";
 import { oficinaDeCompra, puedeContratar, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
-import { agregarAlCarrito, cambiarCantidad } from "@/server/modules/ventas/carrito";
+import {
+  agregarAlCarrito,
+  agregarRenovacion,
+  cambiarCantidad,
+} from "@/server/modules/ventas/carrito";
 import { confirmarOrden } from "@/server/modules/ventas/checkout";
 import { mensajeRechazoCompra } from "./mensajes";
 
@@ -42,6 +46,38 @@ export async function agregarAlCarritoAccion(
   }
   revalidatePath("/portal", "layout");
   return { ok: true, mensaje: "Agregado al carrito." };
+}
+
+/** Renovación manual: agrega la renovación de un paquete vigente al carrito y lo abre. */
+export async function agregarRenovacionAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const contexto = await requerirCliente();
+  if (!puedeContratar(contexto)) return { mensaje: "Tu usuario no puede contratar paquetes." };
+  const datos = z
+    .object({ contratoId: z.uuid(), alternativaId: z.uuid({ error: "Elegí cómo renovarlo" }) })
+    .safeParse({
+      contratoId: formData.get("contratoId"),
+      alternativaId: formData.get("alternativaId"),
+    });
+  if (!datos.success) return { mensaje: datos.error.issues[0]?.message ?? "Datos inválidos." };
+  const resultado = await agregarRenovacion(await obtenerDb(), {
+    empresaId: contexto.empresaId,
+    oficinaId: oficinaDeCompra(contexto),
+    usuarioId: contexto.usuarioId,
+    ...datos.data,
+  });
+  if (!resultado.ok) {
+    return {
+      mensaje:
+        resultado.error === "NO_RENOVABLE"
+          ? "Ese paquete ya tiene su renovación generada o ya está en el carrito."
+          : "Esa opción ya no está disponible. Elegí otra.",
+    };
+  }
+  revalidatePath("/portal", "layout");
+  redirect("/portal/carrito");
 }
 
 export async function cambiarCantidadAccion(formData: FormData): Promise<void> {
