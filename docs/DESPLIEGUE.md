@@ -150,14 +150,9 @@ simulador de pagos solo existe fuera de producción).
 - **Medios de pago**: revisar ajustes y habilitaciones. El débito automático
   todavía no está implementado: dejarlo deshabilitado.
 - **Aseguradoras**: se cargan sin interfaces disponibles, porque la
-  disponibilidad real la define SOFTeam. Hasta que exista la pantalla para
-  editarlas, se habilitan desde la consola SQL de Neon:
-
-  ```sql
-  update aseguradoras
-     set interfaz_prodigal_disponible = true, interfaz_cotiweb_disponible = true
-   where abreviatura in ('SANCOR', 'SEGUNDA');
-  ```
+  disponibilidad real la define SOFTeam. Marcarlas en *Panel SOFTeam →
+  Aseguradoras* (rol Administración), donde también se agregan compañías
+  nuevas y se discontinúan las que dejan de operar.
 
 - **Sistemas integrados**: dar de alta Prodigal, CotiWeb, BienSeguro y el
   Boletín en *Integraciones* y entregar a cada equipo su secreto.

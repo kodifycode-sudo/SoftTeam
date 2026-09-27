@@ -85,6 +85,7 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
       items: [
         { href: "/admin/paquetes", etiqueta: "Paquetes", icono: Package },
         { href: "/admin/medios-pago", etiqueta: "Medios de pago", icono: CreditCard },
+        { href: "/admin/aseguradoras", etiqueta: "Aseguradoras", icono: ShieldCheck },
         {
           href: "/admin/tickets",
           etiqueta: "Tickets",

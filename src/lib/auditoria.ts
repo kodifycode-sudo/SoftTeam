@@ -6,6 +6,7 @@
 export const ENTIDADES_AUDITORIA: Record<string, string> = {
   colaborador: "Usuario de empresa",
   empresa_aseguradora: "Aseguradora de empresa",
+  aseguradora: "Aseguradora (catálogo)",
   productor: "Productor",
   politicas: "Políticas",
   oficina: "Oficina",

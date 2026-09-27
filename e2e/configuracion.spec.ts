@@ -94,6 +94,33 @@ test.describe
       await capturar(page, "portal-aseguradoras");
     });
 
+    test("SOFTeam agrega una aseguradora al catálogo y la empresa la ve", async ({ page }) => {
+      const nombre = `Aseguradora ${sufijo}`;
+      const abreviatura = `E${sufijo}`.slice(0, 10).toUpperCase();
+      await ingresar(page, ADMIN.email, ADMIN.contrasena);
+      await page.goto("/admin/aseguradoras");
+      await page.getByRole("button", { name: "Nueva aseguradora" }).click();
+      const dialogo = page.getByRole("dialog");
+      await dialogo.getByLabel("Nombre").fill(nombre);
+      await dialogo.getByLabel("Abreviatura").fill("con espacio");
+      await dialogo.getByRole("checkbox", { name: "Interfaz con Prodigal" }).click();
+      await dialogo.getByRole("button", { name: "Agregar aseguradora" }).click();
+      await expect(dialogo.getByText("2 a 10 letras o números, sin espacios")).toBeVisible();
+      // Se normaliza a mayúsculas.
+      await dialogo.getByLabel("Abreviatura").fill(abreviatura.toLowerCase());
+      await dialogo.getByRole("button", { name: "Agregar aseguradora" }).click();
+      await expect(page.getByText(`${nombre} agregada al catálogo.`)).toBeVisible();
+      const fila = page.getByRole("row").filter({ hasText: nombre });
+      await expect(fila.getByText(abreviatura)).toBeVisible();
+      await expect(fila.getByText("Prodigal")).toBeVisible();
+      await capturar(page, "admin-aseguradoras");
+
+      await page.context().clearCookies();
+      await ingresar(page, operativo, CONTRASENA);
+      await page.goto("/portal/aseguradoras");
+      await expect(page.locator("[data-slot=card]").filter({ hasText: nombre })).toBeVisible();
+    });
+
     test("productores: alta con validación y códigos por aseguradora", async ({ page }) => {
       await ingresar(page, operativo, CONTRASENA);
       await page.goto("/portal/productores");

@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, or } from "drizzle-orm";
 import { z } from "zod";
 import {
   type ErrorLimite,
@@ -41,6 +41,7 @@ export async function listarAseguradorasEmpresa(
       codigoLegal: t.aseguradoras.codigoLegal,
       disponibleProdigal: t.aseguradoras.interfazProdigalDisponible,
       disponibleCotiweb: t.aseguradoras.interfazCotiwebDisponible,
+      activa: t.aseguradoras.activa,
       trabaja: t.empresaAseguradoras.activa,
       prodigal: t.empresaAseguradoras.interfazProdigal,
       prodigalBaja: t.empresaAseguradoras.interfazProdigalBajaDesde,
@@ -55,7 +56,13 @@ export async function listarAseguradorasEmpresa(
         eq(t.empresaAseguradoras.empresaId, empresaId),
       ),
     )
-    .where(and(eq(t.aseguradoras.paisId, empresa.paisId), eq(t.aseguradoras.activa, true)))
+    // Una discontinuada sigue visible para quien ya la configuró (para darla de baja).
+    .where(
+      and(
+        eq(t.aseguradoras.paisId, empresa.paisId),
+        or(eq(t.aseguradoras.activa, true), isNotNull(t.empresaAseguradoras.empresaId)),
+      ),
+    )
     .orderBy(asc(t.aseguradoras.nombre));
 
   const estado = (disponible: boolean, marcada: boolean | null, baja: string | null) => {
@@ -72,6 +79,7 @@ export async function listarAseguradorasEmpresa(
     nombre: f.nombre,
     abreviatura: f.abreviatura,
     codigoLegal: f.codigoLegal,
+    discontinuada: !f.activa,
     trabaja: f.trabaja ?? false,
     interfaces: {
       prodigal: estado(f.disponibleProdigal, f.prodigal, f.prodigalBaja),
@@ -93,7 +101,12 @@ export const esquemaCambioAseguradora = z.discriminatedUnion("cambio", [
 
 export type CambioAseguradora = z.infer<typeof esquemaCambioAseguradora>;
 
-export type ErrorAseguradora = ErrorLimite | "NO_EXISTE" | "NO_DISPONIBLE" | "NO_TRABAJA";
+export type ErrorAseguradora =
+  | ErrorLimite
+  | "NO_EXISTE"
+  | "NO_DISPONIBLE"
+  | "NO_TRABAJA"
+  | "DISCONTINUADA";
 
 export type ResultadoAseguradora =
   | { ok: true; bajaDesde?: Fecha }
@@ -125,11 +138,13 @@ export async function cambiarAseguradora(
       .where(eq(t.empresas.id, empresaId))
       .for("update");
     const aseguradora = await tx.query.aseguradoras.findFirst({
-      where: and(eq(t.aseguradoras.id, cambio.aseguradoraId), eq(t.aseguradoras.activa, true)),
+      where: eq(t.aseguradoras.id, cambio.aseguradoraId),
     });
     if (!empresa || !aseguradora || aseguradora.paisId !== empresa.paisId) {
       return { ok: false, error: "NO_EXISTE" };
     }
+    // Discontinuada: se puede dar de baja, pero no activar nada nuevo.
+    if (!aseguradora.activa && cambio.valor) return { ok: false, error: "DISCONTINUADA" };
     const clave = and(
       eq(t.empresaAseguradoras.empresaId, empresaId),
       eq(t.empresaAseguradoras.aseguradoraId, aseguradora.id),

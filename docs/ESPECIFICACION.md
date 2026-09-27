@@ -452,9 +452,10 @@ Regla de dependencias: `domain` no importa nada del resto.
    aseguradoras e interfaces con baja al mes siguiente, productores con sus
    códigos, políticas, límites de la licencia al activar; usuarios SOFTeam por
    rol, menú según rol o permiso, pantalla de auditoría, recuperación de la
-   contraseña.
-   *Pendiente:* catálogo de aseguradoras editable por SOFTeam (hoy semilla),
-   administradores delegados por oficina (el alcance ya se guarda; falta
+   contraseña, catálogo de aseguradoras editable por SOFTeam (interfaces
+   disponibles y discontinuación: quien ya trabaja con una discontinuada la
+   conserva hasta darla de baja).
+   *Pendiente:* administradores delegados por oficina (el alcance ya se guarda; falta
    restringir el portal), 2FA para SOFTeam, alerta cuando la licencia baja por
    debajo de lo configurado (fase 6).
 6. ✅ **Procesos:** proceso diario (excepciones de pago vencidas, alertas de

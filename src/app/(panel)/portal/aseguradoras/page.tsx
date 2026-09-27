@@ -129,13 +129,22 @@ export default async function PaginaAseguradoras({
                     <p className="font-medium">{a.nombre}</p>
                     <p className="font-mono text-xs text-muted-foreground">{a.abreviatura}</p>
                   </div>
-                  {a.trabaja && <Badge variant="secondary">Trabajás con ella</Badge>}
+                  <span className="flex flex-wrap justify-end gap-1">
+                    {a.discontinuada && <Badge variant="outline">Discontinuada</Badge>}
+                    {a.trabaja && <Badge variant="secondary">Trabajás con ella</Badge>}
+                  </span>
                 </div>
                 <InterruptorAseguradora
                   aseguradoraId={a.id}
                   cambio="trabaja"
                   valor={a.trabaja}
                   etiqueta="Trabajo con esta aseguradora"
+                  ayuda={
+                    a.discontinuada
+                      ? "SOFTeam la discontinuó: podés darla de baja, pero no activar nada nuevo."
+                      : undefined
+                  }
+                  deshabilitado={a.discontinuada && !a.trabaja}
                 />
                 <div className="grid gap-3 border-t pt-4">
                   {TIPOS_INTERFAZ.map((tipo) => {

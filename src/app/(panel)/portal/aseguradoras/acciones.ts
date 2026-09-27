@@ -38,6 +38,8 @@ export async function cambiarAseguradoraAccion(
       NO_EXISTE: "La aseguradora ya no está disponible.",
       NO_DISPONIBLE: `Esta aseguradora todavía no tiene interfaz con ${producto}.`,
       NO_TRABAJA: "Primero marcá que trabajás con esta aseguradora.",
+      DISCONTINUADA:
+        "Esta aseguradora fue discontinuada: ya no se pueden activar interfaces nuevas.",
       SIN_LICENCIA: `Tu licencia no incluye interfaces de ${producto}.`,
       LIMITE_ALCANZADO: `Ya usás todas las interfaces de ${producto} (${resultado.detalle}). Dá de baja una o sumá interfaces con un paquete.`,
     };
