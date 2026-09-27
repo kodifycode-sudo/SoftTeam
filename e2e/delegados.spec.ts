@@ -87,7 +87,7 @@ test.describe
       await expect(page.getByText("Casa central", { exact: true })).toHaveCount(0);
     });
 
-    test("SOFTeam factura las compras de la oficina a otro cliente", async ({ page }) => {
+    test("la oficina pide facturar a otro cliente y SOFTeam lo aprueba", async ({ page }) => {
       // El otro cliente tiene que estar registrado en STLic.
       await registrarCliente(page, productor, `productor.${sufijo}@brokerdelsur.com.ar`);
       await page.context().clearCookies();
@@ -97,26 +97,53 @@ test.describe
         .getByRole("link", { name: new RegExp(productor) })
         .first()
         .click();
-      const numero = (await page.getByText(/^Cliente #\d+$/).textContent())?.replace(/\D/g, "");
+      const cuit = await page
+        .locator("dt", { hasText: /^CUIT$/ })
+        .locator("+ dd")
+        .textContent();
 
+      // El delegado de la oficina lo pide desde el portal.
+      await page.context().clearCookies();
+      await ingresar(page, delegado, CONTRASENA);
+      await page.goto("/portal/oficinas");
+      await page
+        .getByRole("button", { name: "Pedir cambio de facturación de 01-002 Sucursal Rosario" })
+        .click();
+      await page
+        .getByRole("dialog")
+        .getByLabel("CUIT a facturar")
+        .fill(cuit ?? "");
+      await page
+        .getByRole("dialog")
+        .getByLabel("Comentario para SOFTeam (opcional)")
+        .fill("La oficina es de otro productor");
+      await page.getByRole("button", { name: "Enviar pedido" }).click();
+      await expect(page.getByText("Enviamos el pedido a SOFTeam.")).toBeVisible();
+      await expect(page.getByText(/Pediste facturar a .* esperando a SOFTeam/)).toBeVisible();
+      await capturar(page, "portal-pedido-facturacion");
+
+      // SOFTeam lo ve en la ficha del cliente y lo aprueba.
+      await page.context().clearCookies();
+      await ingresar(page, ADMIN.email, ADMIN.contrasena);
       await page.goto(`/admin/clientes?q=${encodeURIComponent(`Delegados ${sufijo}`)}`);
       await page
         .getByRole("link", { name: new RegExp(`Delegados ${sufijo}`) })
         .first()
         .click();
+      await expect(page.getByText(`Cliente de STLic: ${productor}`)).toBeVisible();
+      await expect(page.getByText('"La oficina es de otro productor"')).toBeVisible();
+      await page.getByRole("button", { name: "Aprobar" }).click();
+      await expect(page.getByText("Pedido aprobado: ya rige la nueva facturación.")).toBeVisible();
+      await expect(page.getByText(`Factura a ${productor}`, { exact: false })).toBeVisible();
+      await capturar(page, "admin-facturacion-oficina");
+
+      // SOFTeam también puede cambiarla directo; un CUIT desconocido se rechaza.
       await page
         .getByRole("button", { name: "Cambiar facturación de 01-002 Sucursal Rosario" })
         .click();
       await page.getByLabel("Facturar a (CUIT o número de cliente)").fill("20-99999999-7");
       await page.getByRole("button", { name: "Guardar", exact: true }).click();
       await expect(page.getByText("No hay un cliente con ese CUIT o número.")).toBeVisible();
-      await page.getByLabel("Facturar a (CUIT o número de cliente)").fill(numero ?? "");
-      await page.getByRole("button", { name: "Guardar", exact: true }).click();
-      await expect(
-        page.getByText(`Las compras de la oficina se facturan a ${productor}.`),
-      ).toBeVisible();
-      await expect(page.getByText(`Factura a ${productor}`, { exact: false })).toBeVisible();
-      await capturar(page, "admin-facturacion-oficina");
     });
 
     test("compra delegada: los paquetes quedan asignados a la oficina", async ({ page }) => {

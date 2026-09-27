@@ -3,19 +3,24 @@ import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { requerirCliente } from "@/server/auth/sesion";
+import { puedeComprar, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { pedidosPendientes } from "@/server/modules/cuentas/facturacion-oficinas";
 import { listarCanales, listarOficinas } from "@/server/modules/cuentas/oficinas";
 import { NuevaOficina } from "./nueva-oficina";
+import { FacturacionDeOficina } from "./pedir-facturacion";
 
 export const metadata: Metadata = { title: "Oficinas" };
 
 export default async function PaginaOficinas() {
   const contexto = await requerirCliente();
   const db = await obtenerDb();
-  const [oficinas, canales] = await Promise.all([
+  // Quien administra paquetes y pagos puede pedir que otra razón social pague una oficina.
+  const comercial = puedeComprar(contexto);
+  const [oficinas, canales, pedidos] = await Promise.all([
     listarOficinas(db, contexto.empresaId, contexto.alcance),
     listarCanales(db, contexto.empresaId),
+    comercial ? pedidosPendientes(db, [contexto.empresaId]) : [],
   ]);
   const { alcance } = contexto;
   // Un delegado de oficina solo ve la suya; uno de canal puede sumar oficinas a su canal.
@@ -100,6 +105,17 @@ export default async function PaginaOficinas() {
                       </p>
                     )}
                   </div>
+                  {comercial && (
+                    <FacturacionDeOficina
+                      oficinaId={o.id}
+                      oficina={`${canal.codigo}-${o.codigo} ${o.nombre}`}
+                      pedido={
+                        pedidos
+                          .filter((p) => p.oficinaId === o.id)
+                          .map((p) => ({ id: p.id, cuit: p.cuit }))[0] ?? null
+                      }
+                    />
+                  )}
                 </Card>
               ))}
             </div>

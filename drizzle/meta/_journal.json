@@ -71,6 +71,13 @@
       "when": 1790522546692,
       "tag": "0009_facturacion_oficina",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790523421911,
+      "tag": "0010_solicitudes_facturacion",
+      "breakpoints": true
     }
   ]
 }

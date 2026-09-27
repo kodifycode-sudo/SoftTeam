@@ -25,7 +25,10 @@ import { obtenerDb } from "@/server/db";
 import type { Contacto, Domicilio } from "@/server/db/schema";
 import { actividadDeEmpresa, notasDeEmpresa } from "@/server/modules/cuentas/actividad";
 import { obtenerCliente } from "@/server/modules/cuentas/consultas";
-import { facturacionDeOficinas } from "@/server/modules/cuentas/facturacion-oficinas";
+import {
+  facturacionDeOficinas,
+  pedidosPendientes,
+} from "@/server/modules/cuentas/facturacion-oficinas";
 import { abiertosPorEmpresa } from "@/server/modules/soporte/incidentes";
 import { FacturacionOficinas } from "./facturacion-oficinas";
 import { NotasEmpresa } from "./notas";
@@ -83,11 +86,12 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
   const cliente = await obtenerCliente(db, id);
   if (!cliente) notFound();
   const ids = cliente.empresas.map((e) => e.id);
-  const [abiertos, notas, actividad, oficinas] = await Promise.all([
+  const [abiertos, notas, actividad, oficinas, pedidos] = await Promise.all([
     abiertosPorEmpresa(db, ids),
     Promise.all(ids.map((e) => notasDeEmpresa(db, e, true))),
     Promise.all(ids.map((e) => actividadDeEmpresa(db, e, { esSofteam: true, limite: 8 }))),
     facturacionDeOficinas(db, ids),
+    pedidosPendientes(db, ids),
   ]);
   const editaFacturacion = rol === "ADMINISTRACION" || rol === "COMERCIAL";
 
@@ -204,6 +208,7 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
                     nombre: o.nombre,
                     activa: o.activa,
                     cliente: o.cliente,
+                    pedido: pedidos.find((p) => p.oficinaId === o.id) ?? null,
                   }))}
               />
               <NotasEmpresa empresaId={e.id} clienteId={cliente.id} notas={notas[n] ?? ""} />

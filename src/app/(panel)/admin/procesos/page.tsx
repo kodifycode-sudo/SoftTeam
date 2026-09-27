@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { SelectNativo } from "@/components/select-nativo";
 import { Badge } from "@/components/ui/badge";
@@ -238,7 +239,12 @@ export default async function PaginaProcesos({ searchParams }: PageProps<"/admin
                         <TableCell className="text-sm">
                           {a.empresaNombre ? (
                             <>
-                              <p>{a.empresaNombre}</p>
+                              <Link
+                                href={`/admin/clientes/${a.clienteId}`}
+                                className="text-primary hover:underline"
+                              >
+                                {a.empresaNombre}
+                              </Link>
                               <p className="text-xs text-muted-foreground">#{a.empresaNumero}</p>
                             </>
                           ) : (

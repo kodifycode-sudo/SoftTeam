@@ -1,13 +1,13 @@
 "use client";
 
-import { MapPinned, Pencil, Receipt } from "lucide-react";
+import { Check, Clock, MapPinned, Pencil, Receipt, X } from "lucide-react";
 import { useActionState, useState } from "react";
 import { BotonEnviar, Campo, useAvisoDeAccion } from "@/components/formulario";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatearCuit } from "@/domain/cuentas/cuit";
-import { ESTADO_INICIAL } from "@/lib/formulario";
-import { asignarFacturacionOficinaAccion } from "./acciones";
+import { ESTADO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
+import { asignarFacturacionOficinaAccion, resolverPedidoFacturacionAccion } from "./acciones";
 
 export interface OficinaFacturacion {
   id: string;
@@ -15,6 +15,124 @@ export interface OficinaFacturacion {
   nombre: string;
   activa: boolean;
   cliente: { numero: number; nombreFactura: string; cuit: string; activo: boolean } | null;
+  /** Pedido pendiente de la empresa para esta oficina. */
+  pedido: {
+    id: string;
+    cuit: string | null;
+    comentario: string | null;
+    solicitadoPor: string;
+    clienteRegistrado: string | null;
+  } | null;
+}
+
+/** Pedido de la empresa: SOFTeam lo aprueba (aplica el cambio) o lo rechaza con motivo. */
+/**
+ * Queda montado aunque no haya pedido: al resolverlo, el pedido desaparece
+ * de la página y el aviso igual tiene que mostrarse.
+ */
+function PedidoDeOficina({
+  pedido,
+  clienteId,
+  editable,
+}: {
+  pedido: OficinaFacturacion["pedido"];
+  clienteId: string;
+  editable: boolean;
+}) {
+  const [estado, accion] = useActionState(resolverPedidoFacturacionAccion, ESTADO_INICIAL);
+  useAvisoDeAccion(estado);
+  if (!pedido) return null;
+  return (
+    <Pedido
+      key={pedido.id}
+      pedido={pedido}
+      clienteId={clienteId}
+      editable={editable}
+      estado={estado}
+      accion={accion}
+    />
+  );
+}
+
+function Pedido({
+  pedido,
+  clienteId,
+  editable,
+  estado,
+  accion,
+}: {
+  pedido: NonNullable<OficinaFacturacion["pedido"]>;
+  clienteId: string;
+  editable: boolean;
+  estado: EstadoFormulario;
+  accion: (formData: FormData) => void;
+}) {
+  const [rechazando, setRechazando] = useState(false);
+  return (
+    <form
+      action={accion}
+      className="mt-3 space-y-2 rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm"
+      noValidate
+    >
+      <input type="hidden" name="solicitudId" value={pedido.id} />
+      <input type="hidden" name="clienteId" value={clienteId} />
+      <p className="flex items-center gap-1.5 font-medium">
+        <Clock className="size-4" /> {pedido.solicitadoPor} pide facturar a{" "}
+        {pedido.cuit ? formatearCuit(pedido.cuit) : "la empresa"}
+      </p>
+      {pedido.cuit && (
+        <p className="text-xs text-muted-foreground">
+          {pedido.clienteRegistrado
+            ? `Cliente de STLic: ${pedido.clienteRegistrado}`
+            : "Ese CUIT todavía no es cliente de STLic: tiene que registrarse antes de aprobar."}
+        </p>
+      )}
+      {pedido.comentario && <p className="text-xs italic">"{pedido.comentario}"</p>}
+      {editable && (
+        <>
+          {rechazando && (
+            <Campo
+              nombre="respuesta"
+              etiqueta="Motivo del rechazo (lo ve la empresa)"
+              maxLength={300}
+              estado={estado}
+            />
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            {rechazando ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setRechazando(false)}
+                >
+                  Volver
+                </Button>
+                <BotonEnviar size="sm" variant="destructive" name="decision" value="rechazar">
+                  Rechazar pedido
+                </BotonEnviar>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setRechazando(true)}>
+                  <X data-icon="inline-start" /> Rechazar
+                </Button>
+                <BotonEnviar
+                  size="sm"
+                  name="decision"
+                  value="aprobar"
+                  disabled={Boolean(pedido.cuit) && !pedido.clienteRegistrado}
+                >
+                  <Check data-icon="inline-start" /> Aprobar
+                </BotonEnviar>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </form>
+  );
 }
 
 function Editor({
@@ -106,6 +224,7 @@ export function FacturacionOficinas({
             {editando === o.id && (
               <Editor oficina={o} clienteId={clienteId} cerrar={() => setEditando(null)} />
             )}
+            <PedidoDeOficina pedido={o.pedido} clienteId={clienteId} editable={editable} />
           </li>
         ))}
       </ul>

@@ -444,7 +444,10 @@ Regla de dependencias: `domain` no importa nada del resto.
    Facturación a otro cliente: SOFTeam (Administración o Comercial) asigna a
    una oficina un cliente de STLic activo; sus compras y renovaciones se le
    facturan con su comprobante, salvo planilla de un grupo económico. Si ese
-   cliente se desactiva, se vuelve a facturar a la empresa.
+   cliente se desactiva, se vuelve a facturar a la empresa. La empresa (general
+   o comercial, en las oficinas de su alcance) puede pedir el cambio desde
+   Oficinas: queda un pedido pendiente por oficina, SOFTeam lo aprueba o lo
+   rechaza con motivo desde la ficha del cliente, y la empresa recibe el aviso.
    *Pendiente de esta fase:* renovación manual desde "Mis paquetes",
    bonificación de paquetes por SOFTeam.
 4. ✅ **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con

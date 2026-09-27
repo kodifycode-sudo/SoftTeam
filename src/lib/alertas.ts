@@ -14,4 +14,6 @@ export const ETIQUETA_ALERTA = {
   RENOVACION_GENERADA: "Renovación generada",
   RECORDATORIO_PAGO: "Recordatorio de pago",
   SOPORTE_RESPUESTA: "Respuesta de soporte",
+  FACTURACION_SOLICITADA: "Pedido de facturación",
+  FACTURACION_RESUELTA: "Facturación de oficina",
 } as const;

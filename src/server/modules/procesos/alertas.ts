@@ -147,6 +147,7 @@ export async function listarAlertas(
       error: t.alertas.error,
       empresaNumero: t.empresas.numero,
       empresaNombre: t.empresas.nombre,
+      clienteId: t.empresas.clienteId,
     })
     .from(t.alertas)
     .leftJoin(t.empresas, eq(t.empresas.id, t.alertas.empresaId))
@@ -189,6 +190,7 @@ const ASUNTOS: Partial<Record<TipoAlerta, string>> = {
   RENOVACION_GENERADA: "Generamos tu orden de renovación",
   RECORDATORIO_PAGO: "Tenés una orden pendiente de pago",
   SOPORTE_RESPUESTA: "Soporte respondió tu consulta",
+  FACTURACION_RESUELTA: "Respondimos tu pedido de facturación",
 };
 
 /** Mails de quienes administran la cuenta: general y comercial, con acceso activo. */

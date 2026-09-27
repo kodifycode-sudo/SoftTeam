@@ -1,14 +1,23 @@
 import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+import { TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { fecha } from "@/domain/fecha";
 import { ventanasDeRenovacion } from "@/domain/procesos/calendario";
 import type { Db } from "@/server/db/cliente";
 import { crearContratoDePrueba, crearDbDePrueba, crearEmpresaDePrueba } from "@/server/db/pruebas";
 import * as t from "@/server/db/schema";
+import { avisosDeEmpresa } from "../procesos/alertas";
 import { procesoRenovacion } from "../procesos/renovacion";
 import { agregarAlCarrito } from "../ventas/carrito";
 import { confirmarOrden } from "../ventas/checkout";
-import { asignarFacturacionOficina, facturacionDeOficinas } from "./facturacion-oficinas";
+import {
+  asignarFacturacionOficina,
+  cancelarPedidoFacturacion,
+  facturacionDeOficinas,
+  pedidosPendientes,
+  pedirFacturacionOficina,
+  resolverPedidoFacturacion,
+} from "./facturacion-oficinas";
 import { crearOficina } from "./oficinas";
 
 const HOY = fecha("2026-09-25");
@@ -141,5 +150,87 @@ describe("facturación de la compra delegada", () => {
       where: eq(t.ordenes.id, nuevo!.ordenId),
     });
     expect(renovacion).toMatchObject({ clienteFacturacionId: otro.id, tipoComprobante: "B" });
+  });
+
+  it("la empresa pide el cambio y SOFTeam lo rechaza con motivo o lo aprueba", async () => {
+    const { empresa, cliente, oficina, otro } = await preparar();
+    const delegado = {
+      usuarioId,
+      alcance: { tipo: "oficina", canalId: oficina.canalId, oficinaId: oficina.id } as const,
+    };
+    const pedir = (cuit: string | null, actor = delegado) =>
+      pedirFacturacionOficina(db, empresa.id, { oficinaId: oficina.id, cuit }, actor);
+
+    // Un delegado de otra oficina no puede pedir por esta.
+    expect(
+      await pedir(otro.cuit, {
+        usuarioId,
+        alcance: { tipo: "oficina", canalId: oficina.canalId, oficinaId: crypto.randomUUID() },
+      }),
+    ).toEqual({ ok: false, error: "OFICINA_INEXISTENTE" });
+    expect(await pedir(cliente.cuit)).toEqual({ ok: false, error: "MISMO_CLIENTE" });
+    expect(await pedir(null)).toEqual({ ok: false, error: "SIN_CAMBIO" });
+
+    const primero = await pedir(otro.cuit);
+    if (!primero.ok) throw new Error(primero.error);
+    expect(await pedir(otro.cuit)).toEqual({ ok: false, error: "YA_PENDIENTE" });
+    const alertaSofteam = await db.query.alertas.findFirst({
+      where: eq(t.alertas.claveDeduplicacion, `FACTURACION_SOLICITADA:${primero.id}`),
+    });
+    expect(alertaSofteam).toMatchObject({ paraCliente: false, estado: "PENDIENTE" });
+
+    // Rechazo: exige motivo y le avisa a la oficina.
+    expect(
+      await resolverPedidoFacturacion(db, { solicitudId: primero.id, aprobar: false }, usuarioId),
+    ).toEqual({ ok: false, error: "FALTA_MOTIVO" });
+    expect(
+      await resolverPedidoFacturacion(
+        db,
+        {
+          solicitudId: primero.id,
+          aprobar: false,
+          respuesta: "Falta la conformidad del productor",
+        },
+        usuarioId,
+      ),
+    ).toEqual({ ok: true });
+    const avisos = await avisosDeEmpresa(db, empresa.id, 50, delegado.alcance);
+    expect(avisos.map((a) => a.mensaje)).toContainEqual(
+      expect.stringContaining("Falta la conformidad del productor"),
+    );
+    expect(
+      (await db.query.alertas.findFirst({ where: eq(t.alertas.id, alertaSofteam!.id) }))?.estado,
+    ).toBe("DESCARTADA");
+
+    // Un CUIT que todavía no es cliente no se puede aprobar: el pedido sigue pendiente.
+    const sinRegistrar = await pedir("20123456786");
+    if (!sinRegistrar.ok) throw new Error(sinRegistrar.error);
+    expect(
+      await resolverPedidoFacturacion(
+        db,
+        { solicitudId: sinRegistrar.id, aprobar: true },
+        usuarioId,
+      ),
+    ).toEqual({ ok: false, error: "CLIENTE_INEXISTENTE" });
+    expect(await pedidosPendientes(db, [empresa.id])).toHaveLength(1);
+    expect(await cancelarPedidoFacturacion(db, empresa.id, sinRegistrar.id, delegado)).toBe(true);
+    expect(await pedidosPendientes(db, [empresa.id])).toEqual([]);
+
+    // Aprobación: rige en el acto.
+    const segundo = await pedir(otro.cuit);
+    if (!segundo.ok) throw new Error(segundo.error);
+    expect(
+      await resolverPedidoFacturacion(db, { solicitudId: segundo.id, aprobar: true }, usuarioId),
+    ).toEqual({ ok: true });
+    expect(
+      await resolverPedidoFacturacion(db, { solicitudId: segundo.id, aprobar: true }, usuarioId),
+    ).toEqual({ ok: false, error: "NO_PENDIENTE" });
+    const [fila] = await facturacionDeOficinas(db, [empresa.id]);
+    expect(fila?.cliente?.id).toBe(otro.id);
+    expect(
+      (await avisosDeEmpresa(db, empresa.id, 50, TODA_LA_EMPRESA)).some((a) =>
+        a.mensaje.includes("Aprobamos tu pedido"),
+      ),
+    ).toBe(true);
   });
 });

@@ -43,6 +43,14 @@ export const tipoAlerta = pgEnum("tipo_alerta", [
   "RENOVACION_GENERADA",
   "RECORDATORIO_PAGO",
   "SOPORTE_RESPUESTA",
+  "FACTURACION_SOLICITADA",
+  "FACTURACION_RESUELTA",
+]);
+export const estadoSolicitud = pgEnum("estado_solicitud", [
+  "PENDIENTE",
+  "APROBADA",
+  "RECHAZADA",
+  "CANCELADA",
 ]);
 export const estadoAlerta = pgEnum("estado_alerta", [
   "PENDIENTE",
