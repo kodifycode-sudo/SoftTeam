@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { aliasedTable, and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
+import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
 import { consumir } from "../consumos/consumir";
+import { canalOficinaEnAlcance } from "../cuentas/alcance";
 import { licenciaDeEmpresa } from "../licencias/licencia-empresa";
 import { registrarAlerta } from "../procesos/alertas";
 
@@ -76,13 +78,31 @@ export type ErrorAbrir = "SIN_CREDITOS" | "EMPRESA_INACTIVA";
  */
 export async function abrirIncidente(
   db: Db,
-  contexto: { empresaId: string; empresaNumero: number; usuarioId: string },
+  contexto: {
+    empresaId: string;
+    empresaNumero: number;
+    usuarioId: string;
+    /** Delegado: el pedido queda en su canal u oficina, y una oficina consume primero lo suyo. */
+    alcance?: Alcance;
+  },
   entrada: EntradaIncidente,
   hoy: Fecha = hoyArgentina(),
 ): Promise<{ ok: true; id: string; numero: number } | { ok: false; error: ErrorAbrir }> {
   const id = randomUUID();
+  const alcance = contexto.alcance ?? TODA_LA_EMPRESA;
   try {
     return await db.transaction(async (tx) => {
+      // Una oficina consume con su código (CCOOO): primero sus paquetes, después el pozo.
+      const oficina =
+        alcance.tipo === "oficina"
+          ? (
+              await tx
+                .select({ canal: t.canales.codigo, oficina: t.oficinas.codigo })
+                .from(t.oficinas)
+                .innerJoin(t.canales, eq(t.canales.id, t.oficinas.canalId))
+                .where(eq(t.oficinas.id, alcance.oficinaId))
+            )[0]
+          : undefined;
       const consumo = await consumir(
         tx,
         {
@@ -93,6 +113,7 @@ export async function abrirIncidente(
           modo: "TODO_O_NADA",
           transaccion: `incidente:${id}`,
           concepto: entrada.asunto.slice(0, 200),
+          oficina: oficina ? `${oficina.canal}${oficina.oficina}` : undefined,
         },
         hoy,
       );
@@ -116,6 +137,8 @@ export async function abrirIncidente(
           id,
           empresaId: contexto.empresaId,
           creadoPorId: contexto.usuarioId,
+          canalId: alcance.tipo === "empresa" ? null : alcance.canalId,
+          oficinaId: alcance.tipo === "oficina" ? alcance.oficinaId : null,
           producto: entrada.producto,
           asunto: entrada.asunto,
           prioridad: entrada.prioridad,
@@ -170,13 +193,23 @@ const columnasListado = {
   esperaSofteam: sql<boolean>`coalesce((select not m.de_softeam from ${t.incidenteMensajes} m where m.incidente_id = "incidentes"."id" and not m.interno order by m.creado_en desc limit 1), true)`,
 };
 
-export async function incidentesDeEmpresa(db: Ejecutor, empresaId: string) {
+/** Pedidos de la empresa (un delegado ve los de su canal u oficina). */
+export async function incidentesDeEmpresa(
+  db: Ejecutor,
+  empresaId: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
+) {
   return db
     .select(columnasListado)
     .from(t.incidentes)
     .innerJoin(t.empresas, eq(t.empresas.id, t.incidentes.empresaId))
     .leftJoin(asignado, eq(asignado.id, t.incidentes.asignadoAId))
-    .where(eq(t.incidentes.empresaId, empresaId))
+    .where(
+      and(
+        eq(t.incidentes.empresaId, empresaId),
+        canalOficinaEnAlcance(t.incidentes.canalId, t.incidentes.oficinaId, alcance),
+      ),
+    )
     .orderBy(desc(t.incidentes.ultimaActividadEn))
     .limit(200);
 }
@@ -245,7 +278,11 @@ export async function abiertosPorEmpresa(db: Ejecutor, empresaIds: string[]) {
  * Un pedido con su conversación. `empresaId` acota al cliente (un pedido
  * ajeno no existe para él) y oculta las notas internas de SOFTeam.
  */
-export async function obtenerIncidente(db: Ejecutor, id: string, alcance: { empresaId?: string }) {
+export async function obtenerIncidente(
+  db: Ejecutor,
+  id: string,
+  alcance: { empresaId?: string; alcance?: Alcance },
+) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return undefined;
   const [incidente] = await db
     .select({
@@ -263,6 +300,9 @@ export async function obtenerIncidente(db: Ejecutor, id: string, alcance: { empr
       and(
         eq(t.incidentes.id, id),
         alcance.empresaId ? eq(t.incidentes.empresaId, alcance.empresaId) : undefined,
+        alcance.alcance
+          ? canalOficinaEnAlcance(t.incidentes.canalId, t.incidentes.oficinaId, alcance.alcance)
+          : undefined,
       ),
     );
   if (!incidente) return undefined;
@@ -298,6 +338,8 @@ export interface Autor {
   /** Soporte SOFTeam (si no, es un usuario del cliente y se acota a su empresa). */
   softeam: boolean;
   empresaId?: string;
+  /** Delegado: solo los pedidos de su canal u oficina. */
+  alcance?: Alcance;
 }
 
 async function cargarParaCambiar(tx: Ejecutor, id: string, autor: Autor) {
@@ -308,6 +350,9 @@ async function cargarParaCambiar(tx: Ejecutor, id: string, autor: Autor) {
       and(
         eq(t.incidentes.id, id),
         autor.softeam ? undefined : eq(t.incidentes.empresaId, autor.empresaId ?? ""),
+        autor.softeam || !autor.alcance
+          ? undefined
+          : canalOficinaEnAlcance(t.incidentes.canalId, t.incidentes.oficinaId, autor.alcance),
       ),
     )
     .for("update");
@@ -356,6 +401,9 @@ export async function responderIncidente(
           clave: `SOPORTE_RESPUESTA:${id}:${Date.now()}`,
           mensaje: `Soporte respondió tu consulta #${incidente.numero}: "${incidente.asunto}".`,
           empresaId: incidente.empresaId,
+          // El aviso llega a quien puede ver el pedido.
+          canalId: incidente.canalId,
+          oficinaId: incidente.oficinaId,
           paraSofteam: false,
         });
       }

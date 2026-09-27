@@ -22,7 +22,7 @@ export default async function LayoutPortal({ children }: LayoutProps<"/portal">)
   const db = await obtenerDb();
   const [enCarrito, avisos] = await Promise.all([
     contrata ? cantidadEnCarrito(db, contexto.empresaId, oficinaDeCompra(contexto)) : 0,
-    avisosSinLeer(db, contexto.empresaId),
+    avisosSinLeer(db, contexto.empresaId, contexto.alcance),
   ]);
   const rol = contexto.adminGeneral
     ? "Administrador general"

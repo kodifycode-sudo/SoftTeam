@@ -57,6 +57,13 @@
       "when": 1790437303274,
       "tag": "0007_soporte_marca",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790521902958,
+      "tag": "0008_alcance_soporte_avisos",
+      "breakpoints": true
     }
   ]
 }

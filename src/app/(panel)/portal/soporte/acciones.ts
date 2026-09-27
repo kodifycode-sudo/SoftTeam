@@ -31,6 +31,7 @@ export async function abrirIncidenteAccion(
     await obtenerDb(),
     {
       empresaId: contexto.empresaId,
+      alcance: contexto.alcance,
       empresaNumero: contexto.empresaNumero,
       usuarioId: contexto.usuarioId,
     },
@@ -65,7 +66,12 @@ export async function responderClienteAccion(
   const resultado = await responderIncidente(
     await obtenerDb(),
     datos.data.incidenteId,
-    { usuarioId: contexto.usuarioId, softeam: false, empresaId: contexto.empresaId },
+    {
+      usuarioId: contexto.usuarioId,
+      softeam: false,
+      empresaId: contexto.empresaId,
+      alcance: contexto.alcance,
+    },
     { texto: datos.data.texto },
   );
   if (!resultado.ok) {
@@ -88,7 +94,12 @@ export async function cerrarIncidenteAccion(formData: FormData): Promise<void> {
   await cambiarEstadoIncidente(
     await obtenerDb(),
     id.data,
-    { usuarioId: contexto.usuarioId, softeam: false, empresaId: contexto.empresaId },
+    {
+      usuarioId: contexto.usuarioId,
+      softeam: false,
+      empresaId: contexto.empresaId,
+      alcance: contexto.alcance,
+    },
     "CERRADO",
   );
   revalidatePath(`/portal/soporte/${id.data}`);

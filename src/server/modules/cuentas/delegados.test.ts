@@ -13,6 +13,14 @@ import {
   listarColaboradores,
 } from "../configuracion/colaboradores";
 import { guardarProductor, listarProductores } from "../configuracion/productores";
+import {
+  avisosDeEmpresa,
+  avisosSinLeer,
+  marcarAvisosLeidos,
+  type NuevaAlerta,
+  registrarAlerta,
+} from "../procesos/alertas";
+import { incidentesDeEmpresa, obtenerIncidente, responderIncidente } from "../soporte/incidentes";
 import { agregarAlCarrito, cantidadEnCarrito, listarCarrito } from "../ventas/carrito";
 import { confirmarOrden } from "../ventas/checkout";
 import { listarOrdenes, obtenerOrden } from "../ventas/ordenes";
@@ -287,5 +295,106 @@ describe("administradores delegados", () => {
     expect(
       await obtenerOrden(db, deLaEmpresa.valor.ordenId, { ...alcance, alcance: alcances.centro }),
     ).toBeUndefined();
+  });
+
+  it("avisos: el delegado ve los de sus oficinas y solo marca esos como leídos", async () => {
+    const { empresa, centro, rosario, alcances } = await estructura();
+    const usuarioId = (await db.query.usuarios.findFirst())!.id;
+    const alt = await alternativa("PRO-INICIAL", "Mensual");
+    const contratoDe = async (oficinaId: string | null) => {
+      await agregarAlCarrito(
+        db,
+        { empresaId: empresa.id, oficinaId, alternativaId: alt, cantidad: 1, usuarioId },
+        HOY,
+      );
+      const r = await confirmarOrden(
+        db,
+        { empresaId: empresa.id, oficinaId, usuarioId, claveIdempotencia: crypto.randomUUID() },
+        HOY,
+      );
+      if (!r.ok) throw new Error(r.error);
+      const contrato = await db.query.contratos.findFirst({
+        where: eq(t.contratos.ordenId, r.valor.ordenId),
+      });
+      return { ordenId: r.valor.ordenId, contratoId: contrato!.id };
+    };
+    const delCentro = await contratoDe(centro.id);
+    const deRosario = await contratoDe(rosario.id);
+    const clave = () => crypto.randomUUID();
+    const aviso = (mensaje: string, datos: Partial<NuevaAlerta>) =>
+      registrarAlerta(db, {
+        tipo: "VENCIMIENTO_7D",
+        clave: clave(),
+        mensaje,
+        empresaId: empresa.id,
+        ...datos,
+      });
+    await aviso("Contrato del centro", { contratoId: delCentro.contratoId });
+    await aviso("Orden del centro", { ordenId: delCentro.ordenId });
+    await aviso("Contrato de Rosario", { contratoId: deRosario.contratoId });
+    await aviso("Respuesta al centro", { canalId: centro.canalId, oficinaId: centro.id });
+    await aviso("Licencia de la empresa", {});
+
+    const mensajes = async (alcance: Alcance) =>
+      (await avisosDeEmpresa(db, empresa.id, 50, alcance)).map((a) => a.mensaje).sort();
+    expect(await mensajes(alcances.centro)).toEqual([
+      "Contrato del centro",
+      "Orden del centro",
+      "Respuesta al centro",
+    ]);
+    expect(await mensajes(alcances.canalNorte)).toHaveLength(4);
+    expect(await mensajes(TODA_LA_EMPRESA)).toHaveLength(5);
+
+    expect(await avisosSinLeer(db, empresa.id, alcances.centro)).toBe(3);
+    await marcarAvisosLeidos(db, empresa.id, undefined, alcances.centro);
+    expect(await avisosSinLeer(db, empresa.id, alcances.centro)).toBe(0);
+    // Los de otras oficinas y los de la empresa siguen sin leer.
+    expect(await avisosSinLeer(db, empresa.id)).toBe(2);
+  });
+
+  it("soporte: el delegado ve y responde solo los pedidos de su alcance", async () => {
+    const { empresa, centro, rosario, alcances } = await estructura();
+    const usuarioId = (await db.query.usuarios.findFirst())!.id;
+    const pedido = async (asunto: string, canalId: string | null, oficinaId: string | null) => {
+      const [fila] = await db
+        .insert(t.incidentes)
+        .values({
+          empresaId: empresa.id,
+          creadoPorId: usuarioId,
+          producto: "stlic",
+          asunto,
+          canalId,
+          oficinaId,
+        })
+        .returning({ id: t.incidentes.id });
+      return fila!.id;
+    };
+    const delCentro = await pedido("Del centro", centro.canalId, centro.id);
+    const deRosario = await pedido("De Rosario", rosario.canalId, rosario.id);
+    await pedido("De la empresa", null, null);
+
+    const asuntos = async (alcance: Alcance) =>
+      (await incidentesDeEmpresa(db, empresa.id, alcance)).map((i) => i.asunto).sort();
+    expect(await asuntos(alcances.centro)).toEqual(["Del centro"]);
+    expect(await asuntos(alcances.canalNorte)).toEqual(["De Rosario", "Del centro"]);
+    expect(await asuntos(TODA_LA_EMPRESA)).toHaveLength(3);
+
+    const autor = { usuarioId, softeam: false, empresaId: empresa.id, alcance: alcances.centro };
+    expect(
+      await obtenerIncidente(db, deRosario, { empresaId: empresa.id, alcance: alcances.centro }),
+    ).toBeUndefined();
+    expect(await responderIncidente(db, deRosario, autor, { texto: "Hola" })).toEqual({
+      ok: false,
+      error: "NO_EXISTE",
+    });
+    expect(await responderIncidente(db, delCentro, autor, { texto: "Hola" })).toEqual({ ok: true });
+
+    // La respuesta de Soporte le llega a la oficina que hizo el pedido.
+    await responderIncidente(db, delCentro, { usuarioId, softeam: true }, { texto: "Listo" });
+    expect(
+      (await avisosDeEmpresa(db, empresa.id, 50, alcances.centro)).some((a) =>
+        a.mensaje.includes("Del centro"),
+      ),
+    ).toBe(true);
   });
 });

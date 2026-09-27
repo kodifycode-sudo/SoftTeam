@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { and, asc, count, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
+import { alertaEnAlcance } from "../cuentas/alcance";
 
 export type TipoAlerta = (typeof t.alertas.$inferSelect)["tipo"];
 export type EstadoAlerta = (typeof t.alertas.$inferSelect)["estado"];
@@ -14,6 +16,9 @@ export interface NuevaAlerta {
   empresaId?: string | null;
   contratoId?: string | null;
   ordenId?: string | null;
+  /** Alcance explícito (delegados): p. ej. la respuesta a un pedido de una oficina. */
+  canalId?: string | null;
+  oficinaId?: string | null;
   paraCliente?: boolean;
   paraSofteam?: boolean;
 }
@@ -42,6 +47,8 @@ export async function registrarAlerta(db: Ejecutor, a: NuevaAlerta): Promise<boo
       empresaId: a.empresaId ?? null,
       contratoId: a.contratoId ?? null,
       ordenId: a.ordenId ?? null,
+      canalId: a.canalId ?? null,
+      oficinaId: a.oficinaId ?? null,
       paraCliente: a.paraCliente ?? true,
       paraSofteam: a.paraSofteam ?? true,
     })
@@ -52,7 +59,13 @@ export async function registrarAlerta(db: Ejecutor, a: NuevaAlerta): Promise<boo
 
 // ─── Portal ──────────────────────────────────────────────────────────────────
 
-export async function avisosDeEmpresa(db: Ejecutor, empresaId: string, limite = 50) {
+/** Avisos de la empresa (un delegado ve solo los de su alcance). */
+export async function avisosDeEmpresa(
+  db: Ejecutor,
+  empresaId: string,
+  limite = 50,
+  alcance: Alcance = TODA_LA_EMPRESA,
+) {
   return db
     .select({
       id: t.alertas.id,
@@ -68,13 +81,18 @@ export async function avisosDeEmpresa(db: Ejecutor, empresaId: string, limite = 
         eq(t.alertas.empresaId, empresaId),
         eq(t.alertas.paraCliente, true),
         sql`${t.alertas.estado} <> 'DESCARTADA'`,
+        alertaEnAlcance(alcance),
       ),
     )
     .orderBy(desc(t.alertas.generadaEn))
     .limit(limite);
 }
 
-export async function avisosSinLeer(db: Ejecutor, empresaId: string): Promise<number> {
+export async function avisosSinLeer(
+  db: Ejecutor,
+  empresaId: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
+): Promise<number> {
   const [fila] = await db
     .select({ total: count() })
     .from(t.alertas)
@@ -84,13 +102,19 @@ export async function avisosSinLeer(db: Ejecutor, empresaId: string): Promise<nu
         eq(t.alertas.paraCliente, true),
         isNull(t.alertas.leidaEn),
         sql`${t.alertas.estado} <> 'DESCARTADA'`,
+        alertaEnAlcance(alcance),
       ),
     );
   return fila?.total ?? 0;
 }
 
-/** Marca como leídos los avisos de la empresa (todos o uno). */
-export async function marcarAvisosLeidos(db: Ejecutor, empresaId: string, id?: string) {
+/** Marca como leídos los avisos de la empresa (todos o uno), solo los del alcance. */
+export async function marcarAvisosLeidos(
+  db: Ejecutor,
+  empresaId: string,
+  id?: string,
+  alcance: Alcance = TODA_LA_EMPRESA,
+) {
   await db
     .update(t.alertas)
     .set({ leidaEn: new Date() })
@@ -99,6 +123,7 @@ export async function marcarAvisosLeidos(db: Ejecutor, empresaId: string, id?: s
         eq(t.alertas.empresaId, empresaId),
         isNull(t.alertas.leidaEn),
         id ? eq(t.alertas.id, id) : undefined,
+        alertaEnAlcance(alcance),
       ),
     );
 }

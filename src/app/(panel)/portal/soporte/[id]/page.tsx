@@ -23,6 +23,7 @@ export default async function PedidoSoporte({
   const [{ id }, { nuevo }] = await Promise.all([params, searchParams]);
   const incidente = await obtenerIncidente(await obtenerDb(), id, {
     empresaId: contexto.empresaId,
+    alcance: contexto.alcance,
   });
   if (!incidente) notFound();
   const cerrado = incidente.estado === "CERRADO";

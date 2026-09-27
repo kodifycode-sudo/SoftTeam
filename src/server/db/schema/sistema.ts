@@ -10,7 +10,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import { empresas } from "./cuentas";
+import { canales, empresas, oficinas } from "./cuentas";
 import { estadoAlerta, estadoEvento, estadoJob, tipoAlerta } from "./enums";
 import { instante, marcasTiempo } from "./tipos";
 import { contratos, ordenes } from "./ventas";
@@ -34,6 +34,13 @@ export const alertas = pgTable(
     empresaId: uuid().references(() => empresas.id),
     contratoId: uuid().references(() => contratos.id),
     ordenId: uuid().references(() => ordenes.id),
+    /**
+     * Alcance explícito para los administradores delegados (p. ej. la
+     * respuesta a un pedido de soporte de una oficina). Las alertas de un
+     * contrato u orden toman el alcance de sus contratos.
+     */
+    canalId: uuid().references(() => canales.id),
+    oficinaId: uuid().references(() => oficinas.id),
     tipo: tipoAlerta().notNull(),
     claveDeduplicacion: varchar({ length: 160 }).notNull(),
     mensaje: varchar({ length: 300 }).notNull(),

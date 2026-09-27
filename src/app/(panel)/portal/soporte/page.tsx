@@ -30,7 +30,7 @@ export default async function PaginaSoporte() {
   const db = await obtenerDb();
   const [creditos, incidentes] = await Promise.all([
     creditosDeSoporte(db, contexto.empresaId),
-    incidentesDeEmpresa(db, contexto.empresaId),
+    incidentesDeEmpresa(db, contexto.empresaId, contexto.alcance),
   ]);
 
   return (

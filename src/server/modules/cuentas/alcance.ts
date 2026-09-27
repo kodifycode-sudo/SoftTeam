@@ -1,4 +1,4 @@
-import { type Column, eq, type SQL, sql } from "drizzle-orm";
+import { type Column, eq, or, type SQL, sql } from "drizzle-orm";
 import type { Alcance } from "@/domain/cuentas/alcance";
 import * as t from "@/server/db/schema";
 
@@ -18,16 +18,42 @@ export function oficinaEnAlcance(columna: Column, alcance: Alcance): SQL | undef
   }
 }
 
-/** Condición SQL para los colaboradores (guardan canal y oficina). */
-export function colaboradorEnAlcance(alcance: Alcance): SQL | undefined {
+/**
+ * Condición SQL para lo que guarda canal y oficina (colaboradores, pedidos de
+ * soporte, avisos): lo del canal o de sus oficinas, o lo de la oficina.
+ */
+export function canalOficinaEnAlcance(
+  canal: Column,
+  oficina: Column,
+  alcance: Alcance,
+): SQL | undefined {
   switch (alcance.tipo) {
     case "empresa":
       return undefined;
     case "canal":
-      return eq(t.colaboradores.canalId, alcance.canalId);
+      return eq(canal, alcance.canalId);
     case "oficina":
-      return eq(t.colaboradores.oficinaId, alcance.oficinaId);
+      return eq(oficina, alcance.oficinaId);
   }
+}
+
+/** Condición SQL para los colaboradores. */
+export const colaboradorEnAlcance = (alcance: Alcance) =>
+  canalOficinaEnAlcance(t.colaboradores.canalId, t.colaboradores.oficinaId, alcance);
+
+/**
+ * Avisos visibles para un delegado: los de su canal u oficina, y los de
+ * contratos u órdenes de sus oficinas. Los de toda la empresa (licencia
+ * vencida, saldo de la empresa…) quedan para quien la administra entera.
+ */
+export function alertaEnAlcance(alcance: Alcance): SQL | undefined {
+  const contratos = oficinaEnAlcance(t.contratos.oficinaId, alcance);
+  if (!contratos) return undefined;
+  return or(
+    canalOficinaEnAlcance(t.alertas.canalId, t.alertas.oficinaId, alcance),
+    sql`exists (select 1 from ${t.contratos} where ${t.contratos.id} = ${t.alertas.contratoId} and ${contratos})`,
+    sql`exists (select 1 from ${t.contratos} where ${t.contratos.ordenId} = ${t.alertas.ordenId} and ${contratos})`,
+  );
 }
 
 /**

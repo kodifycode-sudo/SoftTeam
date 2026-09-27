@@ -461,7 +461,11 @@ Regla de dependencias: `domain` no importa nada del resto.
    órdenes y consumos de su alcance; lo que es de toda la empresa
    (aseguradoras, políticas, marca) queda para quien administra toda la
    empresa. El administrador general siempre tiene toda la empresa; un
-   delegado de canal elige para cuál de sus oficinas compra.
+   delegado de canal elige para cuál de sus oficinas compra. Soporte y avisos
+   también respetan el alcance: el pedido queda en el canal u oficina de
+   quien lo abre (y una oficina consume primero su crédito); el delegado ve
+   los avisos de contratos y órdenes de sus oficinas y las respuestas a sus
+   pedidos.
    *Pendiente:* 2FA para SOFTeam, alerta cuando la licencia baja por
    debajo de lo configurado (fase 6).
 6. ✅ **Procesos:** proceso diario (excepciones de pago vencidas, alertas de

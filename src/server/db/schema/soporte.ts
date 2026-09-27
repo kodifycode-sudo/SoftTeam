@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { usuarios } from "./auth";
 import { consumos } from "./consumos";
-import { empresas } from "./cuentas";
+import { canales, empresas, oficinas } from "./cuentas";
 import { estadoIncidente, prioridadIncidente } from "./enums";
 import { instante, marcasTiempo } from "./tipos";
 
@@ -29,6 +29,12 @@ export const incidentes = pgTable(
     creadoPorId: text()
       .notNull()
       .references(() => usuarios.id),
+    /**
+     * Alcance de quien lo abrió (administrador delegado): lo ven los que
+     * administran ese canal u oficina. Sin canal ni oficina, toda la empresa.
+     */
+    canalId: uuid().references(() => canales.id),
+    oficinaId: uuid().references(() => oficinas.id),
     /** Producto sobre el que consulta ("prodigal", "cotiweb"… o "stlic"). */
     producto: varchar({ length: 20 }).notNull(),
     asunto: varchar({ length: 140 }).notNull(),

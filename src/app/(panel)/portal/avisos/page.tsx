@@ -29,7 +29,7 @@ const fechaHora = (d: Date) =>
 
 export default async function PaginaAvisos() {
   const contexto = await requerirCliente();
-  const avisos = await avisosDeEmpresa(await obtenerDb(), contexto.empresaId);
+  const avisos = await avisosDeEmpresa(await obtenerDb(), contexto.empresaId, 50, contexto.alcance);
   const sinLeer = avisos.filter((a) => !a.leidaEn).length;
 
   return (

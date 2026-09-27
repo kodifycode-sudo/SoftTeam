@@ -85,6 +85,11 @@ export async function cambiarRenovacionAccion(
 export async function marcarAvisosLeidosAccion(formData: FormData): Promise<void> {
   const contexto = await requerirCliente();
   const id = z.uuid().safeParse(formData.get("id"));
-  await marcarAvisosLeidos(await obtenerDb(), contexto.empresaId, id.success ? id.data : undefined);
+  await marcarAvisosLeidos(
+    await obtenerDb(),
+    contexto.empresaId,
+    id.success ? id.data : undefined,
+    contexto.alcance,
+  );
   revalidatePath("/portal", "layout");
 }
