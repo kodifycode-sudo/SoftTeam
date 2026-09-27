@@ -2,10 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { EstadoFormulario } from "@/lib/formulario";
+import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { guardarNotas } from "@/server/modules/cuentas/actividad";
+import {
+  asignarFacturacionOficina,
+  type ErrorFacturacionOficina,
+  esquemaFacturacionOficina,
+} from "@/server/modules/cuentas/facturacion-oficinas";
 
 export async function guardarNotasAccion(
   _: EstadoFormulario,
@@ -23,4 +28,34 @@ export async function guardarNotasAccion(
   await guardarNotas(await obtenerDb(), datos.data.empresaId, datos.data.notas, user.id);
   revalidatePath(`/admin/clientes/${datos.data.clienteId}`);
   return { ok: true, mensaje: "Notas guardadas." };
+}
+
+const MENSAJES_FACTURACION: Record<ErrorFacturacionOficina, string> = {
+  OFICINA_INEXISTENTE: "La oficina ya no existe.",
+  CLIENTE_INEXISTENTE: "No hay un cliente con ese CUIT o número.",
+  CLIENTE_INACTIVO: "Ese cliente está inactivo.",
+  MISMO_CLIENTE: "Es el cliente de la empresa: dejá el campo vacío.",
+};
+
+/** Cliente al que se facturan las compras delegadas de una oficina (Administración o Comercial). */
+export async function asignarFacturacionOficinaAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
+  const valores = valoresDe(formData);
+  const datos = esquemaFacturacionOficina.safeParse(valores);
+  if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  const resultado = await asignarFacturacionOficina(await obtenerDb(), datos.data, user.id);
+  if (!resultado.ok) {
+    return { errores: { cliente: [MENSAJES_FACTURACION[resultado.error]] }, valores };
+  }
+  const clienteId = z.uuid().safeParse(valores.clienteId);
+  if (clienteId.success) revalidatePath(`/admin/clientes/${clienteId.data}`);
+  return {
+    ok: true,
+    mensaje: resultado.cliente
+      ? `Las compras de la oficina se facturan a ${resultado.cliente.nombreFactura}.`
+      : "Las compras de la oficina se facturan al cliente de la empresa.",
+  };
 }

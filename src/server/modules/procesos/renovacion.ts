@@ -50,6 +50,10 @@ async function candidatos(db: Ejecutor, ventana: VentanaRenovacion) {
         medioPagoAltaId: t.clientes.medioPagoAltaId,
       },
       pais: { moneda: t.paises.moneda, alicuota: t.paises.alicuotaIvaGeneral },
+      /** Compra delegada: la renovación se factura igual que la compra. */
+      clienteFacturacionOficinaId: sql<
+        string | null
+      >`(select c.id from ${t.oficinas} o join ${t.clientes} c on c.id = o.cliente_facturacion_id where o.id = ${t.contratos.oficinaId} and c.activo)`,
     })
     .from(t.contratos)
     .innerJoin(t.ordenes, eq(t.ordenes.id, t.contratos.ordenId))
@@ -138,6 +142,7 @@ export async function procesoRenovacion(
       clienteFacturacionGrupoId: c.cliente.grupoId
         ? (grupoDe.get(c.cliente.grupoId) ?? null)
         : null,
+      clienteFacturacionOficinaId: c.clienteFacturacionOficinaId,
       medio,
     });
     const agrupada = medio.planilla;

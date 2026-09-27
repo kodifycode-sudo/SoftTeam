@@ -35,6 +35,7 @@ export const ACCIONES_AUDITORIA: Record<string, string> = {
   inactivar: "Inactivación",
   cambio_rol: "Cambio de rol",
   codigo_alta: "Alta de código",
+  facturacion: "Cambio de facturación",
   codigo_baja: "Baja de código",
   confirmar: "Confirmación",
   cancelar: "Cancelación",

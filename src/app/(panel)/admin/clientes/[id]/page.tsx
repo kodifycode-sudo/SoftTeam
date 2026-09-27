@@ -25,7 +25,9 @@ import { obtenerDb } from "@/server/db";
 import type { Contacto, Domicilio } from "@/server/db/schema";
 import { actividadDeEmpresa, notasDeEmpresa } from "@/server/modules/cuentas/actividad";
 import { obtenerCliente } from "@/server/modules/cuentas/consultas";
+import { facturacionDeOficinas } from "@/server/modules/cuentas/facturacion-oficinas";
 import { abiertosPorEmpresa } from "@/server/modules/soporte/incidentes";
+import { FacturacionOficinas } from "./facturacion-oficinas";
 import { NotasEmpresa } from "./notas";
 
 export const metadata: Metadata = { title: "Cliente" };
@@ -74,18 +76,20 @@ const domicilioTexto = (d: Domicilio | null) =>
   d ? `${d.calle}, ${d.ciudad} (${d.codigoPostal}), ${d.provincia}` : "—";
 
 export default async function PaginaCliente({ params }: PageProps<"/admin/clientes/[id]">) {
-  await requerirSofteam();
+  const { rol } = await requerirSofteam();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const db = await obtenerDb();
   const cliente = await obtenerCliente(db, id);
   if (!cliente) notFound();
   const ids = cliente.empresas.map((e) => e.id);
-  const [abiertos, notas, actividad] = await Promise.all([
+  const [abiertos, notas, actividad, oficinas] = await Promise.all([
     abiertosPorEmpresa(db, ids),
     Promise.all(ids.map((e) => notasDeEmpresa(db, e, true))),
     Promise.all(ids.map((e) => actividadDeEmpresa(db, e, { esSofteam: true, limite: 8 }))),
+    facturacionDeOficinas(db, ids),
   ]);
+  const editaFacturacion = rol === "ADMINISTRACION" || rol === "COMERCIAL";
 
   return (
     <>
@@ -189,6 +193,19 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
                   )}
                 </Dato>
               </dl>
+              <FacturacionOficinas
+                clienteId={cliente.id}
+                editable={editaFacturacion}
+                oficinas={oficinas
+                  .filter((o) => o.empresaId === e.id)
+                  .map((o) => ({
+                    id: o.id,
+                    codigo: `${o.canalCodigo}-${o.codigo}`,
+                    nombre: o.nombre,
+                    activa: o.activa,
+                    cliente: o.cliente,
+                  }))}
+              />
               <NotasEmpresa empresaId={e.id} clienteId={cliente.id} notas={notas[n] ?? ""} />
               <div className="space-y-2 border-t pt-4">
                 <p className="text-sm font-medium">Actividad reciente</p>

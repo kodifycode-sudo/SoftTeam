@@ -1,4 +1,5 @@
 import {
+  ADMIN,
   activarInvitacion,
   CONTRASENA,
   capturar,
@@ -13,6 +14,7 @@ const general = `general.${sufijo}@brokerdelsur.com.ar`;
 const delegado = `delegado.${sufijo}@brokerdelsur.com.ar`;
 const vecino = `vecino.${sufijo}@brokerdelsur.com.ar`;
 const canalero = `canal.${sufijo}@brokerdelsur.com.ar`;
+const productor = `Productor ${sufijo} SRL`;
 
 test.describe
   .serial("administradores delegados por oficina", () => {
@@ -85,6 +87,38 @@ test.describe
       await expect(page.getByText("Casa central", { exact: true })).toHaveCount(0);
     });
 
+    test("SOFTeam factura las compras de la oficina a otro cliente", async ({ page }) => {
+      // El otro cliente tiene que estar registrado en STLic.
+      await registrarCliente(page, productor, `productor.${sufijo}@brokerdelsur.com.ar`);
+      await page.context().clearCookies();
+      await ingresar(page, ADMIN.email, ADMIN.contrasena);
+      await page.goto(`/admin/clientes?q=${encodeURIComponent(productor)}`);
+      await page
+        .getByRole("link", { name: new RegExp(productor) })
+        .first()
+        .click();
+      const numero = (await page.getByText(/^Cliente #\d+$/).textContent())?.replace(/\D/g, "");
+
+      await page.goto(`/admin/clientes?q=${encodeURIComponent(`Delegados ${sufijo}`)}`);
+      await page
+        .getByRole("link", { name: new RegExp(`Delegados ${sufijo}`) })
+        .first()
+        .click();
+      await page
+        .getByRole("button", { name: "Cambiar facturación de 01-002 Sucursal Rosario" })
+        .click();
+      await page.getByLabel("Facturar a (CUIT o número de cliente)").fill("20-99999999-7");
+      await page.getByRole("button", { name: "Guardar", exact: true }).click();
+      await expect(page.getByText("No hay un cliente con ese CUIT o número.")).toBeVisible();
+      await page.getByLabel("Facturar a (CUIT o número de cliente)").fill(numero ?? "");
+      await page.getByRole("button", { name: "Guardar", exact: true }).click();
+      await expect(
+        page.getByText(`Las compras de la oficina se facturan a ${productor}.`),
+      ).toBeVisible();
+      await expect(page.getByText(`Factura a ${productor}`, { exact: false })).toBeVisible();
+      await capturar(page, "admin-facturacion-oficina");
+    });
+
     test("compra delegada: los paquetes quedan asignados a la oficina", async ({ page }) => {
       await ingresar(page, delegado, CONTRASENA);
       await page.goto("/portal/paquetes");
@@ -94,6 +128,7 @@ test.describe
       await expect(page.getByText("Agregado al carrito.")).toBeVisible();
       await page.goto("/portal/carrito");
       await expect(page.getByText(/Compra para Oficina 01-002 · Sucursal Rosario/)).toBeVisible();
+      await expect(page.getByText(`Factura A a ${productor}`)).toBeVisible();
       await page.getByRole("checkbox", { name: /Revisé los paquetes/ }).click();
       await page.getByRole("button", { name: "Confirmar orden" }).click();
       await expect(page.getByText("¡Orden confirmada!")).toBeVisible();

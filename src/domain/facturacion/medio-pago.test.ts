@@ -41,6 +41,28 @@ describe("validarMedioPago", () => {
 });
 
 describe("resolverClienteFacturacion", () => {
+  it("la compra delegada se factura al cliente de la oficina, salvo planilla del grupo", () => {
+    const base = { clienteId: "c1", clienteFacturacionOficinaId: "oficina" };
+    expect(
+      resolverClienteFacturacion({ ...base, clienteFacturacionGrupoId: null, medio: medio() }),
+    ).toBe("oficina");
+    expect(
+      resolverClienteFacturacion({
+        ...base,
+        clienteFacturacionGrupoId: "agrupador",
+        medio: medio({ planilla: true }),
+      }),
+    ).toBe("agrupador");
+    expect(
+      resolverClienteFacturacion({
+        clienteId: "c1",
+        clienteFacturacionGrupoId: null,
+        clienteFacturacionOficinaId: null,
+        medio: medio(),
+      }),
+    ).toBe("c1");
+  });
+
   // Regresión N2: la KB pisaba siempre el cliente con el del grupo.
   it("usa el cliente del grupo solo con medio de planilla", () => {
     const grupo = { clienteId: "c1", clienteFacturacionGrupoId: "agrupador" };

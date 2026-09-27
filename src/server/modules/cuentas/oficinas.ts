@@ -23,6 +23,10 @@ export async function listarOficinas(
       canalCodigo: t.canales.codigo,
       canalNombre: t.canales.nombre,
       colaboradores: sql<number>`(select count(*)::int from ${t.colaboradores} c where c.oficina_id = ${t.oficinas.id} and c.activo)`,
+      /** Compra delegada facturada a otro cliente (lo asigna SOFTeam). */
+      facturaA: sql<
+        string | null
+      >`(select c.nombre_factura from ${t.clientes} c where c.id = ${t.oficinas.clienteFacturacionId} and c.activo)`,
     })
     .from(t.oficinas)
     .innerJoin(t.canales, eq(t.canales.id, t.oficinas.canalId))

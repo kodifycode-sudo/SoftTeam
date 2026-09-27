@@ -1,4 +1,4 @@
-import { MapPin, MapPinned, Phone, UsersRound } from "lucide-react";
+import { MapPin, MapPinned, Phone, Receipt, UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +94,11 @@ export default async function PaginaOficinas() {
                       <UsersRound className="size-3.5" /> {o.colaboradores} usuario
                       {o.colaboradores === 1 ? "" : "s"}
                     </p>
+                    {o.facturaA && (
+                      <p className="flex items-center gap-2">
+                        <Receipt className="size-3.5" /> Sus compras se facturan a {o.facturaA}
+                      </p>
+                    )}
                   </div>
                 </Card>
               ))}

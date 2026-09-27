@@ -441,8 +441,12 @@ Regla de dependencias: `domain` no importa nada del resto.
    mezclar paquetes temporales y consumibles. Compra delegada: un
    administrador de oficina tiene su propio carrito y los contratos quedan
    asignados a su oficina (también sus renovaciones, en una orden aparte).
-   *Pendiente de esta fase:* renovación manual desde "Mis paquetes", facturar
-   la compra delegada a otro cliente, bonificación de paquetes por SOFTeam.
+   Facturación a otro cliente: SOFTeam (Administración o Comercial) asigna a
+   una oficina un cliente de STLic activo; sus compras y renovaciones se le
+   facturan con su comprobante, salvo planilla de un grupo económico. Si ese
+   cliente se desactiva, se vuelve a facturar a la empresa.
+   *Pendiente de esta fase:* renovación manual desde "Mis paquetes",
+   bonificación de paquetes por SOFTeam.
 4. ✅ **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con
    listado de sincronización, EmpresaFull v1, licencia vigente y consumos
    idempotentes; secretos cifrados (AES-256-GCM); webhooks por outbox con

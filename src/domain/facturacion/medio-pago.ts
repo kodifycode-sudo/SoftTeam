@@ -47,16 +47,21 @@ export function validarMedioPago(
 }
 
 /**
- * La orden se factura al cliente del grupo solo si el medio es de planilla y
- * el grupo tiene cliente de facturación consolidada. En cualquier otro caso,
- * al propio cliente.
+ * A quién se factura la orden, en este orden:
+ * 1. al cliente del grupo, si el medio es de planilla y el grupo tiene
+ *    facturación consolidada;
+ * 2. en la compra delegada, al cliente de facturación de la oficina, si
+ *    SOFTeam le asignó uno;
+ * 3. al propio cliente.
  */
 export function resolverClienteFacturacion(entrada: {
   readonly clienteId: string;
   readonly clienteFacturacionGrupoId: string | null;
+  readonly clienteFacturacionOficinaId?: string | null;
   readonly medio: MedioPago;
 }): string {
-  return entrada.medio.planilla && entrada.clienteFacturacionGrupoId
-    ? entrada.clienteFacturacionGrupoId
-    : entrada.clienteId;
+  if (entrada.medio.planilla && entrada.clienteFacturacionGrupoId) {
+    return entrada.clienteFacturacionGrupoId;
+  }
+  return entrada.clienteFacturacionOficinaId ?? entrada.clienteId;
 }

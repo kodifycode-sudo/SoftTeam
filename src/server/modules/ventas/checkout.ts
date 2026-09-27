@@ -29,8 +29,11 @@ export type RechazoCompra =
   | "ITEM_NO_DISPONIBLE"
   | "EMPRESA_INEXISTENTE";
 
-/** Datos de la empresa, su cliente y su país que definen cómo se cobra. */
-async function contextoVenta(db: Ejecutor, empresaId: string) {
+/**
+ * Datos de la empresa, su cliente y su país que definen cómo se cobra. En la
+ * compra delegada, también el cliente de facturación de la oficina.
+ */
+async function contextoVenta(db: Ejecutor, empresaId: string, oficinaId: string | null = null) {
   const [fila] = await db
     .select({
       empresaId: t.empresas.id,
@@ -48,7 +51,7 @@ async function contextoVenta(db: Ejecutor, empresaId: string) {
     .where(eq(t.empresas.id, empresaId));
   if (!fila) return undefined;
 
-  const [grupo, contratoPrevio] = await Promise.all([
+  const [grupo, contratoPrevio, oficina] = await Promise.all([
     fila.grupoId
       ? db.query.gruposEconomicos.findFirst({ where: eq(t.gruposEconomicos.id, fila.grupoId) })
       : undefined,
@@ -56,9 +59,28 @@ async function contextoVenta(db: Ejecutor, empresaId: string) {
       columns: { id: true },
       where: and(eq(t.contratos.empresaId, empresaId), ne(t.contratos.estado, "CANCELADO")),
     }),
+    oficinaId
+      ? db
+          .select({ clienteFacturacionId: t.clientes.id })
+          .from(t.oficinas)
+          .innerJoin(t.clientes, eq(t.clientes.id, t.oficinas.clienteFacturacionId))
+          .where(
+            and(
+              eq(t.oficinas.id, oficinaId),
+              eq(t.oficinas.empresaId, empresaId),
+              eq(t.clientes.activo, true),
+            ),
+          )
+          .then((filas) => filas[0])
+      : undefined,
   ]);
   const instancia: Instancia = contratoPrevio ? "ADICIONAL" : "ALTA_INICIAL";
-  return { ...fila, clienteFacturacionGrupoId: grupo?.clienteFacturacionId ?? null, instancia };
+  return {
+    ...fila,
+    clienteFacturacionGrupoId: grupo?.clienteFacturacionId ?? null,
+    clienteFacturacionOficinaId: oficina?.clienteFacturacionId ?? null,
+    instancia,
+  };
 }
 
 /** Medios de pago utilizables por la empresa en esta instancia (para el checkout). */
@@ -114,7 +136,7 @@ export async function cotizarCarrito(
   } = {},
   hoy: Fecha = hoyArgentina(),
 ): Promise<Resultado<Cotizacion, RechazoCompra>> {
-  const ctx = await contextoVenta(db, empresaId);
+  const ctx = await contextoVenta(db, empresaId, opciones.oficinaId ?? null);
   if (!ctx) return rechazo("EMPRESA_INEXISTENTE");
 
   const items = await listarCarrito(db, empresaId, opciones.oficinaId ?? null);
@@ -152,6 +174,7 @@ export async function cotizarCarrito(
   const clienteFacturacionId = resolverClienteFacturacion({
     clienteId: ctx.clienteId,
     clienteFacturacionGrupoId: ctx.clienteFacturacionGrupoId,
+    clienteFacturacionOficinaId: ctx.clienteFacturacionOficinaId,
     medio,
   });
   const facturacion = await db.query.clientes.findFirst({

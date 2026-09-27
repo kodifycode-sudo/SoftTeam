@@ -152,6 +152,11 @@ export const oficinas = pgTable(
     whatsapp: varchar({ length: 30 }),
     domicilio: varchar({ length: 160 }),
     redes: jsonb().$type<Partial<Record<"web" | "facebook" | "instagram" | "linkedin", string>>>(),
+    /**
+     * Compra delegada: cliente al que se facturan las compras de la oficina
+     * (lo asigna SOFTeam). `null`: al cliente de la empresa.
+     */
+    clienteFacturacionId: uuid().references(() => clientes.id),
     activa: boolean().notNull().default(true),
     ...marcasTiempo,
   },
