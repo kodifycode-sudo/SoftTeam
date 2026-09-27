@@ -38,6 +38,7 @@ import { listarCarrito } from "@/server/modules/ventas/carrito";
 import { cotizarCarrito, mediosParaEmpresa } from "@/server/modules/ventas/checkout";
 import { cambiarCantidadAccion } from "../compra/acciones";
 import { esRechazoDeTicket, mensajeRechazoCompra } from "../compra/mensajes";
+import { SelectorOficinaCompra } from "../compra/selector-oficina";
 import { ConfirmarOrden } from "./confirmar";
 
 export const metadata: Metadata = { title: "Carrito" };
@@ -94,6 +95,12 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
     return (
       <>
         <EncabezadoPagina titulo="Tu carrito" />
+        {contexto.oficinaCompra && contexto.oficinasCompra.length > 0 && (
+          <SelectorOficinaCompra
+            oficinas={contexto.oficinasCompra}
+            actual={contexto.oficinaCompra.id}
+          />
+        )}
         <Empty className="border border-dashed bg-card py-14">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -148,11 +155,17 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
       <EncabezadoPagina
         titulo="Tu carrito"
         descripcion={
-          contexto.alcanceNombre
-            ? `Compra para ${contexto.alcanceNombre}: los paquetes quedan asignados a tu oficina.`
+          contexto.oficinaCompra
+            ? `Compra para ${contexto.oficinaCompra.etiqueta}: los paquetes quedan asignados a esa oficina.`
             : "Revisá los paquetes, elegí cómo pagar y confirmá la orden."
         }
       />
+      {contexto.oficinaCompra && contexto.oficinasCompra.length > 0 && (
+        <SelectorOficinaCompra
+          oficinas={contexto.oficinasCompra}
+          actual={contexto.oficinaCompra.id}
+        />
+      )}
       {aviso && (
         <Alert variant="destructive" className="mb-6">
           <CircleAlert />

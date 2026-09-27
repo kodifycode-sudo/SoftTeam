@@ -5,7 +5,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/formulario";
-import { COOKIE_EMPRESA, requerirCliente, requerirComercial } from "@/server/auth/sesion";
+import {
+  COOKIE_EMPRESA,
+  COOKIE_OFICINA_COMPRA,
+  requerirCliente,
+  requerirComercial,
+} from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { marcarAvisosLeidos } from "@/server/modules/procesos/alertas";
 import { cambiarRenovacionAutomatica } from "@/server/modules/procesos/renovacion-automatica";
@@ -23,6 +28,21 @@ export async function elegirEmpresa(formData: FormData): Promise<void> {
     maxAge: 60 * 60 * 24 * 180,
   });
   redirect("/portal");
+}
+
+/** Delegado de canal: elige para qué oficina compra (solo entre las de su canal). */
+export async function elegirOficinaCompra(formData: FormData): Promise<void> {
+  const contexto = await requerirComercial();
+  const oficinaId = String(formData.get("oficinaId") ?? "");
+  if (!contexto.oficinasCompra.some((o) => o.id === oficinaId)) return;
+  (await cookies()).set(COOKIE_OFICINA_COMPRA, oficinaId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 180,
+  });
+  revalidatePath("/portal", "layout");
 }
 
 /** Activa o desactiva la renovación automática de un paquete (permiso comercial). */

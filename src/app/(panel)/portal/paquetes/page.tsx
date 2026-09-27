@@ -21,6 +21,7 @@ import {
 import { obtenerDb } from "@/server/db";
 import { listarPaquetes } from "@/server/modules/catalogo/paquetes";
 import { AgregarAlCarrito } from "../compra/agregar";
+import { SelectorOficinaCompra } from "../compra/selector-oficina";
 
 export const metadata: Metadata = { title: "Paquetes disponibles" };
 
@@ -38,11 +39,18 @@ export default async function PaquetesDisponibles({ searchParams }: PageProps<"/
       <EncabezadoPagina
         titulo="Paquetes disponibles"
         descripcion={
-          contexto.alcance.tipo === "oficina"
-            ? `Lo que contrates queda asignado a ${contexto.alcanceNombre} y suma a la licencia de la empresa.`
+          contexto.oficinaCompra
+            ? `Lo que contrates queda asignado a ${contexto.oficinaCompra.etiqueta} y suma a la licencia de la empresa.`
             : "Combiná los paquetes que necesites: tu licencia es la suma de todos los que tengas vigentes."
         }
       />
+
+      {contexto.oficinaCompra && contexto.oficinasCompra.length > 0 && (
+        <SelectorOficinaCompra
+          oficinas={contexto.oficinasCompra}
+          actual={contexto.oficinaCompra.id}
+        />
+      )}
 
       {!puedeComprar && (
         <Alert className="mb-6 border-primary/20 bg-primary/5">
@@ -50,7 +58,7 @@ export default async function PaquetesDisponibles({ searchParams }: PageProps<"/
           <AlertTitle>Solo consulta</AlertTitle>
           <AlertDescription>
             {tienePermisoComercial(contexto)
-              ? "Administrás un canal: la compra delegada es por oficina. Pedile a un administrador de la oficina o de la empresa que contrate."
+              ? "Tu canal todavía no tiene oficinas activas: la compra delegada asigna los paquetes a una oficina."
               : "Para contratar paquetes hace falta un administrador general o comercial de la empresa."}
           </AlertDescription>
         </Alert>

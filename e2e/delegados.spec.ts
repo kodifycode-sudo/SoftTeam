@@ -12,6 +12,7 @@ const sufijo = `d${Date.now().toString(36)}`;
 const general = `general.${sufijo}@brokerdelsur.com.ar`;
 const delegado = `delegado.${sufijo}@brokerdelsur.com.ar`;
 const vecino = `vecino.${sufijo}@brokerdelsur.com.ar`;
+const canalero = `canal.${sufijo}@brokerdelsur.com.ar`;
 
 test.describe
   .serial("administradores delegados por oficina", () => {
@@ -29,6 +30,7 @@ test.describe
       for (const [email, oficina] of [
         [delegado, "Oficina 01-002"],
         [vecino, "Oficina 01-001"],
+        [canalero, "Canal 01"],
       ] as const) {
         await page.getByRole("button", { name: "Nuevo usuario" }).click();
         const dialogo = page.getByRole("dialog");
@@ -37,8 +39,10 @@ test.describe
         const alcance = dialogo.getByLabel("Qué puede ver");
         const valor = await alcance.locator("option", { hasText: oficina }).getAttribute("value");
         await alcance.selectOption(valor ?? "");
-        if (email === delegado) {
+        if (email !== vecino) {
           await dialogo.getByRole("checkbox", { name: "Paquetes y pagos" }).click();
+        }
+        if (email === delegado) {
           await dialogo.getByRole("checkbox", { name: "Configuración" }).click();
         }
         await dialogo.getByRole("button", { name: "Crear usuario" }).click();
@@ -98,7 +102,38 @@ test.describe
       await page.context().clearCookies();
       await ingresar(page, general, CONTRASENA);
       await page.goto("/portal/ordenes");
-      await expect(page.locator('a[href^="/portal/ordenes/"]:not([href*="exportar"])')).toHaveCount(1);
+      await expect(page.locator('a[href^="/portal/ordenes/"]:not([href*="exportar"])')).toHaveCount(
+        1,
+      );
       await expect(page.getByRole("link", { name: "Carrito vacío" })).toBeVisible();
+    });
+
+    test("un delegado de canal elige para qué oficina compra", async ({ page }) => {
+      await activarInvitacion(page, canalero);
+      await page.goto("/portal/paquetes");
+      const selector = page.getByLabel("Comprar para");
+      await expect(selector.locator("option")).toHaveText([
+        "Oficina 01-001 · Casa central",
+        "Oficina 01-002 · Sucursal Rosario",
+      ]);
+      await selector.selectOption({ label: "Oficina 01-002 · Sucursal Rosario" });
+      await expect(
+        page.getByText(/queda asignado a Oficina 01-002 · Sucursal Rosario/),
+      ).toBeVisible();
+      await page
+        .getByRole("button", { name: "Agregar Prodigal Inicial · Mensual al carrito" })
+        .click();
+      await expect(page.getByText("Agregado al carrito.")).toBeVisible();
+
+      await page.goto("/portal/carrito");
+      await expect(page.getByText(/Compra para Oficina 01-002 · Sucursal Rosario/)).toBeVisible();
+      await expect(page.getByText("Prodigal Inicial", { exact: true })).toBeVisible();
+      await capturar(page, "portal-delegado-canal-carrito");
+
+      // Otra oficina, otro carrito.
+      await page
+        .getByLabel("Comprar para")
+        .selectOption({ label: "Oficina 01-001 · Casa central" });
+      await expect(page.getByText("Tu carrito está vacío")).toBeVisible();
     });
   });

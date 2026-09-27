@@ -44,6 +44,14 @@ export async function requerirSofteam(roles?: readonly RolSofteam[]) {
 }
 
 export const COOKIE_EMPRESA = "stlic-empresa";
+/** Oficina para la que compra un delegado de canal (se valida contra su canal). */
+export const COOKIE_OFICINA_COMPRA = "stlic-oficina-compra";
+
+export interface OficinaCompra {
+  id: string;
+  /** "Oficina 01-002 · Rosario" */
+  etiqueta: string;
+}
 
 export interface ContextoCliente {
   usuarioId: string;
@@ -66,6 +74,13 @@ export interface ContextoCliente {
   alcance: Alcance;
   /** "Oficina 01-002 · Centro" o "Canal 01 · Norte" (`null` con toda la empresa). */
   alcanceNombre: string | null;
+  /**
+   * Compra delegada: oficina a la que se asigna lo que compra (`null`: toda
+   * la empresa, o un delegado de canal sin oficinas activas).
+   */
+  oficinaCompra: OficinaCompra | null;
+  /** Delegado de canal: oficinas entre las que elige para quién compra. */
+  oficinasCompra: OficinaCompra[];
   /** Empresas que puede administrar (para el selector). */
   empresas: { id: string; nombre: string; numero: number }[];
 }
@@ -118,12 +133,36 @@ export const requerirCliente = cache(async (): Promise<ContextoCliente> => {
 
   if (filas.length === 0) redirect("/sin-acceso");
 
-  const elegida = (await cookies()).get(COOKIE_EMPRESA)?.value;
+  const galletas = await cookies();
+  const elegida = galletas.get(COOKIE_EMPRESA)?.value;
   const actual = filas.find((f) => f.empresaId === elegida) ?? (filas[0] as (typeof filas)[number]);
 
   const { canalId, oficinaId, canalCodigo, canalNombre, oficinaCodigo, oficinaNombre, ...datos } =
     actual;
   const alcance = actual.adminGeneral ? TODA_LA_EMPRESA : alcanceDe({ canalId, oficinaId });
+
+  // Compra delegada: la oficina propia o, para un delegado de canal, la elegida entre las suyas.
+  let oficinasCompra: OficinaCompra[] = [];
+  let oficinaCompra: OficinaCompra | null = null;
+  if (alcance.tipo === "oficina") {
+    oficinaCompra = {
+      id: alcance.oficinaId,
+      etiqueta: `Oficina ${canalCodigo}-${oficinaCodigo} · ${oficinaNombre}`,
+    };
+  } else if (alcance.tipo === "canal" && actual.adminComercial) {
+    const delCanal = await db
+      .select({ id: oficinas.id, codigo: oficinas.codigo, nombre: oficinas.nombre })
+      .from(oficinas)
+      .where(and(eq(oficinas.canalId, alcance.canalId), eq(oficinas.activa, true)))
+      .orderBy(asc(oficinas.codigo));
+    oficinasCompra = delCanal.map((o) => ({
+      id: o.id,
+      etiqueta: `Oficina ${canalCodigo}-${o.codigo} · ${o.nombre}`,
+    }));
+    const preferida = galletas.get(COOKIE_OFICINA_COMPRA)?.value;
+    oficinaCompra = oficinasCompra.find((o) => o.id === preferida) ?? oficinasCompra[0] ?? null;
+  }
+
   return {
     usuarioId: sesion.user.id,
     nombreUsuario: sesion.user.name,
@@ -136,6 +175,8 @@ export const requerirCliente = cache(async (): Promise<ContextoCliente> => {
         : alcance.tipo === "canal"
           ? `Canal ${canalCodigo} · ${canalNombre}`
           : null,
+    oficinaCompra,
+    oficinasCompra,
     empresas: filas.map((f) => ({
       id: f.empresaId,
       nombre: f.empresaNombre,
@@ -152,13 +193,12 @@ export const puedeConfigurarEmpresa = (c: ContextoCliente) =>
   puedeConfigurar(c) && c.alcance.tipo === "empresa";
 /**
  * Contratar: la empresa o, en la compra delegada, una oficina. Un delegado de
- * canal ve las compras de sus oficinas pero no compra (no hay una oficina a
- * la que asignar los paquetes).
+ * canal compra para la oficina que elige; sin oficinas activas no compra.
  */
-export const puedeContratar = (c: ContextoCliente) => puedeComprar(c) && c.alcance.tipo !== "canal";
+export const puedeContratar = (c: ContextoCliente) =>
+  puedeComprar(c) && (c.alcance.tipo === "empresa" || c.oficinaCompra !== null);
 /** Oficina a la que se asigna lo que se compra (`null`: toda la empresa). */
-export const oficinaDeCompra = (c: ContextoCliente) =>
-  c.alcance.tipo === "oficina" ? c.alcance.oficinaId : null;
+export const oficinaDeCompra = (c: ContextoCliente) => c.oficinaCompra?.id ?? null;
 
 /** Exige permiso de configuración (páginas de usuarios, aseguradoras, productores y políticas). */
 export async function requerirConfiguracion(): Promise<ContextoCliente> {
