@@ -29,3 +29,30 @@ test("Administración cambia un parámetro; un valor inválido no se guarda", as
   await page.getByRole("button", { name: "Guardar Saldo bajo (%)" }).click();
   await expect(page.getByText('Guardamos "Saldo bajo (%)".')).toBeVisible();
 });
+
+test("Administración cambia el factor de un medio de envío", async ({ page }) => {
+  await ingresar(page, ADMIN.email, ADMIN.contrasena);
+  await page.goto("/admin/parametros");
+  const sms = page.getByRole("textbox", { name: "SMS (créditos por envío)" });
+  await expect(sms).toHaveValue("2");
+
+  await sms.fill("0");
+  await page.getByRole("button", { name: "Guardar SMS" }).click();
+  await expect(
+    page.getByText("Un factor mayor que 0 y hasta 100 (hasta dos decimales)."),
+  ).toBeVisible();
+
+  await page.getByRole("textbox", { name: "SMS (créditos por envío)" }).fill("2,5");
+  await page.getByRole("button", { name: "Guardar SMS" }).click();
+  await expect(page.getByText("Guardamos el medio de envío.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "SMS (créditos por envío)" })).toHaveValue("2,5");
+  // El mail, medio por defecto, no se puede desactivar.
+  await expect(page.locator("#medio-mail-activo")).toBeDisabled();
+  await capturar(page, "admin-medios-envio");
+
+  // Se deja como estaba.
+  await page.getByRole("textbox", { name: "SMS (créditos por envío)" }).fill("2");
+  await page.getByRole("button", { name: "Guardar SMS" }).click();
+  await expect(page.getByText("Guardamos el medio de envío.")).toBeVisible();
+});

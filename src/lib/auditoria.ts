@@ -21,6 +21,7 @@ export const ENTIDADES_AUDITORIA: Record<string, string> = {
   grupo: "Grupo económico",
   canal: "Canal",
   parametro: "Parámetro del sistema",
+  medio_envio: "Medio de envío",
   usuario: "Usuario",
   contrato: "Contrato",
   proceso: "Proceso",

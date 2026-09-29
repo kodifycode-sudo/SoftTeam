@@ -154,19 +154,22 @@ export function useAvisoDeAccion(estado: EstadoFormulario, alTerminar?: () => vo
  * desmarcada.
  */
 export function Casilla({
+  id: idPropio,
   nombre,
   etiqueta,
   descripcion,
   marcada,
   deshabilitada,
 }: {
+  /** Necesario cuando la página tiene varias casillas con el mismo nombre. */
+  id?: string;
   nombre: string;
   etiqueta: ReactNode;
   descripcion?: ReactNode;
   marcada: boolean;
   deshabilitada?: boolean;
 }) {
-  const id = `casilla-${nombre}`;
+  const id = idPropio ?? `casilla-${nombre}`;
   return (
     <Field orientation="horizontal" data-disabled={deshabilitada ? true : undefined}>
       <Checkbox

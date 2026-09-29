@@ -32,7 +32,7 @@ Estados:
 | `STLicMediosPago` | `medios_pago` | ✅ |
 | `STLicMonedas` (con cotización) | moneda del país | ⚠️ **C** ABM de monedas y cotización (hoy una moneda por país) |
 | `STLicPaises`, `STLicProvincias` | `paises`, provincias fijas | ⚠️ **C** ABM de países y provincias (hoy vienen de la carga inicial) |
-| `STLicNotiMedio` (medios y factor) | `medios_envio` | ✅ modelo. ⚠️ **C** editar los factores desde SOFTeam |
+| `STLicNotiMedio` (medios y factor) | `medios_envio` | ✅ *Panel SOFTeam → Parámetros → Medios de envío*: factor y estado editables por Administración, auditados; el mail no se desactiva |
 | `STLicPoliticas` | `politicas_empresa` | ✅ |
 | `STLicProductores`, `STLicProdCia` | `productores`, `productor_codigos` | ✅ |
 | `STLicUsuarios` | `colaboradores` | ✅ con accesos, permisos y alcance |
