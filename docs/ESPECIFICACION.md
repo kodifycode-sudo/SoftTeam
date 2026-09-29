@@ -544,10 +544,12 @@ Regla de dependencias: `domain` no importa nada del resto.
    facturación automática al cobrar con reintento diario, tickets (alta en el
    panel, solo para paquetes nuevos), orden agrupada visible para el cliente
    que factura.
-   *Pendiente:* adaptador real de Xubio (necesita credenciales y su API
-   documentada; hoy solo el simulador, y en producción las órdenes quedan
-   "pendientes de facturar"), suscripción de Mercado Pago (débito automático),
-   prueba del adaptador de Mercado Pago contra su sandbox.
+   Adaptador de Xubio (API 1.1): token OAuth2, cliente por código de Xubio o
+   CUIT (lo crea si no existe), factura al contado con `externalId` por orden
+   (idempotente) y pedido del CAE; se activa con las variables `XUBIO_*`.
+   *Pendiente:* probar Xubio con una cuenta real y Mercado Pago contra su
+   sandbox; suscripción de Mercado Pago (débito automático), a definir cómo
+   encaja con las renovaciones quincenales.
 8. ✅ **Pulido:**
    - **Reportes** para SOFTeam (cobranza por mes, órdenes impagas por
      antigüedad, vencimientos con estado de renovación, consumos, empresas por

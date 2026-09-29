@@ -50,8 +50,34 @@ const esquema = z
     MERCADOPAGO_ACCESS_TOKEN: z.string().min(10).optional(),
     /** Clave secreta de las notificaciones (webhooks) de Mercado Pago. */
     MERCADOPAGO_WEBHOOK_SECRET: z.string().min(10).optional(),
+    /**
+     * Xubio (facturación electrónica). Sin credenciales, fuera de producción
+     * se usa el simulador; en producción las órdenes quedan pendientes de
+     * facturar hasta configurarlo.
+     */
+    XUBIO_CLIENT_ID: z.string().min(4).optional(),
+    XUBIO_SECRET_ID: z.string().min(4).optional(),
+    /** Punto de venta electrónico de Xubio con el que se factura. */
+    XUBIO_PUNTO_VENTA_ID: z.coerce.number().int().positive().optional(),
+    /** Producto o servicio de Xubio para las líneas de la factura. */
+    XUBIO_PRODUCTO_ID: z.coerce.number().int().positive().optional(),
+    XUBIO_CENTRO_COSTO_ID: z.coerce.number().int().positive().optional(),
   })
   .superRefine((env, ctx) => {
+    const xubio = [
+      env.XUBIO_CLIENT_ID,
+      env.XUBIO_SECRET_ID,
+      env.XUBIO_PUNTO_VENTA_ID,
+      env.XUBIO_PRODUCTO_ID,
+    ].filter((v) => v !== undefined).length;
+    if (xubio > 0 && xubio < 4) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["XUBIO_CLIENT_ID"],
+        message:
+          "Xubio necesita XUBIO_CLIENT_ID, XUBIO_SECRET_ID, XUBIO_PUNTO_VENTA_ID y XUBIO_PRODUCTO_ID",
+      });
+    }
     if (Boolean(env.MERCADOPAGO_ACCESS_TOKEN) !== Boolean(env.MERCADOPAGO_WEBHOOK_SECRET)) {
       ctx.addIssue({
         code: "custom",

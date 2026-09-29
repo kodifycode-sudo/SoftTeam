@@ -1,4 +1,4 @@
-import type { Centavos } from "@/domain/dinero";
+import type { Centavos, Porcentaje } from "@/domain/dinero";
 
 /*
  * Interfaz propia de facturación electrónica. El adaptador real (Xubio) se
@@ -10,8 +10,19 @@ export interface SolicitudFactura {
   ordenId: string;
   numeroOrden: number;
   tipoComprobante: "A" | "B";
-  cliente: { cuit: string; nombre: string; condicionIva: string };
-  lineas: { descripcion: string; importe: Centavos }[];
+  /** Fecha del comprobante ("2026-09-29"): la del cobro. */
+  fecha: string;
+  cliente: {
+    cuit: string;
+    nombre: string;
+    condicionIva: string;
+    /** Código del cliente en Xubio, si SOFTeam lo cargó. */
+    xubioId?: string | null | undefined;
+    email?: string | null | undefined;
+  };
+  /** `importe`: precio sin ajuste ni IVA; `total`: lo que suma a la factura, con IVA. */
+  lineas: { descripcion: string; importe: Centavos; total: Centavos }[];
+  alicuotaIva: Porcentaje;
   netoGravado: Centavos;
   iva: Centavos;
   total: Centavos;

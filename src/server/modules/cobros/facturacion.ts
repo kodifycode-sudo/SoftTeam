@@ -4,6 +4,10 @@ import type { Db } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
 
+/** Fecha en la Argentina ("2026-09-29") de un instante. */
+const fechaArgentina = (d: Date) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(d);
+
 /** Una emisión reservada hace más que esto se considera caída y se reintenta. */
 const RESERVA_CAIDA_MS = 10 * 60 * 1000;
 
@@ -47,7 +51,11 @@ export async function facturarOrden(
     const [cliente, lineas] = await Promise.all([
       db.query.clientes.findFirst({ where: eq(t.clientes.id, reservada.clienteFacturacionId) }),
       db
-        .select({ descripcion: t.ordenItems.descripcion, importe: t.ordenItems.precioFinal })
+        .select({
+          descripcion: t.ordenItems.descripcion,
+          importe: t.ordenItems.precioFinal,
+          total: t.ordenItems.totalProrrateado,
+        })
         .from(t.ordenItems)
         .where(eq(t.ordenItems.ordenId, ordenId))
         .orderBy(asc(t.ordenItems.descripcion)),
@@ -57,12 +65,16 @@ export async function facturarOrden(
       ordenId,
       numeroOrden: reservada.numero,
       tipoComprobante: reservada.tipoComprobante,
+      fecha: fechaArgentina(reservada.pagadaEn ?? new Date()),
       cliente: {
         cuit: cliente.cuit,
         nombre: cliente.nombreFactura,
         condicionIva: cliente.condicionIva,
+        xubioId: cliente.xubioId,
+        email: cliente.contactoAdministrador.email,
       },
       lineas,
+      alicuotaIva: reservada.alicuotaIva,
       netoGravado: reservada.netoGravado,
       iva: reservada.iva,
       total: reservada.total,

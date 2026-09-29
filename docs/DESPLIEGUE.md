@@ -72,6 +72,9 @@ openssl rand -hex 32      # para CRON_SECRET
 | `ADMIN_PASSWORD` | Primer despliegue | Contraseña inicial (se quita después, ver paso 6) |
 | `MERCADOPAGO_ACCESS_TOKEN` | No | Token de producción de Mercado Pago |
 | `MERCADOPAGO_WEBHOOK_SECRET` | Con el token | Clave secreta de las notificaciones |
+| `XUBIO_CLIENT_ID` / `XUBIO_SECRET_ID` | Para facturar | Credenciales de la API de Xubio (ver "Facturación con Xubio") |
+| `XUBIO_PUNTO_VENTA_ID` / `XUBIO_PRODUCTO_ID` | Con las credenciales | Punto de venta electrónico y producto de las facturas |
+| `XUBIO_CENTRO_COSTO_ID` | No | Centro de costo, si la cuenta los usa |
 | `STLIC_EMISOR_CUIT` | Recomendada | CUIT de SOFTeam (11 dígitos), para el recibo provisorio |
 | `STLIC_EMISOR_DOMICILIO` | No | Domicilio de SOFTeam que se imprime en el recibo |
 | `DATABASE_POOL_MAX` | No | Conexiones por instancia (por defecto 5) |
@@ -148,6 +151,25 @@ producto no responde, se reintentan con `/api/cron/eventos`:
 
 Sin estas variables, en producción el botón "Pagar ahora" no aparece (el
 simulador de pagos solo existe fuera de producción).
+
+### Facturación con Xubio
+
+1. En Xubio: *Configuración → Integraciones → API*, generar el **Client ID** y
+   el **Secret ID** (`XUBIO_CLIENT_ID`, `XUBIO_SECRET_ID`).
+2. Anotar el **id del punto de venta electrónico** con el que se factura
+   (`XUBIO_PUNTO_VENTA_ID`) y crear un **producto o servicio** "Licencias
+   STLic" con IVA 21 % (su id en `XUBIO_PRODUCTO_ID`). Si la cuenta usa
+   centros de costo, `XUBIO_CENTRO_COSTO_ID`.
+3. **Probar primero** en una vista previa, con una orden real chica: el
+   adaptador se armó sobre la documentación pública de la API 1.1 y todavía
+   no se probó contra una cuenta. Verificar en Xubio el cliente, los importes,
+   el IVA y el CAE.
+
+STLic busca el cliente por el "Código en Xubio" de su ficha; si no está, por
+CUIT, y si no existe lo crea. Cada factura lleva `externalId = stlic-<orden>`:
+un reintento no emite dos veces. Sin estas variables, en producción las
+órdenes pagadas quedan "pendientes de facturar" y el proceso diario las
+factura cuando se configura.
 
 ## 10. Antes de abrir a los clientes
 

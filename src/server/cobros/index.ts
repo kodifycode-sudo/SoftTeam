@@ -5,6 +5,7 @@ import { crearFacturadorSimulado, type Facturador } from "./facturador";
 import { crearMercadoPago } from "./mercadopago";
 import type { Pasarela } from "./pasarela";
 import { crearSimulador } from "./simulador";
+import { crearXubio } from "./xubio";
 
 /** Secreto del simulador, derivado de la clave maestra (nunca se usa en producción). */
 export const secretoSimulador = createHmac("sha256", Buffer.from(claveMaestra, "base64"))
@@ -30,10 +31,24 @@ export function obtenerPasarela(): Pasarela | null {
 export const simuladorDePagosActivo = () => obtenerPasarela()?.nombre === "simulador";
 
 /**
- * Facturador activo. El adaptador de Xubio se conecta cuando haya
- * credenciales; hasta entonces, fuera de producción se usa el simulador y en
- * producción las órdenes pagadas quedan "pendientes de facturar".
+ * Facturador activo: Xubio si está configurado; si no, fuera de producción
+ * el simulador, y en producción ninguno (las órdenes pagadas quedan
+ * "pendientes de facturar" hasta configurarlo).
  */
 export function obtenerFacturador(): Facturador | null {
+  if (
+    env.XUBIO_CLIENT_ID &&
+    env.XUBIO_SECRET_ID &&
+    env.XUBIO_PUNTO_VENTA_ID &&
+    env.XUBIO_PRODUCTO_ID
+  ) {
+    return crearXubio({
+      clientId: env.XUBIO_CLIENT_ID,
+      secretId: env.XUBIO_SECRET_ID,
+      puntoVentaId: env.XUBIO_PUNTO_VENTA_ID,
+      productoId: env.XUBIO_PRODUCTO_ID,
+      centroDeCostoId: env.XUBIO_CENTRO_COSTO_ID,
+    });
+  }
   return esProduccion ? null : crearFacturadorSimulado();
 }
