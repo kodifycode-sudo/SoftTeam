@@ -6,11 +6,13 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  smallint,
   text,
   uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import type { MediosComunicacion, ReglaComunicacion } from "@/domain/comunicaciones/tipos";
 import { usuarios } from "./auth";
 import { canales, empresas, oficinas, paises } from "./cuentas";
 import { condicionIva, rolProductor, tipoPersona } from "./enums";
@@ -177,3 +179,22 @@ export const politicasEmpresa = pgTable("politicas_empresa", {
   politicas: jsonb().$type<Politicas>().notNull(),
   ...marcasTiempo,
 });
+
+/** Tipo de comunicación de una empresa: medios y reglas de origen, destino y autorización. */
+export const tiposComunicacion = pgTable(
+  "tipos_comunicacion",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    empresaId: uuid()
+      .notNull()
+      .references(() => empresas.id, { onDelete: "cascade" }),
+    /** Número dentro de la empresa (`TipoComunicacionId` de la KB). */
+    codigo: smallint().notNull(),
+    nombre: varchar({ length: 80 }).notNull(),
+    medios: jsonb().$type<MediosComunicacion>().notNull(),
+    reglas: jsonb().$type<ReglaComunicacion[]>().notNull(),
+    activo: boolean().notNull().default(true),
+    ...marcasTiempo,
+  },
+  (t) => [uniqueIndex().on(t.empresaId, t.codigo), uniqueIndex().on(t.empresaId, t.nombre)],
+);

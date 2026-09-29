@@ -38,7 +38,7 @@ Estados:
 | `STLicUsuarios` | `colaboradores` | ✅ con accesos, permisos y alcance |
 | `Aseguradoras`, `STLicAseguradoras` | `aseguradoras`, `empresa_aseguradoras` | ✅ catálogo editable e interfaces con baja al mes siguiente |
 | `StLicAlertas` | `alertas` | ➕ deduplicadas, con envío por mail y aviso anticipado |
-| `TipoComunicacion` (tipos de comunicación por empresa: sistema, productor, mail, SMS, push, WhatsApp; usuario origen, destino y autorizante) | — | ⚠️ **B** falta. Es configuración que consumen los productos de notificaciones: hay que definir con el equipo de BienSeguro y el Boletín si sigue en STLic o pasa a cada producto |
+| `TipoComunicacion` (tipos de comunicación por empresa: sistema, productor, mail, SMS, push, WhatsApp; usuario origen, destino y autorizante) | `tipos_comunicacion` | ✅ decidido (29/09/2026): sigue en STLic. *Portal → Comunicaciones* (administración de toda la empresa): medios y, por tipo de usuario que la origina, destinatarios y autorizantes; los tipos de usuario conservan el código de la KB. Llegan a los productos en EmpresaFull y SOFTeam los ve en la ficha del cliente |
 | `Parametro`, `TParametros`, `TParametros0` | `parametros` | ✅ *Panel SOFTeam → Parámetros*: días de renovación, semáforo y recordatorios de cobro, avisos de vencimiento, saldo bajo y pedido de facturación de oficinas, con validación y auditoría |
 | `TNumeradores` | secuencias de Postgres | ➕ sin tabla de numeradores ni bloqueos |
 | `TLog` | `auditoria` | ➕ antes y después de cada cambio, por empresa |
@@ -78,8 +78,6 @@ Estados:
 
 Decisiones pendientes (no se implementan hasta definirlas):
 
-- **`TipoComunicacion`**: definir con BienSeguro y el Boletín si la
-  configuración de comunicaciones sigue en STLic o pasa a cada producto.
 - **Monedas y cotización, países y provincias**: hoy se vende solo en
   Argentina, en pesos, con las provincias fijas. El ABM tiene sentido cuando
   se venda en otro país o en otra moneda; ahí hay que definir la cotización

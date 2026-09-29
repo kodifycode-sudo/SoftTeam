@@ -33,6 +33,7 @@ import { fechaCorta } from "@/lib/formato";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import type { Contacto, Domicilio } from "@/server/db/schema";
+import { listarTiposComunicacion } from "@/server/modules/configuracion/comunicaciones";
 import { actividadDeEmpresa, notasDeEmpresa } from "@/server/modules/cuentas/actividad";
 import { obtenerCliente } from "@/server/modules/cuentas/consultas";
 import {
@@ -103,14 +104,16 @@ export default async function PaginaCliente({
   const cliente = await obtenerCliente(db, id);
   if (!cliente) notFound();
   const ids = cliente.empresas.map((e) => e.id);
-  const [abiertos, notas, actividad, licencias, oficinas, pedidos] = await Promise.all([
-    abiertosPorEmpresa(db, ids),
-    Promise.all(ids.map((e) => notasDeEmpresa(db, e, true))),
-    Promise.all(ids.map((e) => actividadDeEmpresa(db, e, { esSofteam: true, limite: 8 }))),
-    Promise.all(ids.map((e) => licenciaDeEmpresa(db, e))),
-    facturacionDeOficinas(db, ids),
-    pedidosPendientes(db, ids),
-  ]);
+  const [abiertos, notas, actividad, licencias, oficinas, pedidos, comunicaciones] =
+    await Promise.all([
+      abiertosPorEmpresa(db, ids),
+      Promise.all(ids.map((e) => notasDeEmpresa(db, e, true))),
+      Promise.all(ids.map((e) => actividadDeEmpresa(db, e, { esSofteam: true, limite: 8 }))),
+      Promise.all(ids.map((e) => licenciaDeEmpresa(db, e))),
+      facturacionDeOficinas(db, ids),
+      pedidosPendientes(db, ids),
+      Promise.all(ids.map((e) => listarTiposComunicacion(db, e))),
+    ]);
   const editaFacturacion = rol === "ADMINISTRACION" || rol === "COMERCIAL";
   const edita = editaFacturacion;
 
@@ -295,6 +298,25 @@ export default async function PaginaCliente({
                   vigencia: c.hasta ? `Hasta el ${fechaCorta(c.hasta)}` : "Hasta agotar el saldo",
                 }))}
               />
+              <div className="space-y-2 border-t pt-4">
+                <p className="text-sm font-medium">Tipos de comunicación</p>
+                {(comunicaciones[n] ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    La empresa todavía no configuró ninguno.
+                  </p>
+                ) : (
+                  <ul className="flex flex-wrap gap-1.5">
+                    {(comunicaciones[n] ?? []).map((c) => (
+                      <li key={c.id}>
+                        <Badge variant={c.activo ? "secondary" : "outline"}>
+                          #{c.codigo} {c.nombre}
+                          {!c.activo && " (inactivo)"}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <NotasEmpresa empresaId={e.id} clienteId={cliente.id} notas={notas[n] ?? ""} />
               <div className="space-y-2 border-t pt-4">
                 <p className="text-sm font-medium">Actividad reciente</p>

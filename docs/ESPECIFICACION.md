@@ -594,6 +594,13 @@ Regla de dependencias: `domain` no importa nada del resto.
      después de cada movimiento.
    - **Exportaciones** de aseguradoras y paquetes (SOFTeam) y de usuarios,
      productores y códigos (portal, con los títulos de la importación).
+   - **Tipos de comunicación** (`TipoComunicacion` de la KB, decisión
+     29/09/2026: sigue en STLic): cada empresa define sus comunicaciones con
+     los medios (aviso del sistema, aviso en el portal, mail, SMS, push,
+     WhatsApp) y, por tipo de usuario que la origina, a quiénes llega y quién
+     la autoriza. Los tipos de usuario conservan el código de la KB (1
+     SOFTeam, 7 administrador de empresa, 3 productor, 5 asegurado…). Los
+     productos las reciben en EmpresaFull (`comunicaciones`).
    - **Recibo provisorio** de cada orden pagada (portal y SOFTeam), imprimible
      o para guardar en PDF: constancia del pago con el detalle de la orden,
      numerado con la orden ("R-10025"). No es comprobante fiscal: la factura

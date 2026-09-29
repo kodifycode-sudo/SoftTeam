@@ -1,9 +1,11 @@
 import { and, asc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
+import { TIPOS_USUARIO, type TipoUsuario } from "@/domain/comunicaciones/tipos";
 import { interfazVigente } from "@/domain/cuentas/limites";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { POLITICAS_POR_DEFECTO } from "@/server/db/schema/configuracion";
+import { listarTiposComunicacion } from "../configuracion/comunicaciones";
 import { leerMarca, marcaParaApi } from "../configuracion/marca";
 import { licenciaDeEmpresa } from "../licencias/licencia-empresa";
 
@@ -84,78 +86,87 @@ export async function empresaCompleta(db: Ejecutor, numero: number, hoy: Fecha =
   const empresa = await db.query.empresas.findFirst({ where: eq(t.empresas.numero, numero) });
   if (!empresa) return undefined;
 
-  const [oficinas, colaboradores, aseguradoras, productores, codigos, politicas, marca] =
-    await Promise.all([
-      db
-        .select({
-          id: t.oficinas.id,
-          canal: t.canales.codigo,
-          canalNombre: t.canales.nombre,
-          codigo: t.oficinas.codigo,
-          nombre: t.oficinas.nombre,
-          telefono: t.oficinas.telefono,
-          whatsapp: t.oficinas.whatsapp,
-          domicilio: t.oficinas.domicilio,
-          notifica: t.oficinas.notifica,
-          activa: t.oficinas.activa,
-        })
-        .from(t.oficinas)
-        .innerJoin(t.canales, eq(t.canales.id, t.oficinas.canalId))
-        .where(eq(t.oficinas.empresaId, empresa.id))
-        .orderBy(asc(t.canales.codigo), asc(t.oficinas.codigo)),
-      db
-        .select({
-          id: t.colaboradores.id,
-          nombre: t.colaboradores.nombre,
-          email: t.colaboradores.email,
-          telefono: t.colaboradores.telefono,
-          canalId: t.colaboradores.canalId,
-          oficinaId: t.colaboradores.oficinaId,
-          usuarioProdigal: t.colaboradores.usuarioProdigal,
-          accesoProdigal: t.colaboradores.accesoProdigal,
-          accesoCotiweb: t.colaboradores.accesoCotiweb,
-          accesoBienseguro: t.colaboradores.accesoBienseguro,
-          accesoBoletin: t.colaboradores.accesoBoletin,
-          activo: t.colaboradores.activo,
-        })
-        .from(t.colaboradores)
-        .where(eq(t.colaboradores.empresaId, empresa.id))
-        .orderBy(asc(t.colaboradores.nombre)),
-      db
-        .select({
-          codigoLegal: t.aseguradoras.codigoLegal,
-          abreviatura: t.aseguradoras.abreviatura,
-          nombre: t.aseguradoras.nombre,
-          activa: t.empresaAseguradoras.activa,
-          interfazProdigal: t.empresaAseguradoras.interfazProdigal,
-          interfazProdigalBajaDesde: t.empresaAseguradoras.interfazProdigalBajaDesde,
-          interfazCotiweb: t.empresaAseguradoras.interfazCotiweb,
-          interfazCotiwebBajaDesde: t.empresaAseguradoras.interfazCotiwebBajaDesde,
-        })
-        .from(t.empresaAseguradoras)
-        .innerJoin(t.aseguradoras, eq(t.aseguradoras.id, t.empresaAseguradoras.aseguradoraId))
-        .where(eq(t.empresaAseguradoras.empresaId, empresa.id))
-        .orderBy(asc(t.aseguradoras.nombre)),
-      db
-        .select()
-        .from(t.productores)
-        .where(eq(t.productores.empresaId, empresa.id))
-        .orderBy(asc(t.productores.nombre)),
-      db
-        .select({
-          productorId: t.productorCodigos.productorId,
-          aseguradora: t.aseguradoras.abreviatura,
-          codigo: t.productorCodigos.codigo,
-          rol: t.productorCodigos.rol,
-          activo: t.productorCodigos.activo,
-        })
-        .from(t.productorCodigos)
-        .innerJoin(t.productores, eq(t.productores.id, t.productorCodigos.productorId))
-        .innerJoin(t.aseguradoras, eq(t.aseguradoras.id, t.productorCodigos.aseguradoraId))
-        .where(eq(t.productores.empresaId, empresa.id)),
-      db.query.politicasEmpresa.findFirst({ where: eq(t.politicasEmpresa.empresaId, empresa.id) }),
-      leerMarca(db, empresa.id),
-    ]);
+  const [
+    oficinas,
+    colaboradores,
+    aseguradoras,
+    productores,
+    codigos,
+    politicas,
+    marca,
+    comunicaciones,
+  ] = await Promise.all([
+    db
+      .select({
+        id: t.oficinas.id,
+        canal: t.canales.codigo,
+        canalNombre: t.canales.nombre,
+        codigo: t.oficinas.codigo,
+        nombre: t.oficinas.nombre,
+        telefono: t.oficinas.telefono,
+        whatsapp: t.oficinas.whatsapp,
+        domicilio: t.oficinas.domicilio,
+        notifica: t.oficinas.notifica,
+        activa: t.oficinas.activa,
+      })
+      .from(t.oficinas)
+      .innerJoin(t.canales, eq(t.canales.id, t.oficinas.canalId))
+      .where(eq(t.oficinas.empresaId, empresa.id))
+      .orderBy(asc(t.canales.codigo), asc(t.oficinas.codigo)),
+    db
+      .select({
+        id: t.colaboradores.id,
+        nombre: t.colaboradores.nombre,
+        email: t.colaboradores.email,
+        telefono: t.colaboradores.telefono,
+        canalId: t.colaboradores.canalId,
+        oficinaId: t.colaboradores.oficinaId,
+        usuarioProdigal: t.colaboradores.usuarioProdigal,
+        accesoProdigal: t.colaboradores.accesoProdigal,
+        accesoCotiweb: t.colaboradores.accesoCotiweb,
+        accesoBienseguro: t.colaboradores.accesoBienseguro,
+        accesoBoletin: t.colaboradores.accesoBoletin,
+        activo: t.colaboradores.activo,
+      })
+      .from(t.colaboradores)
+      .where(eq(t.colaboradores.empresaId, empresa.id))
+      .orderBy(asc(t.colaboradores.nombre)),
+    db
+      .select({
+        codigoLegal: t.aseguradoras.codigoLegal,
+        abreviatura: t.aseguradoras.abreviatura,
+        nombre: t.aseguradoras.nombre,
+        activa: t.empresaAseguradoras.activa,
+        interfazProdigal: t.empresaAseguradoras.interfazProdigal,
+        interfazProdigalBajaDesde: t.empresaAseguradoras.interfazProdigalBajaDesde,
+        interfazCotiweb: t.empresaAseguradoras.interfazCotiweb,
+        interfazCotiwebBajaDesde: t.empresaAseguradoras.interfazCotiwebBajaDesde,
+      })
+      .from(t.empresaAseguradoras)
+      .innerJoin(t.aseguradoras, eq(t.aseguradoras.id, t.empresaAseguradoras.aseguradoraId))
+      .where(eq(t.empresaAseguradoras.empresaId, empresa.id))
+      .orderBy(asc(t.aseguradoras.nombre)),
+    db
+      .select()
+      .from(t.productores)
+      .where(eq(t.productores.empresaId, empresa.id))
+      .orderBy(asc(t.productores.nombre)),
+    db
+      .select({
+        productorId: t.productorCodigos.productorId,
+        aseguradora: t.aseguradoras.abreviatura,
+        codigo: t.productorCodigos.codigo,
+        rol: t.productorCodigos.rol,
+        activo: t.productorCodigos.activo,
+      })
+      .from(t.productorCodigos)
+      .innerJoin(t.productores, eq(t.productores.id, t.productorCodigos.productorId))
+      .innerJoin(t.aseguradoras, eq(t.aseguradoras.id, t.productorCodigos.aseguradoraId))
+      .where(eq(t.productores.empresaId, empresa.id)),
+    db.query.politicasEmpresa.findFirst({ where: eq(t.politicasEmpresa.empresaId, empresa.id) }),
+    leerMarca(db, empresa.id),
+    listarTiposComunicacion(db, empresa.id),
+  ]);
 
   const oficinaPorId = new Map(oficinas.map((o) => [o.id, codigoOficina(o.canal, o.codigo)]));
   const canales = await db
@@ -250,8 +261,22 @@ export async function empresaCompleta(db: Ejecutor, numero: number, hoy: Fecha =
     politicas: politicas?.politicas ?? POLITICAS_POR_DEFECTO,
     // Marca blanca: cómo se muestra la empresa ante sus asegurados.
     marca: marcaParaApi(marca, `/api/v1/empresas/${empresa.numero}/logo`),
+    // Tipos de comunicación: tipos de usuario con su nombre y el código de la KB.
+    comunicaciones: comunicaciones.map((c) => ({
+      codigo: c.codigo,
+      nombre: c.nombre,
+      activo: c.activo,
+      medios: c.medios,
+      reglas: c.reglas.map((r) => ({
+        origen: tipoUsuarioApi(r.origen),
+        destinos: r.destinos.map(tipoUsuarioApi),
+        autorizantes: r.autorizantes.map(tipoUsuarioApi),
+      })),
+    })),
   };
 }
+
+const tipoUsuarioApi = (tipo: TipoUsuario) => ({ tipo, codigo: TIPOS_USUARIO[tipo].codigo });
 
 /** Licencia vigente de una empresa en el formato de la API. */
 export async function licenciaParaApi(db: Ejecutor, numero: number, hoy: Fecha = hoyArgentina()) {

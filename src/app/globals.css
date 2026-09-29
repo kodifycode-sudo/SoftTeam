@@ -177,7 +177,7 @@
 @media print {
   [data-slot="sidebar"],
   [data-slot="sidebar-gap"] {
-    display: none !important;
+    display: none;
   }
   body {
     background: white;

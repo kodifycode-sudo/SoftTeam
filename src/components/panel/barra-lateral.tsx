@@ -16,6 +16,7 @@ import {
   LifeBuoy,
   type LucideIcon,
   MapPinned,
+  MessagesSquare,
   Network,
   Package,
   PackageSearch,
@@ -191,6 +192,12 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
           href: "/portal/marca",
           etiqueta: "Marca",
           icono: Palette,
+          permisos: ["configuracion-empresa"],
+        },
+        {
+          href: "/portal/comunicaciones",
+          etiqueta: "Comunicaciones",
+          icono: MessagesSquare,
           permisos: ["configuracion-empresa"],
         },
         {

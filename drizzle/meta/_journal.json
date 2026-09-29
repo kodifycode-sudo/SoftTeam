@@ -113,6 +113,13 @@
       "when": 1790681550635,
       "tag": "0015_oficina_notifica",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790715670970,
+      "tag": "0016_tipos_comunicacion",
+      "breakpoints": true
     }
   ]
 }

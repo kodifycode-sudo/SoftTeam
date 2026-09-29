@@ -199,7 +199,7 @@ export const documentoOpenApi = {
       get: {
         summary: "Estructura completa de la empresa (EmpresaFull_V1)",
         description:
-          "Empresa, canales, oficinas, usuarios con sus accesos, aseguradoras, productores con sus códigos, políticas y marca blanca (nombre comercial, colores, logo, textos y contacto; `null` si la empresa no la configuró).",
+          "Empresa, canales, oficinas (con `notifica`: si envía notificaciones, ya combinado con la política de la empresa), usuarios con sus accesos, aseguradoras, productores con sus códigos, políticas, marca blanca (nombre comercial, colores, logo, textos y contacto; `null` si la empresa no la configuró) y tipos de comunicación (`comunicaciones`: medios y reglas de origen, destinos y autorizantes; cada tipo de usuario con su nombre y el código de la KB).",
         parameters: [...cabecerasFirma, numero],
         responses: { "200": { description: "EmpresaFull_V1" }, "401": problema, "404": problema },
       },
