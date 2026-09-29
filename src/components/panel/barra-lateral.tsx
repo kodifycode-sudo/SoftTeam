@@ -16,6 +16,7 @@ import {
   LifeBuoy,
   type LucideIcon,
   MapPinned,
+  Network,
   Package,
   PackageSearch,
   Palette,
@@ -71,7 +72,10 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
     },
     {
       titulo: "Cuentas",
-      items: [{ href: "/admin/clientes", etiqueta: "Clientes", icono: UsersRound }],
+      items: [
+        { href: "/admin/clientes", etiqueta: "Clientes", icono: UsersRound },
+        { href: "/admin/grupos", etiqueta: "Grupos económicos", icono: Network },
+      ],
     },
     {
       titulo: "Atención",

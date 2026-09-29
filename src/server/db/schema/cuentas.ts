@@ -51,6 +51,8 @@ export const gruposEconomicos = pgTable("grupos_economicos", {
    * (aseguradoras distribuidoras). `null` = sin facturación consolidada.
    */
   clienteFacturacionId: uuid().references((): AnyPgColumn => clientes.id),
+  /** Cliente que encabeza el grupo (organización y reportes). */
+  clientePrincipalId: uuid().references((): AnyPgColumn => clientes.id),
   ...marcasTiempo,
 });
 

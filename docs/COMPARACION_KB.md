@@ -23,7 +23,7 @@ Estados:
 | `STLicEmpresas` | `empresas` | ✅ nombre, nombre corto, país, tipo de cliente, instalación, activa, fecha de modificación, editables por SOFTeam |
 | `STLicEmpresas.ProdiSino/BSSino/CWSino/CASino` | licencia vigente | ➕ se calcula de los paquetes vigentes: no se desincroniza |
 | `STLicEmpresas.SincProdiFecHora` | eventos de salida y `modificadasDesde` | ➕ sincronización por webhooks y listado incremental |
-| `StLicClienteGrupo` | `grupos_economicos` | ✅ modelo. ⚠️ **A** alta y edición (hoy solo por base de datos) |
+| `StLicClienteGrupo` | `grupos_economicos` | ✅ *Panel SOFTeam → Grupos económicos*: alta, edición, cliente principal, cliente de facturación consolidada, miembros y baja del grupo vacío |
 | `STLicCanales`, `STLicOficinas` | `canales`, `oficinas` | ✅ alta, redes, teléfono, domicilio. ⚠️ **B** editar y desactivar oficinas y renombrar canales. ⚠️ **C** "notifica" por oficina (hoy es una política de toda la empresa) |
 | `STLicPaquetesDisponibles`, `STLicAlternativasPq` | `paquetes`, `alternativas`, recursos | ➕ recursos genéricos en vez de columnas fijas por producto |
 | `STLicPaquetesEmpresa` | `contratos` | ✅. ⚠️ **B** dar de baja un contrato puntual desde SOFTeam (`STLicInactivarPaqueteEmpresa`) |
