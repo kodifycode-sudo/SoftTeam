@@ -16,11 +16,11 @@ Estados:
 
 | KB | STLic | Estado |
 |---|---|---|
-| `STLicClientes` | `clientes` | ✅ datos fiscales, contactos, grupo, medios de pago, Xubio, observaciones. ⚠️ **A** editarlos desde SOFTeam (hoy solo se ven) |
+| `STLicClientes` | `clientes` | ✅ datos fiscales, contactos, grupo, medios de pago, Xubio, observaciones, editables por SOFTeam |
 | `STLicClientes.FacModo` (pago directo, factura adelantada, suscripción MP, débito en aseguradora) | medio de pago del cliente | ➕ se reemplazó por el medio de pago de alta y de renovación (transferencia, link, suscripción, planilla). ⚠️ **B** "factura adelantada": facturar al emitir la orden y no al pagar (decisión pendiente) |
 | `STLicClientes.IdWoo`, `STLicPq.ProductoWoo` | — | ❌ WooCommerce descartado (se usa Mercado Pago + Xubio) |
 | `STLicClientes.AdminMailValSino` / `AdminTelValSino` | mail verificado por código | ✅ el mail. ❌ la validación del teléfono (no la pide ningún proceso) |
-| `STLicEmpresas` | `empresas` | ✅ nombre, nombre corto, país, tipo de cliente, instalación, activa, fecha de modificación. ⚠️ **A** editar y desactivar desde SOFTeam |
+| `STLicEmpresas` | `empresas` | ✅ nombre, nombre corto, país, tipo de cliente, instalación, activa, fecha de modificación, editables por SOFTeam |
 | `STLicEmpresas.ProdiSino/BSSino/CWSino/CASino` | licencia vigente | ➕ se calcula de los paquetes vigentes: no se desincroniza |
 | `STLicEmpresas.SincProdiFecHora` | eventos de salida y `modificadasDesde` | ➕ sincronización por webhooks y listado incremental |
 | `StLicClienteGrupo` | `grupos_economicos` | ✅ modelo. ⚠️ **A** alta y edición (hoy solo por base de datos) |
@@ -49,8 +49,8 @@ Estados:
 
 | KB | STLic | Estado |
 |---|---|---|
-| `AltaNuevoCliente` (asistente de 5 pasos) | alta en línea con verificación del mail | ✅. ⚠️ **A** alta de cliente **por SOFTeam** (corporativos que no se registran solos) y **nueva empresa para un cliente existente** (`STLicClienteEmpresas`, `STEmpresaCrea`) |
-| `StLicClienteUpdate`, `STLicClienteModifica`, `STLicUpdateEmp` | — | ⚠️ **A** (ver transacciones) |
+| `AltaNuevoCliente` (asistente de 5 pasos) | alta en línea con verificación del mail y *Clientes → Nuevo cliente* | ✅ alta en línea y alta por SOFTeam (cliente, empresa, oficina inicial y administrador, con mail de acceso opcional). ✅ nueva empresa para un cliente existente (`STLicClienteEmpresas`, `STEmpresaCrea`) |
+| `StLicClienteUpdate`, `STLicClienteModifica`, `STLicUpdateEmp` | editar cliente y empresa | ✅ |
 | `ImportDataCSV` + `PSTLic*LeeCSV` (clientes, empresas, canales y oficinas, provincias, aseguradoras, usuarios, productores, códigos por compañía) | *Panel SOFTeam → Importar datos* | ✅ clientes y empresas (conserva el número de empresa), canales y oficinas, usuarios, productores, códigos por compañía, catálogo de aseguradoras y aseguradoras de cada empresa. Separado por `;` con títulos (de la KB o simples), revisión antes de importar, todo o nada, plantilla por tipo. Provincias: lista fija de Argentina |
 | `WizardCheckOut`, `ConfirmartPqDisponibles`, `SelectPqDisponibles` | carrito y checkout | ➕ carrito persistente, cálculo en el servidor, idempotente |
 | `STLicCalculaTotalesOrden`, `StLicOrdenRegistro` | dominio `calculo-orden` y `confirmarOrden` | ➕ con las correcciones N1, N2 y N3 de la KB |

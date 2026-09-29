@@ -43,6 +43,7 @@ import { abiertosPorEmpresa } from "@/server/modules/soporte/incidentes";
 import { EditarEmpresa } from "./editar-empresa";
 import { FacturacionOficinas } from "./facturacion-oficinas";
 import { NotasEmpresa } from "./notas";
+import { NuevaEmpresa } from "./nueva-empresa";
 
 export const metadata: Metadata = { title: "Cliente" };
 
@@ -140,6 +141,14 @@ export default async function PaginaCliente({
         }
       />
 
+      {aviso === "creado" && (
+        <Alert className="mb-6 border-success/30 bg-success/5 text-success">
+          <CircleCheck />
+          <AlertDescription className="text-success">
+            Creamos el cliente, su empresa y el administrador.
+          </AlertDescription>
+        </Alert>
+      )}
       {aviso === "guardado" && (
         <Alert className="mb-6 border-success/30 bg-success/5 text-success">
           <CircleCheck />
@@ -191,9 +200,20 @@ export default async function PaginaCliente({
         </Card>
       </div>
 
-      <h2 className="mt-10 mb-4 flex items-center gap-2 text-lg font-semibold">
-        <Building2 className="size-5 text-primary" /> Empresas
-      </h2>
+      <div className="mt-10 mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Building2 className="size-5 text-primary" /> Empresas
+        </h2>
+        {edita && (
+          <NuevaEmpresa
+            clienteId={cliente.id}
+            administrador={{
+              nombre: cliente.contactoAdministrador.nombre,
+              email: cliente.contactoAdministrador.email,
+            }}
+          />
+        )}
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {cliente.empresas.map((e, n) => (
           <Card key={e.id} className="gap-4">

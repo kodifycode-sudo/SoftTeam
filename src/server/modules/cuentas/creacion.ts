@@ -3,6 +3,7 @@ import type { Ejecutor } from "@/server/db/cliente";
 import type { Contacto, Domicilio } from "@/server/db/schema";
 import * as t from "@/server/db/schema";
 import { POLITICAS_POR_DEFECTO } from "@/server/db/schema/configuracion";
+import { asegurarUsuario, normalizarEmail, type UsuarioLogin } from "./usuarios";
 
 /*
  * Alta de clientes y empresas con su estructura mínima. La usan el alta en
@@ -133,4 +134,30 @@ async function ajustarNumerador(tx: Ejecutor, tabla: "clientes" | "empresas") {
   await tx.execute(
     sql`select setval(pg_get_serial_sequence(${tabla}, 'numero'), greatest((select coalesce(max(numero), 0) from ${sql.identifier(tabla)}), nextval(pg_get_serial_sequence(${tabla}, 'numero')) - 1))`,
   );
+}
+
+/**
+ * El administrador general de una empresa nueva, con usuario para entrar
+ * (sin contraseña: la elige desde el mail de acceso o "¿Olvidaste tu
+ * contraseña?"). `undefined` si el mail es de SOFTeam, que no puede
+ * administrar clientes.
+ */
+export async function crearAdministradorGeneral(
+  tx: Ejecutor,
+  empresaId: string,
+  administrador: Contacto & { email: string },
+): Promise<UsuarioLogin | undefined> {
+  const usuario = await asegurarUsuario(tx, administrador);
+  if (usuario.rolSofteam) return undefined;
+  await tx.insert(t.colaboradores).values({
+    empresaId,
+    nombre: administrador.nombre.slice(0, 120),
+    email: normalizarEmail(administrador.email),
+    telefono: administrador.telefono,
+    adminGeneral: true,
+    adminComercial: true,
+    adminOperativo: true,
+    usuarioId: usuario.id,
+  });
+  return usuario;
 }

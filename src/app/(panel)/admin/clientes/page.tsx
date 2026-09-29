@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Search, UsersRound } from "lucide-react";
+import { ChevronRight, Download, Plus, Search, UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
@@ -31,7 +31,7 @@ import { listarClientes } from "@/server/modules/cuentas/consultas";
 export const metadata: Metadata = { title: "Clientes" };
 
 export default async function PaginaClientes({ searchParams }: PageProps<"/admin/clientes">) {
-  await requerirSofteam();
+  const { rol } = await requerirSofteam();
   const { q, inactivos } = await searchParams;
   const busqueda = typeof q === "string" ? q : "";
   const conInactivos = inactivos === "1";
@@ -44,12 +44,19 @@ export default async function PaginaClientes({ searchParams }: PageProps<"/admin
         titulo="Clientes"
         descripcion="Brokers y productores con cuenta en STLic, con sus empresas y datos de facturación."
         acciones={
-          <a
-            href={`/admin/reportes/exportar?${new URLSearchParams({ reporte: "clientes", q: busqueda, inactivos: conInactivos ? "1" : "" })}`}
-            className={buttonVariants({ variant: "outline" })}
-          >
-            <Download data-icon="inline-start" /> Exportar a Excel
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={`/admin/reportes/exportar?${new URLSearchParams({ reporte: "clientes", q: busqueda, inactivos: conInactivos ? "1" : "" })}`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            {(rol === "ADMINISTRACION" || rol === "COMERCIAL") && (
+              <Link href="/admin/clientes/nuevo" className={buttonVariants()}>
+                <Plus data-icon="inline-start" /> Nuevo cliente
+              </Link>
+            )}
+          </div>
         }
       />
 

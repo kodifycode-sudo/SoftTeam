@@ -13,7 +13,7 @@ import {
 import { TIPOS_SOCIEDAD } from "@/lib/argentina";
 import type { Tx } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
-import { crearCliente, crearEmpresa } from "../cuentas/creacion";
+import { crearAdministradorGeneral, crearCliente, crearEmpresa } from "../cuentas/creacion";
 import { asegurarUsuario, type UsuarioLogin } from "../cuentas/usuarios";
 
 /*
@@ -317,20 +317,10 @@ const clientes: Definicion = {
       numero: numeroEmpresa,
     });
     // El administrador del cliente administra la empresa: con usuario para entrar.
-    const usuario = await asegurarUsuario(tx, administrador);
-    if (usuario.rolSofteam) {
+    const usuario = await crearAdministradorGeneral(tx, empresa.id, administrador);
+    if (!usuario) {
       throw new ErrorFila(`El mail ${administrador.email} es de un usuario de SOFTeam.`);
     }
-    await tx.insert(t.colaboradores).values({
-      empresaId: empresa.id,
-      nombre: administrador.nombre.slice(0, 120),
-      email: administrador.email,
-      telefono: administrador.telefono,
-      adminGeneral: true,
-      adminComercial: true,
-      adminOperativo: true,
-      usuarioId: usuario.id,
-    });
     ctx.invitaciones.push(usuario);
     ctx.empresasTocadas.add(empresa.id);
     return "creado";

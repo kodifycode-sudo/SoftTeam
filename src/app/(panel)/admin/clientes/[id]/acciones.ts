@@ -13,6 +13,7 @@ import {
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { guardarNotas } from "@/server/modules/cuentas/actividad";
+import { esquemaNuevaEmpresa, nuevaEmpresaDeCliente } from "@/server/modules/cuentas/altas-softeam";
 import {
   type ErrorEdicion,
   esquemaEdicionCliente,
@@ -27,6 +28,7 @@ import {
   esquemaFacturacionOficina,
   resolverPedidoFacturacion,
 } from "@/server/modules/cuentas/facturacion-oficinas";
+import { enviarInvitacion } from "@/server/modules/cuentas/invitaciones";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 
 export async function guardarNotasAccion(
@@ -189,4 +191,36 @@ export async function guardarEmpresaAccion(
   programarEntregaDeEventos();
   revalidatePath(`/admin/clientes/${ids.data.clienteId}`);
   return { ok: true, mensaje: "Empresa actualizada." };
+}
+
+/** Una empresa más para el cliente (Administración o Comercial). */
+export async function nuevaEmpresaAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
+  const valores = valoresDe(formData);
+  const clienteId = z.uuid().safeParse(valores.clienteId);
+  if (!clienteId.success) return { mensaje: "Cliente inválido.", valores };
+  const datos = esquemaNuevaEmpresa.safeParse(anidar(valores));
+  if (!datos.success) {
+    return { errores: erroresPorRuta(datos.error), mensaje: "Revisá los datos marcados.", valores };
+  }
+  const resultado = await nuevaEmpresaDeCliente(
+    await obtenerDb(),
+    clienteId.data,
+    datos.data,
+    user.id,
+  );
+  if (!resultado.ok) {
+    return resultado.error === "ES_SOFTEAM"
+      ? { errores: { "administrador.email": ["Ese mail es de un usuario de SOFTeam."] }, valores }
+      : { mensaje: "El cliente ya no existe.", valores };
+  }
+  if (valores.invitar === "on") {
+    await enviarInvitacion(resultado.usuario, `la cuenta de ${datos.data.empresa.nombre}`);
+  }
+  programarEntregaDeEventos();
+  revalidatePath(`/admin/clientes/${clienteId.data}`);
+  return { ok: true, mensaje: `Creamos la empresa ${datos.data.empresa.nombre}.` };
 }

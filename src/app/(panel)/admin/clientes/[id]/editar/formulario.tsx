@@ -55,7 +55,7 @@ export interface DatosCliente {
   activo: boolean;
 }
 
-function Seccion({
+export function Seccion({
   icono: Icono,
   titulo,
   descripcion,
@@ -79,7 +79,7 @@ function Seccion({
   );
 }
 
-function CamposDomicilio({
+export function CamposDomicilio({
   prefijo,
   valor,
   estado,
@@ -126,7 +126,7 @@ function CamposDomicilio({
   );
 }
 
-function CamposContacto({
+export function CamposContacto({
   prefijo,
   valor,
   estado,

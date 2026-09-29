@@ -1,4 +1,13 @@
-import { ADMIN, capturar, expect, ingresar, registrarCliente, test } from "./utilidades";
+import {
+  ADMIN,
+  capturar,
+  cuitAleatorio,
+  enlaceEnviadoA,
+  expect,
+  ingresar,
+  registrarCliente,
+  test,
+} from "./utilidades";
 
 const sufijo = `e${Date.now().toString(36)}`;
 const email = `edicion.${sufijo}@brokerdelsur.com.ar`;
@@ -59,5 +68,48 @@ test.describe
       await expect(page.getByText("Empresa actualizada.")).toBeVisible();
       await expect(page.getByText("Corporativo", { exact: true })).toBeVisible();
       await expect(page.getByText(/· NUEVO/)).toBeVisible();
+    });
+  });
+
+test.describe
+  .serial("SOFTeam da de alta clientes y empresas", () => {
+    const corporativo = `Corporativo ${sufijo} SA`;
+    const administrador = `carla.${sufijo}@corporativo.com.ar`;
+
+    test("alta de un cliente que no se registra solo", async ({ page }) => {
+      await ingresar(page, ADMIN.email, ADMIN.contrasena);
+      await page.goto("/admin/clientes");
+      await page.getByRole("link", { name: "Nuevo cliente" }).click();
+      await page.getByLabel("Nombre o razón social").fill(corporativo);
+      await page.getByLabel("CUIT / CUIL").fill(cuitAleatorio());
+      await page.locator("#campo-domicilioFiscal\\.calle").fill("Mitre 500");
+      await page.locator("#campo-domicilioFiscal\\.ciudad").fill("Rosario");
+      await page.locator("#campo-domicilioFiscal\\.codigoPostal").fill("2000");
+      await page.locator("#campo-domicilioFiscal\\.provincia").selectOption("Santa Fe");
+      await page.getByLabel("Nombre y apellido").fill("Carla Corp");
+      await page.getByLabel("Mail", { exact: true }).fill(administrador);
+      await page.getByLabel("Tipo de cliente").selectOption("CORPORATIVO");
+      await page.getByRole("button", { name: "Crear cliente" }).click();
+
+      await expect(
+        page.getByText("Creamos el cliente, su empresa y el administrador."),
+      ).toBeVisible();
+      await expect(page.getByRole("heading", { name: corporativo })).toBeVisible();
+      await expect(page.getByText("Corporativo", { exact: true })).toBeVisible();
+      // El administrador recibió el acceso.
+      expect(await enlaceEnviadoA(administrador)).toContain("/recuperar");
+    });
+
+    test("una empresa más para el mismo cliente", async ({ page }) => {
+      await ingresar(page, ADMIN.email, ADMIN.contrasena);
+      await page.goto(`/admin/clientes?q=${encodeURIComponent(corporativo)}`);
+      await page.getByRole("link", { name: corporativo }).first().click();
+      await page.getByRole("button", { name: "Nueva empresa" }).click();
+      const dialogo = page.getByRole("dialog");
+      await dialogo.getByLabel("Nombre de la empresa").fill(`Norte ${sufijo}`);
+      await expect(dialogo.getByLabel("Mail del administrador")).toHaveValue(administrador);
+      await dialogo.getByRole("button", { name: "Crear empresa" }).click();
+      await expect(page.getByText(`Creamos la empresa Norte ${sufijo}.`)).toBeVisible();
+      await expect(page.getByText(`Norte ${sufijo}`, { exact: true })).toBeVisible();
     });
   });
