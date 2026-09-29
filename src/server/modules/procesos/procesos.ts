@@ -1,10 +1,9 @@
-import { z } from "zod";
 import type { Fecha } from "@/domain/fecha";
 import { esDiaDeRecordatorio, ventanasDeRenovacion } from "@/domain/procesos/calendario";
 import type { Facturador } from "@/server/cobros/facturador";
 import type { Db } from "@/server/db/cliente";
 import { facturarPendientes } from "../cobros/facturacion";
-import { leerParametro } from "../parametros";
+import { leerParametroDe } from "../parametros";
 import { type EnviarAlerta, enviarAlertasPendientes } from "./alertas";
 import { procesoDiario } from "./diario";
 import { ejecutarJob, type ResultadoJob } from "./jobs";
@@ -37,18 +36,8 @@ export async function correrProcesos(
   enviar: EnviarAlerta,
   opciones: { forzar?: boolean; facturador?: Facturador | null } = {},
 ): Promise<ResumenProcesos> {
-  const diasCorte = await leerParametro(
-    db,
-    "renovacion.dias_corte",
-    z.tuple([z.int().min(1).max(28), z.int().min(1).max(28)]),
-    [5, 15] as [number, number],
-  );
-  const diasRecordatorio = await leerParametro(
-    db,
-    "cobranza.recordatorios_dias",
-    z.array(z.int().min(1).max(31)),
-    [10, 20, 28],
-  );
+  const diasCorte = await leerParametroDe(db, "renovacion.dias_corte");
+  const diasRecordatorio = await leerParametroDe(db, "cobranza.recordatorios_dias");
 
   const renovacion = await ejecutarJob(
     db,

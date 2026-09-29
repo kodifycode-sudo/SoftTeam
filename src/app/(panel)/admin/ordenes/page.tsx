@@ -1,7 +1,6 @@
 import { ChevronRight, Download, Receipt, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { z } from "zod";
 import { EstadoOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +26,7 @@ import { fechaCorta, pesos } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
-import { leerParametro } from "@/server/modules/parametros";
+import { leerParametroDe } from "@/server/modules/parametros";
 import { type EstadoOrden as Estado, listarOrdenes } from "@/server/modules/ventas/ordenes";
 
 export const metadata: Metadata = { title: "Órdenes" };
@@ -63,10 +62,7 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
   const db = await obtenerDb();
   const [ordenes, umbrales] = await Promise.all([
     listarOrdenes(db, { estado: estado || undefined, busqueda }),
-    leerParametro(db, "cobranza.semaforo_dias", z.tuple([z.number(), z.number()]), [10, 21] as [
-      number,
-      number,
-    ]),
+    leerParametroDe(db, "cobranza.semaforo_dias"),
   ]);
   const ahora = Date.now();
   const dias = (d: Date) => Math.floor((ahora - d.getTime()) / 86_400_000);

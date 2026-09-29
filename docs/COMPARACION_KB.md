@@ -39,7 +39,7 @@ Estados:
 | `Aseguradoras`, `STLicAseguradoras` | `aseguradoras`, `empresa_aseguradoras` | ✅ catálogo editable e interfaces con baja al mes siguiente |
 | `StLicAlertas` | `alertas` | ➕ deduplicadas, con envío por mail y aviso anticipado |
 | `TipoComunicacion` (tipos de comunicación por empresa: sistema, productor, mail, SMS, push, WhatsApp; usuario origen, destino y autorizante) | — | ⚠️ **B** falta. Es configuración que consumen los productos de notificaciones: hay que definir con el equipo de BienSeguro y el Boletín si sigue en STLic o pasa a cada producto |
-| `Parametro`, `TParametros`, `TParametros0` | `parametros` | ✅ modelo. ⚠️ **B** editarlos desde SOFTeam (hoy por base de datos) |
+| `Parametro`, `TParametros`, `TParametros0` | `parametros` | ✅ *Panel SOFTeam → Parámetros*: días de renovación, semáforo y recordatorios de cobro, avisos de vencimiento, saldo bajo y pedido de facturación de oficinas, con validación y auditoría |
 | `TNumeradores` | secuencias de Postgres | ➕ sin tabla de numeradores ni bloqueos |
 | `TLog` | `auditoria` | ➕ antes y después de cada cambio, por empresa |
 | `SMTPConfig` | variables de entorno + Resend | ➕ sin credenciales en la base |

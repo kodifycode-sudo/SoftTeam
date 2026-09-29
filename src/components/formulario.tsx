@@ -73,7 +73,8 @@ export function Campo({
   estado: EstadoFormulario;
 } & Omit<ComponentProps<typeof Input>, "name">) {
   const errores = estado.errores?.[nombre];
-  const id = `campo-${nombre}`;
+  // Un id propio cuando el mismo nombre de campo se repite en la página.
+  const id = input.id ?? `campo-${nombre}`;
   // En formularios con `<form action>`, React reinicia los campos tras el
   // envío: el campo se remonta (key) con lo tipeado como valor inicial. Los
   // campos controlados (con `value`) no lo necesitan.

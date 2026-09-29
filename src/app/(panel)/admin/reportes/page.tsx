@@ -2,7 +2,6 @@ import { Download } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { z } from "zod";
 import { GraficoBarras } from "@/components/graficos/barras";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { SelectNativo } from "@/components/select-nativo";
@@ -22,7 +21,7 @@ import { fechaCorta, numero, pesos } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
-import { leerParametro } from "@/server/modules/parametros";
+import { leerParametroDe } from "@/server/modules/parametros";
 import {
   cobranzaPorMes,
   consumosPorEmpresa,
@@ -151,10 +150,7 @@ async function Cobranza({ fecha }: { fecha: ReturnType<typeof hoy> }) {
   const [meses, pendientes, umbrales] = await Promise.all([
     cobranzaPorMes(db, fecha),
     ordenesPendientes(db, fecha),
-    leerParametro(db, "cobranza.semaforo_dias", z.tuple([z.int(), z.int()]), [10, 21] as [
-      number,
-      number,
-    ]),
+    leerParametroDe(db, "cobranza.semaforo_dias"),
   ]);
   const actual = meses.at(-1);
   const totalPendiente = pendientes.reduce((s, p) => s + p.total, 0n);

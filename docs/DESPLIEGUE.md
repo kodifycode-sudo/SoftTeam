@@ -160,11 +160,8 @@ simulador de pagos solo existe fuera de producción).
 
 - **Facturación de oficinas a otro cliente**: por defecto solo la asigna SOFTeam
   desde la ficha del cliente. Para que las empresas puedan pedirla desde el
-  portal (decisión pendiente, ver ESPECIFICACION 4.3), en la consola SQL de Neon:
-
-  ```sql
-  update parametros set valor = 'true' where clave = 'oficinas.pedido_facturacion';
-  ```
+  portal (decisión pendiente, ver ESPECIFICACION 4.3), activarlo en *Panel
+  SOFTeam → Parámetros*.
 
 - **Sistemas integrados**: dar de alta Prodigal, CotiWeb, BienSeguro y el
   Boletín en *Integraciones* y entregar a cada equipo su secreto.

@@ -22,6 +22,7 @@ import {
   Palette,
   Plug,
   Receipt,
+  Settings2,
   ShieldCheck,
   SlidersHorizontal,
   TicketPercent,
@@ -107,6 +108,12 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
           etiqueta: "Usuarios SOFTeam",
           icono: UserCog,
           permisos: ["ADMINISTRACION"],
+        },
+        {
+          href: "/admin/parametros",
+          etiqueta: "Parámetros",
+          icono: Settings2,
+          permisos: ["ADMINISTRACION", "SOPORTE"],
         },
         {
           href: "/admin/importar",

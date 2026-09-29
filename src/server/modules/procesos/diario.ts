@@ -1,5 +1,4 @@
 import { and, eq, gte, inArray, isNotNull, lt, lte, sql } from "drizzle-orm";
-import { z } from "zod";
 import { excedeLicencia, PRODUCTOS_CON_ACCESO, TIPOS_INTERFAZ } from "@/domain/cuentas/limites";
 import { diasEntre, type Fecha, sumarDias } from "@/domain/fecha";
 import { avisoDeVencimiento, estadoDeSaldo } from "@/domain/procesos/calendario";
@@ -10,7 +9,7 @@ import { auditar } from "../auditoria";
 import { NOMBRE_PRODUCTO, usoDeLimites } from "../configuracion/limites";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { licenciaDeEmpresa } from "../licencias/licencia-empresa";
-import { leerParametro } from "../parametros";
+import { leerParametroDe } from "../parametros";
 import { registrarAlerta } from "./alertas";
 
 const ACTOR = { actorId: null, actorTipo: "job:diario" } as const;
@@ -38,18 +37,8 @@ export async function procesoDiario(db: Db, hoy: Fecha): Promise<ResumenDiario> 
     if (creada) alertas[tipo] = (alertas[tipo] ?? 0) + 1;
   };
 
-  const umbrales = await leerParametro(
-    db,
-    "alertas.vencimiento_dias",
-    z.tuple([z.int().min(0), z.int().min(0), z.int().min(0)]),
-    [15, 7, 1] as [number, number, number],
-  );
-  const porcentajeBajo = await leerParametro(
-    db,
-    "alertas.saldo_bajo_porcentaje",
-    z.number().min(0).max(100),
-    20,
-  );
+  const umbrales = await leerParametroDe(db, "alertas.vencimiento_dias");
+  const porcentajeBajo = await leerParametroDe(db, "alertas.saldo_bajo_porcentaje");
 
   await alertasDeVencimiento(db, hoy, umbrales, contar);
   await alertasDePlazoDePago(db, hoy, contar);
