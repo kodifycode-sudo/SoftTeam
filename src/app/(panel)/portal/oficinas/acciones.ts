@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
-import { requerirCliente, requerirComercial } from "@/server/auth/sesion";
+import { requerirCliente, requerirComercial, requerirConfiguracion } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import {
   cancelarPedidoFacturacion,
@@ -12,7 +12,14 @@ import {
   pedidoFacturacionHabilitado,
   pedirFacturacionOficina,
 } from "@/server/modules/cuentas/facturacion-oficinas";
-import { crearOficina, esquemaOficina } from "@/server/modules/cuentas/oficinas";
+import {
+  crearOficina,
+  type ErrorEdicionOficina,
+  editarOficina,
+  esquemaEdicionOficina,
+  esquemaOficina,
+  renombrarCanal,
+} from "@/server/modules/cuentas/oficinas";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 
 export async function crearOficinaAccion(
@@ -101,4 +108,64 @@ export async function cancelarPedidoFacturacionAccion(formData: FormData): Promi
     alcance: contexto.alcance,
   });
   revalidatePath("/portal/oficinas");
+}
+
+const MENSAJES_OFICINA: Record<ErrorEdicionOficina, string> = {
+  NO_EXISTE: "La oficina ya no existe o no la administrás.",
+  SIN_PERMISO: "No podés desactivar la oficina que administrás.",
+  ULTIMA_OFICINA: "La empresa tiene que conservar al menos una oficina activa.",
+};
+
+/** Edita o desactiva una oficina (permiso de configuración, dentro del alcance). */
+export async function editarOficinaAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const contexto = await requerirConfiguracion();
+  const valores = valoresDe(formData);
+  const id = z.uuid().safeParse(valores.oficinaId);
+  if (!id.success) return { mensaje: "Oficina inválida.", valores };
+  const datos = esquemaEdicionOficina.safeParse({ ...valores, activa: valores.activa === "on" });
+  if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  const resultado = await editarOficina(
+    await obtenerDb(),
+    contexto.empresaId,
+    id.data,
+    datos.data,
+    {
+      usuarioId: contexto.usuarioId,
+      alcance: contexto.alcance,
+    },
+  );
+  if (!resultado.ok) return { mensaje: MENSAJES_OFICINA[resultado.error], valores };
+  programarEntregaDeEventos();
+  revalidatePath("/portal/oficinas");
+  return { ok: true, mensaje: "Oficina actualizada." };
+}
+
+/** Renombra un canal (toda la empresa o el delegado de ese canal). */
+export async function renombrarCanalAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const contexto = await requerirConfiguracion();
+  const valores = valoresDe(formData);
+  const datos = z
+    .object({
+      canalId: z.uuid(),
+      nombre: z.string().trim().min(2, { error: "Ingresá el nombre" }).max(60),
+    })
+    .safeParse(valores);
+  if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  const ok = await renombrarCanal(
+    await obtenerDb(),
+    contexto.empresaId,
+    datos.data.canalId,
+    datos.data.nombre,
+    { usuarioId: contexto.usuarioId, alcance: contexto.alcance },
+  );
+  if (!ok) return { mensaje: "No podés renombrar ese canal.", valores };
+  programarEntregaDeEventos();
+  revalidatePath("/portal/oficinas");
+  return { ok: true, mensaje: "Canal renombrado." };
 }

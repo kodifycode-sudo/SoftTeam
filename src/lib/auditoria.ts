@@ -19,6 +19,7 @@ export const ENTIDADES_AUDITORIA: Record<string, string> = {
   empresa: "Empresa",
   importacion: "Importación de datos",
   grupo: "Grupo económico",
+  canal: "Canal",
   usuario: "Usuario",
   contrato: "Contrato",
   proceso: "Proceso",

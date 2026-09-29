@@ -10,6 +10,7 @@ import {
   pedidosPendientes,
 } from "@/server/modules/cuentas/facturacion-oficinas";
 import { listarCanales, listarOficinas } from "@/server/modules/cuentas/oficinas";
+import { EditarOficina, RenombrarCanal } from "./editar-oficina";
 import { NuevaOficina } from "./nueva-oficina";
 import { FacturacionDeOficina } from "./pedir-facturacion";
 
@@ -30,6 +31,8 @@ export default async function PaginaOficinas() {
   // Un delegado de oficina solo ve la suya; uno de canal puede sumar oficinas a su canal.
   const puedeConfigurar =
     (contexto.adminGeneral || contexto.adminOperativo) && alcance.tipo !== "oficina";
+  // Editar oficinas: permiso de configuración, dentro del alcance (lista ya filtrada).
+  const editaOficinas = contexto.adminGeneral || contexto.adminOperativo;
   const canalesPropios =
     alcance.tipo === "canal" ? canales.filter((c) => c.id === alcance.canalId) : canales;
   const porCanal = canales
@@ -70,6 +73,13 @@ export default async function PaginaOficinas() {
               <span className="font-normal text-muted-foreground">
                 · {canal.oficinas.length} oficina{canal.oficinas.length === 1 ? "" : "s"}
               </span>
+              {editaOficinas &&
+                (alcance.tipo === "empresa" ||
+                  (alcance.tipo === "canal" && alcance.canalId === canal.id)) && (
+                  <RenombrarCanal
+                    canal={{ id: canal.id, codigo: canal.codigo, nombre: canal.nombre }}
+                  />
+                )}
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {canal.oficinas.map((o) => (
@@ -86,7 +96,24 @@ export default async function PaginaOficinas() {
                         </p>
                       </div>
                     </div>
-                    {!o.activa && <Badge variant="destructive">Inactiva</Badge>}
+                    <div className="flex items-center gap-1">
+                      {!o.activa && <Badge variant="destructive">Inactiva</Badge>}
+                      {editaOficinas && (
+                        <EditarOficina
+                          puedeDesactivar={alcance.tipo !== "oficina"}
+                          oficina={{
+                            id: o.id,
+                            codigo: `${canal.codigo}-${o.codigo}`,
+                            nombre: o.nombre,
+                            telefono: o.telefono,
+                            whatsapp: o.whatsapp,
+                            domicilio: o.domicilio,
+                            redes: o.redes,
+                            activa: o.activa,
+                          }}
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1 text-sm text-muted-foreground">
                     {o.domicilio && (

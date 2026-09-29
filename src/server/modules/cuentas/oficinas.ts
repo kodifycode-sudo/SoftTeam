@@ -1,8 +1,9 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
+import { type Alcance, abarcaOficina, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
+import { auditar } from "../auditoria";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { oficinaEnAlcance } from "./alcance";
 
@@ -18,6 +19,8 @@ export async function listarOficinas(
       nombre: t.oficinas.nombre,
       telefono: t.oficinas.telefono,
       domicilio: t.oficinas.domicilio,
+      whatsapp: t.oficinas.whatsapp,
+      redes: t.oficinas.redes,
       activa: t.oficinas.activa,
       canalId: t.canales.id,
       canalCodigo: t.canales.codigo,
@@ -143,5 +146,136 @@ export async function crearOficina(
       despues: { empresaId, codigo: `${canal.codigo}-${codigo}`, nombre: entrada.nombre },
     });
     return { ok: true as const, codigo: `${canal.codigo}-${codigo}` };
+  });
+}
+
+const red = z
+  .string()
+  .trim()
+  .max(200)
+  .optional()
+  .transform((v) => v || undefined);
+
+export const esquemaEdicionOficina = z.object({
+  nombre: z.string().trim().min(2, { error: "Ingresá el nombre" }).max(80),
+  telefono: z.string().trim().max(30).optional(),
+  whatsapp: z.string().trim().max(30).optional(),
+  domicilio: z.string().trim().max(160).optional(),
+  web: red,
+  facebook: red,
+  instagram: red,
+  linkedin: red,
+  activa: z.boolean(),
+});
+
+export type EntradaEdicionOficina = z.infer<typeof esquemaEdicionOficina>;
+
+export type ErrorEdicionOficina = "NO_EXISTE" | "SIN_PERMISO" | "ULTIMA_OFICINA";
+
+/**
+ * Edita una oficina (datos de contacto y redes) o la desactiva. Un delegado
+ * edita las de su alcance, pero no desactiva la propia oficina (quedaría sin
+ * lo que administra). La empresa conserva siempre una oficina activa. Una
+ * oficina inactiva deja de consumir y los productos reciben el cambio.
+ */
+export async function editarOficina(
+  db: Db,
+  empresaId: string,
+  oficinaId: string,
+  entrada: EntradaEdicionOficina,
+  actor: { usuarioId: string; alcance: Alcance },
+): Promise<{ ok: true } | { ok: false; error: ErrorEdicionOficina }> {
+  return db.transaction(async (tx) => {
+    await tx
+      .select({ id: t.empresas.id })
+      .from(t.empresas)
+      .where(eq(t.empresas.id, empresaId))
+      .for("update");
+    const antes = await tx.query.oficinas.findFirst({
+      where: and(eq(t.oficinas.id, oficinaId), eq(t.oficinas.empresaId, empresaId)),
+    });
+    if (!antes || !abarcaOficina(actor.alcance, { id: antes.id, canalId: antes.canalId })) {
+      return { ok: false, error: "NO_EXISTE" };
+    }
+    if (antes.activa !== entrada.activa && actor.alcance.tipo === "oficina") {
+      return { ok: false, error: "SIN_PERMISO" };
+    }
+    if (antes.activa && !entrada.activa) {
+      const [{ activas } = { activas: 0 }] = await tx
+        .select({ activas: sql<number>`count(*)::int` })
+        .from(t.oficinas)
+        .where(and(eq(t.oficinas.empresaId, empresaId), eq(t.oficinas.activa, true)));
+      if (activas <= 1) return { ok: false, error: "ULTIMA_OFICINA" };
+    }
+    const redes = Object.fromEntries(
+      (["web", "facebook", "instagram", "linkedin"] as const)
+        .filter((r) => entrada[r])
+        .map((r) => [r, entrada[r] as string]),
+    );
+    const valores = {
+      nombre: entrada.nombre,
+      telefono: entrada.telefono || null,
+      whatsapp: entrada.whatsapp || null,
+      domicilio: entrada.domicilio || null,
+      redes: Object.keys(redes).length ? redes : null,
+      activa: entrada.activa,
+    };
+    await tx.update(t.oficinas).set(valores).where(eq(t.oficinas.id, oficinaId));
+    await registrarCambioEmpresa(tx, [empresaId]);
+    await auditar(tx, {
+      actorId: actor.usuarioId,
+      entidad: "oficina",
+      entidadId: oficinaId,
+      empresaId,
+      accion:
+        antes.activa !== entrada.activa
+          ? entrada.activa
+            ? "reactivacion"
+            : "baja"
+          : "modificacion",
+      antes: {
+        nombre: antes.nombre,
+        telefono: antes.telefono,
+        whatsapp: antes.whatsapp,
+        domicilio: antes.domicilio,
+        redes: antes.redes,
+        activa: antes.activa,
+      },
+      despues: valores,
+    });
+    return { ok: true };
+  });
+}
+
+/** Renombra un canal de la empresa (toda la empresa, o el delegado de ese canal). */
+export async function renombrarCanal(
+  db: Db,
+  empresaId: string,
+  canalId: string,
+  nombre: string,
+  actor: { usuarioId: string; alcance: Alcance },
+): Promise<boolean> {
+  const limpio = nombre.trim().slice(0, 60);
+  if (limpio.length < 2) return false;
+  if (actor.alcance.tipo === "oficina") return false;
+  if (actor.alcance.tipo === "canal" && actor.alcance.canalId !== canalId) return false;
+  return db.transaction(async (tx) => {
+    const [antes] = await tx
+      .select({ nombre: t.canales.nombre })
+      .from(t.canales)
+      .where(and(eq(t.canales.id, canalId), eq(t.canales.empresaId, empresaId)));
+    if (!antes) return false;
+    await tx.update(t.canales).set({ nombre: limpio }).where(eq(t.canales.id, canalId));
+    await registrarCambioEmpresa(tx, [empresaId]);
+    await auditar(tx, {
+      actorId: actor.usuarioId,
+      entidad: "canal",
+      entidadId: canalId,
+      empresaId,
+      accion: "modificacion",
+      antes,
+      despues: { nombre: limpio },
+    });
+    return true;
   });
 }

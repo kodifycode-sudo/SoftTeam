@@ -24,7 +24,7 @@ Estados:
 | `STLicEmpresas.ProdiSino/BSSino/CWSino/CASino` | licencia vigente | ➕ se calcula de los paquetes vigentes: no se desincroniza |
 | `STLicEmpresas.SincProdiFecHora` | eventos de salida y `modificadasDesde` | ➕ sincronización por webhooks y listado incremental |
 | `StLicClienteGrupo` | `grupos_economicos` | ✅ *Panel SOFTeam → Grupos económicos*: alta, edición, cliente principal, cliente de facturación consolidada, miembros y baja del grupo vacío |
-| `STLicCanales`, `STLicOficinas` | `canales`, `oficinas` | ✅ alta, redes, teléfono, domicilio. ⚠️ **B** editar y desactivar oficinas y renombrar canales. ⚠️ **C** "notifica" por oficina (hoy es una política de toda la empresa) |
+| `STLicCanales`, `STLicOficinas` | `canales`, `oficinas` | ✅ alta, edición (contacto, WhatsApp, redes), desactivación (conservando una activa) y renombrar canales, respetando el alcance del delegado. ⚠️ **C** "notifica" por oficina (hoy es una política de toda la empresa) |
 | `STLicPaquetesDisponibles`, `STLicAlternativasPq` | `paquetes`, `alternativas`, recursos | ➕ recursos genéricos en vez de columnas fijas por producto |
 | `STLicPaquetesEmpresa` | `contratos` | ✅. ⚠️ **B** dar de baja un contrato puntual desde SOFTeam (`STLicInactivarPaqueteEmpresa`) |
 | `STLicPaquetesMovimientos` | `movimientos_saldo` | ✅ libro inmutable. ⚠️ **C** ver los movimientos de un contrato desde SOFTeam |
