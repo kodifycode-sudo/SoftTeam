@@ -3,14 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -75,21 +69,18 @@ export default async function PaginaProductores() {
         }
         acciones={
           <div className="flex flex-wrap gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="outline" />}>
-                <Download data-icon="inline-start" /> Exportar a Excel
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem render={<a href="/portal/productores/exportar" />}>
-                  Productores
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  render={<a href="/portal/productores/exportar?contenido=codigos" />}
-                >
-                  Códigos por compañía
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <a
+              href="/portal/productores/exportar"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            <a
+              href="/portal/productores/exportar?contenido=codigos"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar códigos
+            </a>
             <NuevoProductor
               oficinas={opcionesOficina}
               tieneInstitorio={uso.funciones.has("prodigal.institorio")}

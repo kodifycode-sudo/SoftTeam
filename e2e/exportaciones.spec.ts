@@ -42,16 +42,14 @@ test("el administrador exporta usuarios, productores y códigos", async ({ page 
   expect(usuarios.contenido).toContain(email);
 
   await page.goto("/portal/productores");
-  await page.getByRole("button", { name: "Exportar a Excel" }).click();
   const productores = await descargar(page, () =>
-    page.getByRole("menuitem", { name: "Productores" }).click(),
+    page.getByRole("link", { name: "Exportar a Excel" }).click(),
   );
   expect(productores.contenido.startsWith("\uFEFFNúmero de empresa;Id del productor;Nombre")).toBe(
     true,
   );
-  await page.getByRole("button", { name: "Exportar a Excel" }).click();
   const codigos = await descargar(page, () =>
-    page.getByRole("menuitem", { name: "Códigos por compañía" }).click(),
+    page.getByRole("link", { name: "Exportar códigos" }).click(),
   );
   expect(codigos.nombre).toMatch(/^codigos-de-productores-/);
 });
