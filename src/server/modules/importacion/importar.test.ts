@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { Db } from "@/server/db/cliente";
 import { crearDbDePrueba } from "@/server/db/pruebas";
@@ -154,25 +154,5 @@ describe("importación", () => {
       where: eq(t.empresaAseguradoras.empresaId, empresa!.id),
     });
     expect(trabaja?.activa).toBe(true);
-
-    const r5 = await importarTexto(
-      "empresaAseguradoras",
-      "STLicEmpresaCod;STLicAseguradorasAbrev;STLicAseguradoraInterfaseProdiCarteraSino\n7100;IMPORT;S\n7100;NOEXISTE;S",
-    );
-    expect(r5.errores).toEqual([
-      { linea: 3, mensaje: 'No existe la aseguradora "NOEXISTE". Importá primero el catálogo.' },
-    ]);
-    const r6 = await importarTexto(
-      "empresaAseguradoras",
-      "STLicEmpresaCod;STLicAseguradorasAbrev;STLicAseguradoraInterfaseProdiCarteraSino\n7100;IMPORT;S",
-    );
-    expect(r6).toMatchObject({ confirmado: true, actualizados: 1 });
-    const conInterfaz = await db.query.empresaAseguradoras.findFirst({
-      where: and(
-        eq(t.empresaAseguradoras.empresaId, empresa!.id),
-        eq(t.empresaAseguradoras.interfazProdigal, true),
-      ),
-    });
-    expect(conInterfaz).toBeDefined();
   });
 });

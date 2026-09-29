@@ -580,8 +580,10 @@ Regla de dependencias: `domain` no importa nada del resto.
 9. ✅ **Paridad con la KB GeneXus** (detalle en `docs/COMPARACION_KB.md`):
    - **Importación de datos** (*Panel SOFTeam → Importar datos*, solo
      Administración): clientes y empresas (conserva el número de empresa),
-     canales y oficinas, usuarios, productores, códigos por compañía, catálogo
-     de aseguradoras y aseguradoras de cada empresa. Formato fijo (decisión
+     canales y oficinas, usuarios, productores, códigos por compañía y
+     catálogo de aseguradoras (`Aseguradoras`). Las aseguradoras con las que
+     trabaja cada empresa (`STLicAseguradoras`) no se importan: las elige la
+     empresa en *Portal → Aseguradoras* (decisión 29/09/2026). Formato fijo (decisión
      29/09/2026): primera línea con los nombres de los campos (atributos de
      la KB o nombres de STLic) y los valores debajo, todo separado por ";"; un
      archivo con comas o tabuladores se rechaza entero. UTF-8 o Windows-1252.

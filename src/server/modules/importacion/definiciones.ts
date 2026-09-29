@@ -764,56 +764,6 @@ const aseguradoras: Definicion = {
   },
 };
 
-// ─── Aseguradoras de cada empresa ────────────────────────────────────────────
-
-const empresaAseguradoras: Definicion = {
-  etiqueta: "Aseguradoras de cada empresa",
-  descripcion:
-    "Una fila por empresa y aseguradora con la que trabaja, con sus interfaces. No se controlan los límites de la licencia.",
-  origen: {
-    tablas: ["STLicAseguradoras"],
-    consulta: "SELECT * FROM STLicAseguradoras",
-    archivo: "aseguradoras-empresas.csv",
-  },
-  columnas: [
-    col("empresa", "Número de empresa", ["STLicEmpresaCod", "empresaNumero"], { requerida: true }),
-    col("aseguradora", "Aseguradora", ["STLicAseguradorasId", "STLicAseguradorasAbrev"], {
-      requerida: true,
-      ayuda: "Id anterior, abreviatura, código SSN o nombre.",
-    }),
-    col("prodigal", "Interfaz con Prodigal", ["STLicAseguradoraInterfaseProdiCarteraSino"]),
-    col("cotiweb", "Interfaz con CotiWeb", [
-      "STLicAseguradoraInterfaseCWSino",
-      "STLicAseguradorasInterfaseCWSino",
-    ]),
-  ],
-  async procesar(tx, fila, ctx) {
-    const empresa = await empresaPorNumero(tx, fila);
-    const aseguradora = await aseguradoraPor(
-      tx,
-      ctx,
-      requerido(fila, "aseguradora", "la aseguradora"),
-    );
-    const valores = {
-      activa: true,
-      interfazProdigal: siNo(fila, "prodigal"),
-      interfazCotiweb: siNo(fila, "cotiweb"),
-      interfazProdigalBajaDesde: null,
-      interfazCotiwebBajaDesde: null,
-    };
-    const [fila2] = await tx
-      .insert(t.empresaAseguradoras)
-      .values({ empresaId: empresa.id, aseguradoraId: aseguradora.id, ...valores })
-      .onConflictDoUpdate({
-        target: [t.empresaAseguradoras.empresaId, t.empresaAseguradoras.aseguradoraId],
-        set: valores,
-      })
-      .returning({ nuevo: sql<boolean>`xmax = 0` });
-    ctx.empresasTocadas.add(empresa.id);
-    return fila2?.nuevo ? "creado" : "actualizado";
-  },
-};
-
 export const DEFINICIONES = {
   clientes,
   oficinas,
@@ -821,7 +771,6 @@ export const DEFINICIONES = {
   productores,
   aseguradoras,
   codigos,
-  empresaAseguradoras,
 } satisfies Record<string, Definicion>;
 
 export type TipoImportacion = keyof typeof DEFINICIONES;
@@ -834,5 +783,4 @@ export const ORDEN_IMPORTACION: TipoImportacion[] = [
   "usuarios",
   "productores",
   "codigos",
-  "empresaAseguradoras",
 ];
