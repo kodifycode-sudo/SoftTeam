@@ -27,7 +27,7 @@ Estados:
 | `STLicCanales`, `STLicOficinas` | `canales`, `oficinas` | ✅ alta, edición (contacto, WhatsApp, redes), desactivación (conservando una activa) y renombrar canales, respetando el alcance del delegado. ⚠️ **C** "notifica" por oficina (hoy es una política de toda la empresa) |
 | `STLicPaquetesDisponibles`, `STLicAlternativasPq` | `paquetes`, `alternativas`, recursos | ➕ recursos genéricos en vez de columnas fijas por producto |
 | `STLicPaquetesEmpresa` | `contratos` | ✅. ✅ baja de un contrato activo desde la ficha del cliente (`STLicInactivarPaqueteEmpresa`), con motivo y solo Administración |
-| `STLicPaquetesMovimientos` | `movimientos_saldo` | ✅ libro inmutable. ⚠️ **C** ver los movimientos de un contrato desde SOFTeam |
+| `STLicPaquetesMovimientos` | `movimientos_saldo` | ✅ libro inmutable. ✅ *Clientes → ficha → Paquetes vigentes → Movimientos*: cargas, consumos y ajustes de un contrato con el saldo después de cada uno y el saldo actual |
 | `STLicOrden` | `ordenes` + `orden_items` | ➕ detalle por línea, cálculo congelado. ✅ bonificación de un paquete por SOFTeam en la orden pendiente (con motivo, recurrente o solo esa orden) |
 | `STLicMediosPago` | `medios_pago` | ✅ |
 | `STLicMonedas` (con cotización) | moneda del país | ⚠️ **C** ABM de monedas y cotización (hoy una moneda por país) |

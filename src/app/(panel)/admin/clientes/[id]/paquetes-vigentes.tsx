@@ -1,11 +1,12 @@
 "use client";
 
-import { PackageX } from "lucide-react";
+import { History, PackageX } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { BotonEnviar } from "@/components/formulario";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogClose,
@@ -107,6 +108,13 @@ export function PaquetesVigentes({
                 {p.estado === "PEND_PAGO_ACTIVO" && (
                   <Badge variant="outline">Pendiente de pago</Badge>
                 )}
+                <Link
+                  href={`/admin/contratos/${p.id}`}
+                  aria-label={`Movimientos de ${p.paquete}`}
+                  className={buttonVariants({ variant: "ghost", size: "sm" })}
+                >
+                  <History data-icon="inline-start" /> Movimientos
+                </Link>
                 {administracion && p.estado === "ACTIVO" && (
                   <DarDeBaja paquete={p} clienteId={clienteId} />
                 )}

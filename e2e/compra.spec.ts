@@ -173,6 +173,14 @@ test.describe
       await expect(page.getByRole("dialog").getByText(/cancelá primero esa orden/)).toBeVisible();
       await page.keyboard.press("Escape");
 
+      // El libro de movimientos del paquete de notificaciones: la carga al pagar.
+      await page.getByRole("link", { name: "Movimientos de Notificaciones 10.000" }).click();
+      await expect(page.getByRole("heading", { name: /Notificaciones 10.000/ })).toBeVisible();
+      await expect(page.getByRole("cell", { name: "+10.000" })).toBeVisible();
+      await expect(page.getByText("Saldo actual")).toBeVisible();
+      await capturar(page, "admin-movimientos-contrato");
+      await page.goBack();
+
       await page.getByRole("button", { name: "Dar de baja Notificaciones 10.000" }).click();
       await page
         .getByRole("dialog")
