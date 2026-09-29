@@ -5,7 +5,7 @@ import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
 import { PROVINCIAS, TIPOS_SOCIEDAD } from "@/lib/argentina";
 import type { Db } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
-import { POLITICAS_POR_DEFECTO } from "@/server/db/schema/configuracion";
+import { crearCliente, crearEmpresa } from "./creacion";
 
 const texto = (min: number, max: number, mensaje: string) =>
   z
@@ -71,16 +71,6 @@ export async function guardarSolicitudAlta(db: Db, usuarioId: string, datos: Dat
     .onConflictDoUpdate({ target: t.solicitudesAlta.usuarioId, set: { datos } });
 }
 
-function nombreCorto(nombre: string): string {
-  const limpio = nombre
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9 ]/g, "")
-    .trim()
-    .toUpperCase();
-  return (limpio.split(/\s+/)[0] ?? "EMPRESA").slice(0, 20) || "EMPRESA";
-}
-
 /**
  * Confirma un alta con el mail ya verificado: crea cliente, empresa, canal y
  * oficina 01-001, el colaborador administrador y las políticas por defecto,
@@ -115,48 +105,21 @@ export async function confirmarAlta(db: Db, usuarioId: string): Promise<{ empres
     };
     const administrador = { nombre: datos.nombre, email: datos.email, telefono: datos.telefono };
 
-    const [cliente] = await tx
-      .insert(t.clientes)
-      .values({
-        tipoPersona: datos.tipoPersona,
-        nombre: denominacion,
-        tipoSociedad: datos.tipoSociedad,
-        nombreFactura: denominacion,
-        cuit: datos.cuit,
-        condicionIva: datos.condicionIva,
-        domicilioFiscal: domicilio,
-        domicilioComercial: domicilio,
-        contactoAdministrador: administrador,
-        contactoPagos: administrador,
-        contactoComercial: administrador,
-      })
-      .returning({ id: t.clientes.id });
-    if (!cliente) throw new Error("No se pudo crear el cliente");
-
-    const [empresa] = await tx
-      .insert(t.empresas)
-      .values({
-        clienteId: cliente.id,
-        nombre: denominacion,
-        nombreCorto: nombreCorto(denominacion),
-        paisId: "AR",
-      })
-      .returning({ id: t.empresas.id });
-    if (!empresa) throw new Error("No se pudo crear la empresa");
-
-    const [canal] = await tx
-      .insert(t.canales)
-      .values({ empresaId: empresa.id, codigo: "01", nombre: "Casa central" })
-      .returning({ id: t.canales.id });
-    if (!canal) throw new Error("No se pudo crear el canal");
-
-    await tx.insert(t.oficinas).values({
-      empresaId: empresa.id,
-      canalId: canal.id,
-      codigo: "001",
-      nombre: "Casa central",
-      telefono: datos.telefono,
-      domicilio: `${datos.calle}, ${datos.ciudad}`,
+    const cliente = await crearCliente(tx, {
+      tipoPersona: datos.tipoPersona,
+      nombre: denominacion,
+      tipoSociedad: datos.tipoSociedad,
+      cuit: datos.cuit,
+      condicionIva: datos.condicionIva,
+      domicilioFiscal: domicilio,
+      contactoAdministrador: administrador,
+      contactoPagos: administrador,
+      contactoComercial: administrador,
+    });
+    const empresa = await crearEmpresa(tx, {
+      clienteId: cliente.id,
+      nombre: denominacion,
+      oficina: { telefono: datos.telefono, domicilio: `${datos.calle}, ${datos.ciudad}` },
     });
     await tx.insert(t.colaboradores).values({
       empresaId: empresa.id,
@@ -168,9 +131,6 @@ export async function confirmarAlta(db: Db, usuarioId: string): Promise<{ empres
       adminOperativo: true,
       usuarioId,
     });
-    await tx
-      .insert(t.politicasEmpresa)
-      .values({ empresaId: empresa.id, politicas: POLITICAS_POR_DEFECTO });
     await tx
       .update(t.solicitudesAlta)
       .set({ confirmadaEn: new Date(), clienteId: cliente.id })

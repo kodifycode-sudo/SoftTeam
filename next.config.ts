@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite"],
   experimental: {
     authInterrupts: true,
+    // La importación de datos sube archivos de hasta 4 MB (Vercel corta en 4,5 MB).
+    serverActions: { bodySizeLimit: "4mb" },
   },
   poweredByHeader: false,
   async headers() {

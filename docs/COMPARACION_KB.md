@@ -51,7 +51,7 @@ Estados:
 |---|---|---|
 | `AltaNuevoCliente` (asistente de 5 pasos) | alta en línea con verificación del mail | ✅. ⚠️ **A** alta de cliente **por SOFTeam** (corporativos que no se registran solos) y **nueva empresa para un cliente existente** (`STLicClienteEmpresas`, `STEmpresaCrea`) |
 | `StLicClienteUpdate`, `STLicClienteModifica`, `STLicUpdateEmp` | — | ⚠️ **A** (ver transacciones) |
-| `ImportDataCSV` + `PSTLic*LeeCSV` (clientes, empresas, canales y oficinas, provincias, aseguradoras, usuarios, productores, códigos por compañía) | — | ⚠️ **A** importación desde CSV: es la vía para **migrar los clientes actuales** |
+| `ImportDataCSV` + `PSTLic*LeeCSV` (clientes, empresas, canales y oficinas, provincias, aseguradoras, usuarios, productores, códigos por compañía) | *Panel SOFTeam → Importar datos* | ✅ clientes y empresas (conserva el número de empresa), canales y oficinas, usuarios, productores, códigos por compañía, catálogo de aseguradoras y aseguradoras de cada empresa. Separado por `;` con títulos (de la KB o simples), revisión antes de importar, todo o nada, plantilla por tipo. Provincias: lista fija de Argentina |
 | `WizardCheckOut`, `ConfirmartPqDisponibles`, `SelectPqDisponibles` | carrito y checkout | ➕ carrito persistente, cálculo en el servidor, idempotente |
 | `STLicCalculaTotalesOrden`, `StLicOrdenRegistro` | dominio `calculo-orden` y `confirmarOrden` | ➕ con las correcciones N1, N2 y N3 de la KB |
 | `StLicPaquetesEmpresaRegistro`, `StLicPaquetesEmpresaUpdTotales`, `StLicPaquetesEmpresaTotalesGet` | licencia calculada de los contratos | ➕ sin totales guardados que se desincronicen |

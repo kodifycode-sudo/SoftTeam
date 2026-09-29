@@ -76,9 +76,11 @@ export const aseguradoras = pgTable(
     interfazCotiwebDisponible: boolean().notNull().default(false),
     interfazDocumentosDisponible: boolean().notNull().default(false),
     activa: boolean().notNull().default(true),
+    /** Id en el sistema anterior (KB GeneXus): resuelve las referencias al importar. */
+    idAnterior: varchar({ length: 20 }),
     ...marcasTiempo,
   },
-  (t) => [uniqueIndex().on(t.paisId, t.abreviatura)],
+  (t) => [uniqueIndex().on(t.paisId, t.abreviatura), uniqueIndex().on(t.paisId, t.idAnterior)],
 );
 
 /** Aseguradoras con las que trabaja una empresa y sus interfaces activas. */
@@ -125,9 +127,11 @@ export const productores = pgTable(
     esOrganizador: boolean().notNull().default(false),
     esSubproductor: boolean().notNull().default(false),
     activo: boolean().notNull().default(true),
+    /** Id en el sistema anterior (KB GeneXus): resuelve las referencias al importar. */
+    idAnterior: varchar({ length: 20 }),
     ...marcasTiempo,
   },
-  (t) => [index().on(t.empresaId)],
+  (t) => [index().on(t.empresaId), uniqueIndex().on(t.empresaId, t.idAnterior)],
 );
 
 /** Código del productor en cada aseguradora y su rol allí. */

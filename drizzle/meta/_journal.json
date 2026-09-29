@@ -92,6 +92,13 @@
       "when": 1790526814512,
       "tag": "0012_licencia_por_bajar",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790677859022,
+      "tag": "0013_id_anterior",
+      "breakpoints": true
     }
   ]
 }

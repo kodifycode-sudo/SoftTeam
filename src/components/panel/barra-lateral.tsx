@@ -8,6 +8,7 @@ import {
   CalendarClock,
   ChartColumn,
   CreditCard,
+  FileUp,
   Gauge,
   Headset,
   History,
@@ -101,6 +102,12 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
           href: "/admin/usuarios",
           etiqueta: "Usuarios SOFTeam",
           icono: UserCog,
+          permisos: ["ADMINISTRACION"],
+        },
+        {
+          href: "/admin/importar",
+          etiqueta: "Importar datos",
+          icono: FileUp,
           permisos: ["ADMINISTRACION"],
         },
         {
