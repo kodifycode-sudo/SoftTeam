@@ -82,6 +82,11 @@ test.describe
         .click();
 
       // Bonificación de un paquete: la orden se recalcula; con 0 % se quita.
+      // (El ajuste del medio de pago depende de la base: se compara contra el total original.)
+      const total = page
+        .locator("dt", { hasText: /^Total$/ })
+        .locator("xpath=following-sibling::dd[1]");
+      const totalOriginal = await total.textContent();
       await page.getByRole("button", { name: "Bonificar un paquete" }).click();
       const dialogo = page.getByRole("dialog");
       await dialogo.getByLabel("Paquete").selectOption({ label: "Prodigal Inicial · Mensual ×2" });
@@ -91,8 +96,9 @@ test.describe
       await dialogo.getByLabel("Motivo").fill("Cliente de muchos años");
       await dialogo.getByRole("button", { name: "Aplicar y recalcular" }).click();
       await expect(page.getByText("Bonificación aplicada: la orden se recalculó.")).toBeVisible();
-      // (76.000 − 10 % + 30.000) − 5 % por transferencia + IVA.
-      await expect(page.getByText("$ 113.110,80").first()).toBeVisible();
+      // 10 % de 76.000 (dos Prodigal Inicial) = 7.600 de bonificación.
+      await expect(page.getByText("− $ 7.600,00").first()).toBeVisible();
+      await expect(total).not.toHaveText(totalOriginal ?? "");
       await capturar(page, "22b-admin-orden-bonificada");
 
       await page.getByRole("button", { name: "Bonificar un paquete" }).click();
@@ -103,7 +109,8 @@ test.describe
       await page.getByRole("dialog").getByLabel("Bonificación (%)").fill("0");
       await page.getByRole("dialog").getByLabel("Motivo").fill("Se quita la prueba");
       await page.getByRole("dialog").getByRole("button", { name: "Aplicar y recalcular" }).click();
-      await expect(page.getByText("$ 121.847,00").first()).toBeVisible();
+      await expect(total).toHaveText(totalOriginal ?? "");
+      await expect(page.getByText("− $ 7.600,00")).toHaveCount(0);
 
       await page.getByRole("button", { name: "Registrar pago" }).click();
       await page.getByRole("button", { name: "Sí, registrar pago" }).click();
