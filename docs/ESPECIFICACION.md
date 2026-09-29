@@ -574,9 +574,13 @@ Regla de dependencias: `domain` no importa nada del resto.
    - **Importación de datos** (*Panel SOFTeam → Importar datos*, solo
      Administración): clientes y empresas (conserva el número de empresa),
      canales y oficinas, usuarios, productores, códigos por compañía, catálogo
-     de aseguradoras y aseguradoras de cada empresa. Archivo separado por ";"
-     (también "," o tabulación) con títulos en la primera línea, con los
-     nombres de la KB o simples; UTF-8 o Windows-1252. Primero se revisa (sin
+     de aseguradoras y aseguradoras de cada empresa. Formato fijo (decisión
+     29/09/2026): primera línea con los nombres de los campos (atributos de
+     la KB o nombres de STLic) y los valores debajo, todo separado por ";"; un
+     archivo con comas o tabuladores se rechaza entero. UTF-8 o Windows-1252.
+     La pantalla trae un manual: el formato, el orden de importación y, para
+     cada tipo, la tabla de la KB, la consulta y cómo exportarla (PowerShell
+     o Excel). Primero se revisa (sin
      guardar) y después se importa todo o nada; plantilla por tipo y mail de
      acceso opcional a los administradores nuevos.
    - **Alta de cliente por SOFTeam** (cliente, empresa, oficina inicial y

@@ -21,6 +21,7 @@ import {
   type TipoImportacion,
 } from "@/server/modules/importacion/definiciones";
 import { FormularioImportacion } from "./formulario";
+import { ManualExportacion, ManualFormato } from "./manual";
 
 export const metadata: Metadata = { title: "Importar datos" };
 
@@ -35,7 +36,7 @@ export default async function PaginaImportar({ searchParams }: PageProps<"/admin
     <>
       <EncabezadoPagina
         titulo="Importar datos"
-        descripcion="Para migrar desde el sistema anterior. Primero revisá el archivo: no se guarda nada hasta que no tenga errores."
+        descripcion="Para migrar desde el sistema anterior. Abajo está cómo exportar cada tabla y el formato que se acepta. Primero revisá el archivo: no se guarda nada hasta que no tenga errores."
       />
 
       <nav aria-label="Qué importar" className="mb-6 flex flex-wrap gap-2">
@@ -83,10 +84,10 @@ export default async function PaginaImportar({ searchParams }: PageProps<"/admin
                         <p className="font-medium">{c.titulo}</p>
                         {c.requerida && <Badge variant="secondary">Obligatoria</Badge>}
                       </TableCell>
-                      <TableCell className="align-top font-mono text-xs whitespace-normal text-muted-foreground">
+                      <TableCell className="align-top font-mono text-xs break-all whitespace-normal text-muted-foreground">
                         {c.alias.slice(2).join(", ") || c.campo}
                       </TableCell>
-                      <TableCell className="align-top text-xs whitespace-normal text-muted-foreground">
+                      <TableCell className="min-w-48 align-top text-xs whitespace-normal text-muted-foreground">
                         {c.ayuda}
                       </TableCell>
                     </TableRow>
@@ -102,6 +103,11 @@ export default async function PaginaImportar({ searchParams }: PageProps<"/admin
           tipo={tipo}
           conAdministradores={tipo === "clientes" || tipo === "usuarios"}
         />
+      </div>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <ManualExportacion tipo={tipo} />
+        <ManualFormato />
       </div>
     </>
   );

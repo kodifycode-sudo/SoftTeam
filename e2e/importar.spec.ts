@@ -49,4 +49,28 @@ test.describe
         page.getByRole("table", { name: "Errores por fila" }).getByText('CUIT: "20-12345678-5"'),
       ).toBeVisible();
     });
+
+    test("el manual explica el formato y cómo exportar; un archivo con comas se rechaza", async ({
+      page,
+    }) => {
+      await ingresar(page, ADMIN.email, ADMIN.contrasena);
+      await page.goto("/admin/importar?tipo=usuarios");
+      await expect(page.getByText("Cómo preparar el archivo")).toBeVisible();
+      await expect(page.getByText("Cómo exportarlo del sistema anterior")).toBeVisible();
+      await expect(page.getByText("SELECT * FROM STLicUsuarios").first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Copiar el comando" })).toBeVisible();
+      await capturar(page, "admin-importar-manual");
+
+      await page.getByLabel("Archivo (.csv o .txt)").setInputFiles({
+        name: "usuarios.csv",
+        mimeType: "text/csv",
+        buffer: Buffer.from(
+          "STLicEmpresaCod,StLicUsuarioNom,StLicUsuarioMail\n2001,Ana,ana@test.com\n",
+        ),
+      });
+      await page.getByRole("button", { name: "Revisar" }).click();
+      await expect(
+        page.getByText(/separados por punto y coma \(;\) y este archivo usa comas/),
+      ).toBeVisible();
+    });
   });

@@ -6,7 +6,7 @@ describe("leerTabla", () => {
     const tabla = leerTabla(
       "nombre;cuit\r\nBroker Sur;30-11111111-1\r\nBroker Norte;30-22222222-2\r\n",
     );
-    expect(tabla.separador).toBe(";");
+    expect(tabla.separadorEquivocado).toBeUndefined();
     expect(tabla.titulos).toEqual(["nombre", "cuit"]);
     expect(tabla.filas).toEqual([
       { linea: 2, valores: ["Broker Sur", "30-11111111-1"] },
@@ -14,9 +14,13 @@ describe("leerTabla", () => {
     ]);
   });
 
-  it("detecta la coma y el tabulador", () => {
-    expect(leerTabla("a,b\n1,2").separador).toBe(",");
-    expect(leerTabla("a\tb\n1\t2").separador).toBe("\t");
+  it("el separador es siempre punto y coma: avisa si el archivo usa comas o tabuladores", () => {
+    expect(leerTabla("a,b\n1,2").separadorEquivocado).toBe(",");
+    expect(leerTabla("a\tb\n1\t2").separadorEquivocado).toBe("\t");
+    // Una coma dentro de un título o valor entre comillas no confunde.
+    const tabla = leerTabla('"Apellido, nombre";cuit\n"Pérez, Ana";1');
+    expect(tabla.separadorEquivocado).toBeUndefined();
+    expect(tabla.filas[0]?.valores).toEqual(["Pérez, Ana", "1"]);
   });
 
   it("respeta comillas: separadores, comillas dobles y saltos de línea dentro del valor", () => {

@@ -80,8 +80,7 @@ function Resumen({ resultado }: { resultado: NonNullable<EstadoImportacion["resu
       </dl>
 
       <p className="text-sm text-muted-foreground">
-        Separador: <strong>{r.separador}</strong>. Columnas reconocidas:{" "}
-        {r.reconocidas.map((c) => c.titulo).join(", ") || "ninguna"}.
+        Columnas reconocidas: {r.reconocidas.map((c) => c.titulo).join(", ") || "ninguna"}.
         {r.ignoradas.length > 0 && ` Se ignoran: ${r.ignoradas.join(", ")}.`}
       </p>
 
@@ -145,8 +144,8 @@ export function FormularioImportacion({
                 required
               />
               <FieldDescription>
-                Texto separado por <Badge variant="outline">;</Badge> (también coma o tabulador),
-                con los títulos en la primera línea. UTF-8 o como lo guarda Excel. Hasta 4 MB.
+                Primera línea con los nombres de los campos y los valores debajo, todo separado por{" "}
+                <Badge variant="outline">;</Badge>. UTF-8 o ANSI de Windows. Hasta 4 MB.
               </FieldDescription>
             </Field>
             {conAdministradores && (

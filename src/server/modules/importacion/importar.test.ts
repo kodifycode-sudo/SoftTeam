@@ -91,6 +91,13 @@ describe("importación", () => {
     ).toBeUndefined();
   });
 
+  it("rechaza entero un archivo que no está separado por punto y coma", async () => {
+    const archivo = `${CABECERA_CLIENTES.replaceAll(";", ",")}\n${cuitValido()},Broker Coma SA,1\n`;
+    const r = await importarTexto("clientes", archivo, false);
+    expect(r.errorGeneral).toMatch(/separados por punto y coma \(;\) y este archivo usa comas/);
+    expect(r.filas).toBe(0);
+  });
+
   it("avisa las columnas obligatorias que faltan y las que ignora", async () => {
     const r = await importarTexto("clientes", "nombre;color\nA;rojo");
     expect(r.errorGeneral).toContain("Faltan columnas obligatorias: CUIT");

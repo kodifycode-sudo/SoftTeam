@@ -45,9 +45,21 @@ export interface Columna {
   ayuda?: string;
 }
 
+/** De dónde sale el archivo en el sistema anterior (para el manual del panel). */
+export interface Origen {
+  /** Tablas de la KB GeneXus. */
+  tablas: string[];
+  /** Consulta que devuelve las columnas con los nombres de los atributos. */
+  consulta: string;
+  /** Nombre sugerido del archivo. */
+  archivo: string;
+  nota?: string;
+}
+
 export interface Definicion {
   etiqueta: string;
   descripcion: string;
+  origen: Origen;
   columnas: Columna[];
   procesar: (tx: Tx, fila: Fila, ctx: Contexto) => Promise<Resultado>;
 }
@@ -178,6 +190,16 @@ const clientes: Definicion = {
   etiqueta: "Clientes y empresas",
   descripcion:
     "Una fila por empresa, con los datos fiscales de su cliente. Si el CUIT ya existe, se usa ese cliente (no se modifica). El número de empresa se conserva: es el que usan los productos.",
+  origen: {
+    tablas: ["STLicClientes", "ClienteEmpresas", "STLicEmpresas"],
+    consulta: `SELECT c.*, e.STLicEmpresaCod, e.STLicEmpresaNom, e.STLicEmpresaNomCto,
+       e.StLicEmpresasTipCliente, e.STLicEmpresaOff, ce.STLicEmpresaInstalacionTipo
+FROM STLicClientes c
+JOIN ClienteEmpresas ce ON ce.STLicClienteID = c.STLicClienteID
+JOIN STLicEmpresas e ON e.STLicEmpresaCod = ce.STLicEmpresaCod`,
+    archivo: "clientes.csv",
+    nota: "ClienteEmpresas es la tabla del nivel de empresas de la transacción STLicClientes: si en la base tiene otro nombre, usá ese. Un cliente con varias empresas sale en varias filas.",
+  },
   columnas: [
     col("cuit", "CUIT", ["STLicClienteFacCUIT", "clientecuit"], { requerida: true }),
     col("nombre", "Nombre o razón social", ["STLicClienteNom", "razonsocial"], {
@@ -337,6 +359,13 @@ const oficinas: Definicion = {
   etiqueta: "Canales y oficinas",
   descripcion:
     "Una fila por oficina. Crea el canal si no existe (o lo renombra si viene el nombre) y crea o actualiza la oficina.",
+  origen: {
+    tablas: ["STLicOficinas", "STLicCanales"],
+    consulta: `SELECT o.*, c.STLicCanalNom
+FROM STLicOficinas o
+JOIN STLicCanales c ON c.STLicEmpresaCod = o.STLicEmpresaCod AND c.STLicCanal = o.STLicCanal`,
+    archivo: "oficinas.csv",
+  },
   columnas: [
     col("empresa", "Número de empresa", ["STLicEmpresaCod", "empresaNumero"], { requerida: true }),
     col("canal", "Canal", ["STLicCanal", "canalCodigo"], {
@@ -356,6 +385,9 @@ const oficinas: Definicion = {
     col("facebook", "Facebook", ["STLicOficinaFacebook"]),
     col("instagram", "Instagram", ["STLicOficinaInstagtam", "STLicOficinaInstagram"]),
     col("linkedin", "LinkedIn", ["STLicOficinaLinkedin"]),
+    col("notifica", "Notifica", ["STLicOficinaNotific"], {
+      ayuda: "Si envía notificaciones a sus asegurados. Por defecto, sí.",
+    }),
     col("baja", "Dada de baja", ["STLicOficinaOffSino"]),
   ],
   async procesar(tx, fila, ctx) {
@@ -396,6 +428,7 @@ const oficinas: Definicion = {
       whatsapp: texto(fila, "whatsapp", 30),
       domicilio: texto(fila, "domicilio", 160),
       redes: Object.keys(redes).length ? redes : null,
+      notifica: siNo(fila, "notifica", true),
       activa: !siNo(fila, "baja"),
     };
     const existente = await tx.query.oficinas.findFirst({
@@ -423,6 +456,11 @@ const usuarios: Definicion = {
   etiqueta: "Usuarios de las empresas",
   descripcion:
     "Una fila por usuario. Si el mail ya está en la empresa, no se modifica. No se controlan los límites de la licencia: si sobran usuarios, el proceso diario avisa.",
+  origen: {
+    tablas: ["STLicUsuarios"],
+    consulta: "SELECT * FROM STLicUsuarios",
+    archivo: "usuarios.csv",
+  },
   columnas: [
     col("empresa", "Número de empresa", ["StLicUsuarioEmpresa", "STLicEmpresaCod"], {
       requerida: true,
@@ -510,6 +548,11 @@ const productores: Definicion = {
   etiqueta: "Productores",
   descripcion:
     "Una fila por productor. Se reconoce por su id anterior o su CUIT: si ya está en la empresa, no se modifica.",
+  origen: {
+    tablas: ["STLicProductores"],
+    consulta: "SELECT * FROM STLicProductores",
+    archivo: "productores.csv",
+  },
   columnas: [
     col("empresa", "Número de empresa", ["STLicEmpresaCod", "empresaNumero"], { requerida: true }),
     col("idAnterior", "Id del productor", ["STLicProductorId"], {
@@ -596,6 +639,12 @@ const codigos: Definicion = {
   etiqueta: "Códigos de productor por compañía",
   descripcion:
     "Una fila por código. Marca que la empresa trabaja con la aseguradora si todavía no lo hacía.",
+  origen: {
+    tablas: ["STLicProdCia"],
+    consulta: "SELECT * FROM STLicProdCia",
+    archivo: "codigos.csv",
+    nota: "Importalo después de los productores y del catálogo de aseguradoras: los busca por su id anterior.",
+  },
   columnas: [
     col("empresa", "Número de empresa", ["STLicEmpresaCod", "empresaNumero"], { requerida: true }),
     col("productor", "Productor", ["STLicProductorId"], {
@@ -666,6 +715,11 @@ const aseguradoras: Definicion = {
   etiqueta: "Catálogo de aseguradoras",
   descripcion:
     "Una fila por aseguradora. Se reconoce por el id anterior o la abreviatura: si existe, se actualiza.",
+  origen: {
+    tablas: ["Aseguradoras"],
+    consulta: "SELECT * FROM Aseguradoras",
+    archivo: "aseguradoras.csv",
+  },
   columnas: [
     col("idAnterior", "Id de la aseguradora", ["AseguradoraId"]),
     col("nombre", "Nombre", ["AseguradoraNom"], { requerida: true }),
@@ -716,6 +770,11 @@ const empresaAseguradoras: Definicion = {
   etiqueta: "Aseguradoras de cada empresa",
   descripcion:
     "Una fila por empresa y aseguradora con la que trabaja, con sus interfaces. No se controlan los límites de la licencia.",
+  origen: {
+    tablas: ["STLicAseguradoras"],
+    consulta: "SELECT * FROM STLicAseguradoras",
+    archivo: "aseguradoras-empresas.csv",
+  },
   columnas: [
     col("empresa", "Número de empresa", ["STLicEmpresaCod", "empresaNumero"], { requerida: true }),
     col("aseguradora", "Aseguradora", ["STLicAseguradorasId", "STLicAseguradorasAbrev"], {

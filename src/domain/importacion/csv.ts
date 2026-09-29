@@ -1,9 +1,12 @@
 /*
- * Lectura de archivos de importación: texto separado por ";" (o "," o
- * tabulador), con los títulos de las columnas en la primera línea. Sigue las
- * reglas habituales del CSV: un valor entre comillas puede tener el
- * separador o saltos de línea, y "" dentro de comillas es una comilla.
+ * Lectura de archivos de importación. Formato fijo: la primera línea tiene
+ * los nombres de los campos (atributos de la KB o nombres propios) y cada
+ * línea siguiente, los valores; todo separado por punto y coma (;). Sigue
+ * las reglas habituales del CSV: un valor entre comillas puede tener ";" o
+ * saltos de línea, y "" dentro de comillas es una comilla.
  */
+
+export const SEPARADOR = ";";
 
 export interface FilaLeida {
   /** Línea del archivo donde empieza la fila (para los mensajes de error). */
@@ -12,7 +15,8 @@ export interface FilaLeida {
 }
 
 export interface TablaLeida {
-  separador: ";" | "," | "\t";
+  /** La primera línea no tiene ";" pero sí comas o tabuladores: el archivo no respeta el formato. */
+  separadorEquivocado?: "," | "\t";
   titulos: string[];
   filas: FilaLeida[];
 }
@@ -31,22 +35,17 @@ export function decodificar(bytes: Uint8Array): string {
   return texto.charCodeAt(0) === 0xfeff ? texto.slice(1) : texto;
 }
 
-/** El separador más frecuente en la primera línea, fuera de comillas. */
-function detectarSeparador(primeraLinea: string): TablaLeida["separador"] {
-  const cuenta = { ";": 0, ",": 0, "\t": 0 };
-  let entreComillas = false;
-  for (const c of primeraLinea) {
-    if (c === '"') entreComillas = !entreComillas;
-    else if (!entreComillas && c in cuenta) cuenta[c as keyof typeof cuenta]++;
-  }
-  if (cuenta[";"] >= cuenta[","] && cuenta[";"] >= cuenta["\t"] && cuenta[";"] > 0) return ";";
-  if (cuenta["\t"] > cuenta[","]) return "\t";
-  return cuenta[","] > 0 ? "," : ";";
+/** Si la primera línea no usa ";" pero sí otro separador habitual, cuál. */
+function separadorEquivocado(primeraLinea: string): TablaLeida["separadorEquivocado"] {
+  const fuera = primeraLinea.replace(/"[^"]*"/g, "");
+  if (fuera.includes(SEPARADOR)) return undefined;
+  if (fuera.includes("\t")) return "\t";
+  return fuera.includes(",") ? "," : undefined;
 }
 
 export function leerTabla(texto: string): TablaLeida {
   const fin = texto.search(/\r?\n/);
-  const separador = detectarSeparador(fin < 0 ? texto : texto.slice(0, fin));
+  const equivocado = separadorEquivocado(fin < 0 ? texto : texto.slice(0, fin));
 
   const registros: FilaLeida[] = [];
   let valores: string[] = [];
@@ -81,7 +80,7 @@ export function leerTabla(texto: string): TablaLeida {
     } else if (c === '"' && valor.trim() === "") {
       valor = "";
       entreComillas = true;
-    } else if (c === separador) {
+    } else if (c === SEPARADOR) {
       cerrarValor();
     } else if (c === "\n" || c === "\r") {
       if (c === "\r" && texto[i + 1] === "\n") i++;
@@ -94,7 +93,11 @@ export function leerTabla(texto: string): TablaLeida {
   if (valor !== "" || valores.length > 0) cerrarFila();
 
   const [cabecera, ...filas] = registros;
-  return { separador, titulos: cabecera?.valores ?? [], filas };
+  return {
+    ...(equivocado ? { separadorEquivocado: equivocado } : {}),
+    titulos: cabecera?.valores ?? [],
+    filas,
+  };
 }
 
 /** Título comparable: sin acentos, espacios ni signos, en minúsculas ("Razón social" → "razonsocial"). */

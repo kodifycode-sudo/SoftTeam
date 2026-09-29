@@ -24,7 +24,6 @@ export interface ResultadoImportacion {
   tipo: TipoImportacion;
   /** Se guardó (solo si se pidió importar y no hubo ningún error). */
   confirmado: boolean;
-  separador: string;
   filas: number;
   creados: number;
   actualizados: number;
@@ -46,8 +45,9 @@ export interface ResultadoImportacion {
 class Deshacer extends Error {}
 
 /**
- * Importa un archivo de texto separado por ";" (o "," o tabulador) con los
- * títulos en la primera línea. Todo o nada: revisa cada fila (sin cortar en
+ * Importa un archivo con formato fijo: los nombres de los campos en la
+ * primera línea y los valores en las siguientes, separados por ";". Un
+ * archivo con comas o tabuladores se rechaza entero. Todo o nada: revisa cada fila (sin cortar en
  * el primer error) y solo guarda si se pidió `confirmar` y no hubo ninguno.
  */
 export async function importar(
@@ -61,7 +61,6 @@ export async function importar(
   const resultado: ResultadoImportacion = {
     tipo,
     confirmado: false,
-    separador: ";",
     filas: 0,
     creados: 0,
     actualizados: 0,
@@ -79,7 +78,13 @@ export async function importar(
   }
 
   const tabla = leerTabla(decodificar(bytes));
-  resultado.separador = tabla.separador === "\t" ? "tabulador" : tabla.separador;
+  if (tabla.separadorEquivocado) {
+    const cual = tabla.separadorEquivocado === "," ? "comas" : "tabuladores";
+    return {
+      ...resultado,
+      errorGeneral: `Los campos tienen que estar separados por punto y coma (;) y este archivo usa ${cual}. Volvé a exportarlo como se explica en "Cómo preparar el archivo".`,
+    };
+  }
   resultado.filas = tabla.filas.length;
 
   // Títulos → campos, por cualquiera de sus nombres (KB o simples).
