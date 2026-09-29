@@ -31,11 +31,14 @@ describe("valores de importación", () => {
   });
 
   it("provincias con o sin acentos y sus formas habituales", () => {
-    expect(leerProvincia("cordoba")).toBe("Córdoba");
-    expect(leerProvincia("CABA")).toBe("Ciudad Autónoma de Buenos Aires");
-    expect(leerProvincia("Capital Federal")).toBe("Ciudad Autónoma de Buenos Aires");
-    expect(leerProvincia("Bs. As.")).toBe("Buenos Aires");
-    expect(leerProvincia("Montevideo")).toBeUndefined();
+    const lista = ["Buenos Aires", "Ciudad Autónoma de Buenos Aires", "Córdoba"];
+    expect(leerProvincia("cordoba", lista)).toBe("Córdoba");
+    expect(leerProvincia("CABA", lista)).toBe("Ciudad Autónoma de Buenos Aires");
+    expect(leerProvincia("Capital Federal", lista)).toBe("Ciudad Autónoma de Buenos Aires");
+    expect(leerProvincia("Bs. As.", lista)).toBe("Buenos Aires");
+    expect(leerProvincia("Montevideo", lista)).toBeUndefined();
+    // Solo las del país: una que no está en la lista no se acepta.
+    expect(leerProvincia("CABA", ["Montevideo"])).toBeUndefined();
   });
 
   it("CUIT y enteros", () => {

@@ -28,6 +28,12 @@ export async function altaClienteAccion(
         valores,
       };
     }
+    if (resultado.error === "PROVINCIA_INVALIDA") {
+      return {
+        errores: { "domicilioFiscal.provincia": ["Elegí una provincia de la lista."] },
+        valores,
+      };
+    }
     return {
       errores: { "administrador.email": ["Ese mail es de un usuario de SOFTeam."] },
       valores,

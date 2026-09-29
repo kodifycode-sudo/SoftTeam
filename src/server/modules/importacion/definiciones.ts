@@ -29,6 +29,8 @@ export type Resultado = "creado" | "actualizado" | "existente";
 
 export interface Contexto {
   paisId: string;
+  /** Provincias activas del país. */
+  provincias: readonly string[];
   /** Administradores con acceso nuevo (para enviarles el mail al final, si se pide). */
   invitaciones: UsuarioLogin[];
   /** Empresas con cambios (para avisar a los productos). */
@@ -275,7 +277,9 @@ const clientes: Definicion = {
           calle: requerido(fila, "calle", "el domicilio fiscal").slice(0, 120),
           ciudad: requerido(fila, "ciudad", "la localidad").slice(0, 60),
           codigoPostal: requerido(fila, "codigoPostal", "el código postal").slice(0, 8),
-          provincia: interpretar(fila, "provincia", "Provincia", leerProvincia),
+          provincia: interpretar(fila, "provincia", "Provincia", (v) =>
+            leerProvincia(v, ctx.provincias),
+          ),
           paisId: ctx.paisId,
         },
         contactoAdministrador: administrador,

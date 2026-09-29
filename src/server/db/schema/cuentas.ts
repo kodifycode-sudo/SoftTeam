@@ -1,10 +1,13 @@
+import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   boolean,
   char,
+  check,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   uniqueIndex,
@@ -29,18 +32,52 @@ export interface Contacto {
   telefono: string | null;
 }
 
+/** Moneda (`STLicMonedas` de la KB) con su cotización en pesos. */
+export const monedas = pgTable(
+  "monedas",
+  {
+    /** ISO 4217 ("ARS"). */
+    codigo: char({ length: 3 }).primaryKey(),
+    nombre: varchar({ length: 40 }).notNull(),
+    simbolo: varchar({ length: 5 }).notNull(),
+    /** Pesos argentinos por unidad (el peso vale 1). `null`: sin cotización cargada. */
+    cotizacion: numeric({ precision: 18, scale: 6 }),
+    cotizacionEn: instante(),
+    activa: boolean().notNull().default(true),
+  },
+  (t) => [check("cotizacion_positiva", sql`${t.cotizacion} is null or ${t.cotizacion} > 0`)],
+);
+
 /** País: define moneda, alícuota general de IVA y el catálogo de paquetes y aseguradoras. */
 export const paises = pgTable("paises", {
   /** ISO 3166-1 alfa-2 ("AR"). */
   id: char({ length: 2 }).primaryKey(),
   nombre: varchar({ length: 60 }).notNull(),
+  nombreCorto: varchar({ length: 20 }),
   /** Código telefónico internacional ("54"). */
   prefijoTelefonico: varchar({ length: 5 }).notNull(),
-  /** ISO 4217 ("ARS"). */
-  moneda: char({ length: 3 }).notNull(),
+  moneda: char({ length: 3 })
+    .notNull()
+    .references(() => monedas.codigo),
   alicuotaIvaGeneral: pct().notNull(),
   activo: boolean().notNull().default(true),
 });
+
+/** Provincia o estado de un país (`STLicProvincias`). Los domicilios guardan su nombre. */
+export const provincias = pgTable(
+  "provincias",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    paisId: char({ length: 2 })
+      .notNull()
+      .references(() => paises.id),
+    /** Código corto (ISO 3166-2 sin el país: "B", "C", "X"). */
+    codigo: varchar({ length: 5 }).notNull(),
+    nombre: varchar({ length: 60 }).notNull(),
+    activa: boolean().notNull().default(true),
+  },
+  (t) => [uniqueIndex().on(t.paisId, t.codigo), uniqueIndex().on(t.paisId, t.nombre)],
+);
 
 export const gruposEconomicos = pgTable("grupos_economicos", {
   id: uuid().primaryKey().defaultRandom(),

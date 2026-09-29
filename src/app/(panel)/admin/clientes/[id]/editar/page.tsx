@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import * as t from "@/server/db/schema";
+import { nombresDeProvincias } from "@/server/modules/catalogo/paises";
 import { FormularioCliente } from "./formulario";
 
 export const metadata: Metadata = { title: "Editar cliente" };
@@ -17,7 +18,7 @@ export default async function EditarCliente({ params }: PageProps<"/admin/client
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const db = await obtenerDb();
-  const [cliente, grupos, medios] = await Promise.all([
+  const [cliente, grupos, medios, provincias] = await Promise.all([
     db.query.clientes.findFirst({ where: eq(t.clientes.id, id) }),
     db
       .select({ id: t.gruposEconomicos.id, nombre: t.gruposEconomicos.nombre })
@@ -28,6 +29,8 @@ export default async function EditarCliente({ params }: PageProps<"/admin/client
       .from(t.mediosPago)
       .where(eq(t.mediosPago.activo, true))
       .orderBy(asc(t.mediosPago.orden)),
+    // Hoy todos los clientes son de Argentina; con otros países, la del domicilio fiscal.
+    nombresDeProvincias(db, "AR"),
   ]);
   if (!cliente) notFound();
 
@@ -49,6 +52,7 @@ export default async function EditarCliente({ params }: PageProps<"/admin/client
           administracion={rol === "ADMINISTRACION"}
           grupos={grupos}
           medios={medios}
+          provincias={provincias}
           cliente={{
             id: cliente.id,
             version: cliente.actualizadoEn.toISOString(),

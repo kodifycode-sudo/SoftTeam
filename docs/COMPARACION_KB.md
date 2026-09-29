@@ -30,8 +30,8 @@ Estados:
 | `STLicPaquetesMovimientos` | `movimientos_saldo` | ✅ libro inmutable. ✅ *Clientes → ficha → Paquetes vigentes → Movimientos*: cargas, consumos y ajustes de un contrato con el saldo después de cada uno y el saldo actual |
 | `STLicOrden` | `ordenes` + `orden_items` | ➕ detalle por línea, cálculo congelado. ✅ bonificación de un paquete por SOFTeam en la orden pendiente (con motivo, recurrente o solo esa orden) |
 | `STLicMediosPago` | `medios_pago` | ✅ |
-| `STLicMonedas` (con cotización) | moneda del país | ⚠️ decisión pendiente: ABM de monedas y cotización cuando se venda en otra moneda (ver Plan) |
-| `STLicPaises`, `STLicProvincias` | `paises`, provincias fijas | ⚠️ decisión pendiente: ABM cuando se venda fuera de Argentina (ver Plan) |
+| `STLicMonedas` (con cotización) | `monedas` | ✅ *Panel SOFTeam → Países y monedas*: alta, edición y cotización en pesos con su fecha; el peso es la base (vale 1) y no se desactiva una moneda que usa un país activo |
+| `STLicPaises`, `STLicProvincias` | `paises`, `provincias` | ✅ ABM de países (moneda, IVA general, prefijo, nombre corto; siempre uno activo) y de provincias por país (código ISO 3166-2). Los formularios y la importación toman las provincias de la base |
 | `STLicNotiMedio` (medios y factor) | `medios_envio` | ✅ *Panel SOFTeam → Parámetros → Medios de envío*: factor y estado editables por Administración, auditados; el mail no se desactiva |
 | `STLicPoliticas` | `politicas_empresa` | ✅ |
 | `STLicProductores`, `STLicProdCia` | `productores`, `productor_codigos` | ✅ |
@@ -78,9 +78,9 @@ Estados:
 
 Decisiones pendientes (no se implementan hasta definirlas):
 
-- **Monedas y cotización, países y provincias**: hoy se vende solo en
-  Argentina, en pesos, con las provincias fijas. El ABM tiene sentido cuando
-  se venda en otro país o en otra moneda; ahí hay que definir la cotización
-  que congela la orden y la facturación en el exterior.
+- **Vender en otro país:** países, monedas y provincias ya se configuran,
+  pero el alta de clientes sigue siendo de Argentina: falta definir la
+  identificación fiscal de cada país (hoy CUIT), su condición impositiva y
+  quién factura allá (Xubio es de Argentina).
 - **Pedido de cambio de facturación desde el portal**: hecho y apagado con
   el parámetro `oficinas.pedido_facturacion` hasta confirmar el caso.

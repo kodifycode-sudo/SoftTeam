@@ -17,7 +17,7 @@ import { ESTADO_INICIAL } from "@/lib/formulario";
 import { CamposDomicilio, Seccion } from "../[id]/editar/formulario";
 import { altaClienteAccion } from "./acciones";
 
-export function FormularioAltaCliente() {
+export function FormularioAltaCliente({ provincias }: { provincias: readonly string[] }) {
   const [estado, accion] = useActionState(altaClienteAccion, ESTADO_INICIAL);
   return (
     <FormularioConservado accion={accion} className="space-y-6" noValidate>
@@ -58,7 +58,12 @@ export function FormularioAltaCliente() {
       </Seccion>
 
       <Seccion icono={MapPin} titulo="Domicilio fiscal">
-        <CamposDomicilio prefijo="domicilioFiscal" valor={null} estado={estado} />
+        <CamposDomicilio
+          prefijo="domicilioFiscal"
+          valor={null}
+          estado={estado}
+          provincias={provincias}
+        />
       </Seccion>
 
       <Seccion

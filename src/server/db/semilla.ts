@@ -4,6 +4,7 @@ import { centavos, porcentaje } from "@/domain/dinero";
 import { fecha } from "@/domain/fecha";
 import type { ClaseRecurso } from "@/domain/licencias/licencia";
 import type { Ejecutor } from "./cliente";
+import { MONEDAS, PROVINCIAS_ARGENTINA } from "./datos-referencia";
 import * as t from "./schema";
 
 /*
@@ -98,15 +99,21 @@ const PARAMETROS: { clave: string; valor: unknown; descripcion: string }[] = [
 ];
 
 export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }): Promise<void> {
+  await db.insert(t.monedas).values(MONEDAS).onConflictDoNothing();
   await db
     .insert(t.paises)
     .values({
       id: "AR",
       nombre: "Argentina",
+      nombreCorto: "AR",
       prefijoTelefonico: "54",
       moneda: "ARS",
       alicuotaIvaGeneral: porcentaje("21"),
     })
+    .onConflictDoNothing();
+  await db
+    .insert(t.provincias)
+    .values(PROVINCIAS_ARGENTINA.map((p) => ({ paisId: "AR", ...p })))
     .onConflictDoNothing();
 
   await db

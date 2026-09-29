@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { esCuitValido, normalizarCuit } from "@/domain/cuentas/cuit";
 import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
-import { PROVINCIAS, TIPOS_SOCIEDAD } from "@/lib/argentina";
+import { TIPOS_SOCIEDAD } from "@/lib/argentina";
 import type { Db } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { crearCliente, crearEmpresa } from "./creacion";
@@ -36,7 +36,7 @@ export const esquemaDatosAlta = z
     calle: texto(3, 120, "Ingresá la dirección"),
     ciudad: texto(2, 60, "Ingresá la localidad"),
     codigoPostal: texto(4, 8, "Ingresá el código postal"),
-    provincia: z.enum(PROVINCIAS, { error: "Elegí la provincia" }),
+    provincia: z.string().trim().min(2, { error: "Elegí la provincia" }).max(60),
     aceptaNotificaciones: z.boolean().default(false),
   })
   .superRefine((datos, ctx) => {

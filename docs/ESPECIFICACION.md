@@ -601,6 +601,12 @@ Regla de dependencias: `domain` no importa nada del resto.
      la autoriza. Los tipos de usuario conservan el código de la KB (1
      SOFTeam, 7 administrador de empresa, 3 productor, 5 asegurado…). Los
      productos las reciben en EmpresaFull (`comunicaciones`).
+   - **Países, monedas y provincias** (decisión 29/09/2026: configurables y
+     para varios países): *Panel SOFTeam → Países y monedas*. Monedas con
+     cotización en pesos (el peso es la base), países con su moneda e IVA
+     general, provincias por país. Los domicilios y la importación validan la
+     provincia contra la base. Falta para vender fuera de Argentina: la
+     identificación fiscal y la facturación de cada país.
    - **Recibo provisorio** de cada orden pagada (portal y SOFTeam), imprimible
      o para guardar en PDF: constancia del pago con el detalle de la orden,
      numerado con la orden ("R-10025"). No es comprobante fiscal: la factura

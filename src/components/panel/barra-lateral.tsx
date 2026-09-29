@@ -10,6 +10,7 @@ import {
   CreditCard,
   FileUp,
   Gauge,
+  Globe,
   Headset,
   History,
   LayoutDashboard,
@@ -109,6 +110,11 @@ const NAVEGACION: Record<"admin" | "portal", { titulo: string; items: ItemNavega
           etiqueta: "Usuarios SOFTeam",
           icono: UserCog,
           permisos: ["ADMINISTRACION"],
+        },
+        {
+          href: "/admin/paises",
+          etiqueta: "Países y monedas",
+          icono: Globe,
         },
         {
           href: "/admin/parametros",

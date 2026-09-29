@@ -2,10 +2,11 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { esCuitValido, normalizarCuit } from "@/domain/cuentas/cuit";
 import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
-import { PROVINCIAS, TIPOS_SOCIEDAD } from "@/lib/argentina";
+import { TIPOS_SOCIEDAD } from "@/lib/argentina";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { provinciaValida } from "../catalogo/paises";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { crearAdministradorGeneral, crearCliente, crearEmpresa } from "./creacion";
 import { buscarUsuarioPorEmail, type UsuarioLogin } from "./usuarios";
@@ -56,7 +57,7 @@ export const esquemaAltaCliente = z.object({
     calle: texto(3, 120, "Ingresá la dirección"),
     ciudad: texto(2, 60, "Ingresá la localidad"),
     codigoPostal: texto(4, 8, "Ingresá el código postal"),
-    provincia: z.enum(PROVINCIAS, { error: "Elegí la provincia" }),
+    provincia: z.string().trim().min(2, { error: "Elegí la provincia" }).max(60),
   }),
   administrador,
   empresa,
@@ -67,7 +68,7 @@ export type EntradaAltaCliente = z.infer<typeof esquemaAltaCliente>;
 export type ResultadoAlta =
   | { ok: true; clienteId: string; empresaId: string; usuario: UsuarioLogin }
   | { ok: false; error: "CUIT_DUPLICADO"; clienteId: string }
-  | { ok: false; error: "ES_SOFTEAM" | "NO_EXISTE" };
+  | { ok: false; error: "ES_SOFTEAM" | "NO_EXISTE" | "PROVINCIA_INVALIDA" };
 
 /** Alta de cliente por SOFTeam: cliente, su primera empresa y el administrador general. */
 export async function altaClientePorSofteam(
@@ -84,6 +85,9 @@ export async function altaClientePorSofteam(
     // Un mail de SOFTeam no puede administrar un cliente: se valida antes de crear nada.
     if (await esDeSofteam(tx, entrada.administrador.email))
       return { ok: false, error: "ES_SOFTEAM" };
+    if (!(await provinciaValida(tx, "AR", entrada.domicilioFiscal.provincia))) {
+      return { ok: false, error: "PROVINCIA_INVALIDA" };
+    }
 
     const contacto = {
       nombre: entrada.administrador.nombre,

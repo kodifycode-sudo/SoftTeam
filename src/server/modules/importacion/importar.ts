@@ -1,6 +1,7 @@
 import { decodificar, leerTabla, normalizarTitulo } from "@/domain/importacion/csv";
 import type { Db } from "@/server/db/cliente";
 import { auditar } from "../auditoria";
+import { nombresDeProvincias } from "../catalogo/paises";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import {
   type Contexto,
@@ -111,7 +112,12 @@ export async function importar(
     };
   }
 
-  const contexto: Contexto = { paisId: "AR", invitaciones: [], empresasTocadas: new Set() };
+  const contexto: Contexto = {
+    paisId: "AR",
+    provincias: await nombresDeProvincias(db, "AR"),
+    invitaciones: [],
+    empresasTocadas: new Set(),
+  };
   const registrarError = (linea: number, mensaje: string) => {
     if (resultado.errores.length < MAXIMO_ERRORES) resultado.errores.push({ linea, mensaje });
     else resultado.erroresOmitidos++;

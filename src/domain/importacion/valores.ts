@@ -1,6 +1,5 @@
 import { esCuitValido, normalizarCuit } from "@/domain/cuentas/cuit";
 import type { CondicionIva } from "@/domain/facturacion/impuestos";
-import { PROVINCIAS } from "@/lib/argentina";
 import { normalizarTitulo } from "./csv";
 
 /*
@@ -43,20 +42,29 @@ export function leerTipoPersona(valor: string): "FISICA" | "JURIDICA" | undefine
   return undefined;
 }
 
-const PROVINCIA_POR_NOMBRE = new Map<string, (typeof PROVINCIAS)[number]>([
-  ...PROVINCIAS.map((p) => [normalizarTitulo(p), p] as const),
-  ["caba", "Ciudad Autónoma de Buenos Aires"],
-  ["capitalfederal", "Ciudad Autónoma de Buenos Aires"],
-  ["capital", "Ciudad Autónoma de Buenos Aires"],
-  ["ciudaddebuenosaires", "Ciudad Autónoma de Buenos Aires"],
-  ["bsas", "Buenos Aires"],
-  ["pba", "Buenos Aires"],
-  ["provinciadebuenosaires", "Buenos Aires"],
-  ["tierradelfuegoantartidaeislasdelatlanticosur", "Tierra del Fuego"],
-]);
+/** Nombres alternativos de las provincias argentinas. */
+const ALIAS_PROVINCIAS: Record<string, string> = {
+  caba: "Ciudad Autónoma de Buenos Aires",
+  capitalfederal: "Ciudad Autónoma de Buenos Aires",
+  capital: "Ciudad Autónoma de Buenos Aires",
+  ciudaddebuenosaires: "Ciudad Autónoma de Buenos Aires",
+  bsas: "Buenos Aires",
+  pba: "Buenos Aires",
+  provinciadebuenosaires: "Buenos Aires",
+  tierradelfuegoantartidaeislasdelatlanticosur: "Tierra del Fuego",
+};
 
-/** Provincia argentina por nombre, con o sin acentos (también CABA, Capital Federal, Bs As). */
-export const leerProvincia = (valor: string) => PROVINCIA_POR_NOMBRE.get(normalizarTitulo(valor));
+/**
+ * Provincia del país por nombre, con o sin acentos (en Argentina también CABA,
+ * Capital Federal, Bs As). Devuelve el nombre tal como está en la lista.
+ */
+export function leerProvincia(valor: string, provincias: readonly string[]): string | undefined {
+  const buscado = normalizarTitulo(valor);
+  const alias = ALIAS_PROVINCIAS[buscado];
+  return provincias.find(
+    (p) => normalizarTitulo(p) === buscado || (alias !== undefined && p === alias),
+  );
+}
 
 export function leerTipoCliente(valor: string): "DIRECTO" | "CORPORATIVO" | undefined {
   const v = normalizarTitulo(valor);

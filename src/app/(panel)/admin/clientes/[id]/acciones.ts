@@ -143,6 +143,7 @@ const MENSAJES_EDICION: Record<ErrorEdicion, EstadoFormulario> = {
   SIN_PERMISO: { mensaje: "Solo Administración puede cambiar el CUIT o dar de baja." },
   GRUPO_INVALIDO: { errores: { grupoId: ["Elegí un grupo económico de la lista."] } },
   MEDIO_INVALIDO: { mensaje: "Elegí medios de pago de la lista." },
+  PROVINCIA_INVALIDA: { mensaje: "Elegí las provincias de la lista." },
 };
 
 /** Corrige los datos del cliente (Administración o Comercial). */

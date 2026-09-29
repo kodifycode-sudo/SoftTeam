@@ -2,10 +2,11 @@ import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { esCuitValido, normalizarCuit } from "@/domain/cuentas/cuit";
 import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
-import { PROVINCIAS, TIPOS_SOCIEDAD } from "@/lib/argentina";
+import { TIPOS_SOCIEDAD } from "@/lib/argentina";
 import type { Db } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { provinciaValida } from "../catalogo/paises";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 
 const texto = (min: number, max: number, mensaje: string) =>
@@ -40,7 +41,7 @@ const domicilio = z.object({
   calle: texto(3, 120, "Ingresá la dirección"),
   ciudad: texto(2, 60, "Ingresá la localidad"),
   codigoPostal: texto(4, 8, "Ingresá el código postal"),
-  provincia: z.enum(PROVINCIAS, { error: "Elegí la provincia" }),
+  provincia: z.string().trim().min(2, { error: "Elegí la provincia" }).max(60),
 });
 
 /** Contacto opcional: vacío si no se carga el nombre. */
@@ -97,7 +98,8 @@ export type ErrorEdicion =
   | "CUIT_DUPLICADO"
   | "SIN_PERMISO"
   | "GRUPO_INVALIDO"
-  | "MEDIO_INVALIDO";
+  | "MEDIO_INVALIDO"
+  | "PROVINCIA_INVALIDA";
 
 /** Quién edita: el CUIT y dar de baja son solo de Administración. */
 export interface Editor {
@@ -159,6 +161,11 @@ export async function guardarCliente(
 
     const paisId = antes.domicilioFiscal.paisId;
     const comercial = entrada.domicilioComercial;
+    for (const provincia of [entrada.domicilioFiscal.provincia, comercial?.provincia]) {
+      if (provincia && !(await provinciaValida(tx, paisId, provincia))) {
+        return { ok: false, error: "PROVINCIA_INVALIDA" };
+      }
+    }
     const valores = {
       tipoPersona: entrada.tipoPersona,
       nombre: entrada.nombre,

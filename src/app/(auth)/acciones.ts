@@ -12,6 +12,7 @@ import {
 import { obtenerAuth } from "@/server/auth";
 import { codigoDeError, esErrorDeAuth, esLimiteDeIntentos } from "@/server/auth/errores";
 import { obtenerDb } from "@/server/db";
+import { provinciaValida } from "@/server/modules/catalogo/paises";
 import {
   confirmarAlta,
   esquemaContrasena,
@@ -181,6 +182,9 @@ export async function registrarse(
   const { password, confirmacion: _confirmacion, aceptaTerminos: _acepta, ...alta } = datos.data;
 
   const db = await obtenerDb();
+  if (!(await provinciaValida(db, "AR", alta.provincia))) {
+    return { errores: { provincia: ["Elegí la provincia de la lista."] }, valores: recordar };
+  }
   if (await existeClienteConCuit(db, alta.cuit)) {
     return {
       errores: {

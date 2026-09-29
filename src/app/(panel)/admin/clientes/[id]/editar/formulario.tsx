@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { formatearCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA_ETIQUETA, PROVINCIAS, TIPOS_SOCIEDAD } from "@/lib/argentina";
+import { CONDICIONES_IVA_ETIQUETA, TIPOS_SOCIEDAD } from "@/lib/argentina";
 import { ESTADO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
 import { guardarClienteAccion } from "../acciones";
 
@@ -83,11 +83,18 @@ export function CamposDomicilio({
   prefijo,
   valor,
   estado,
+  provincias,
 }: {
   prefijo: string;
   valor: Domicilio | null;
   estado: EstadoFormulario;
+  /** Provincias activas del país (una guardada que ya no está se sigue mostrando). */
+  provincias: readonly string[];
 }) {
+  const opciones =
+    valor?.provincia && !provincias.includes(valor.provincia)
+      ? [valor.provincia, ...provincias]
+      : provincias;
   return (
     <>
       <Campo
@@ -116,7 +123,7 @@ export function CamposDomicilio({
         valorInicial={valor?.provincia ?? ""}
       >
         <option value="">Elegí la provincia</option>
-        {PROVINCIAS.map((p) => (
+        {opciones.map((p) => (
           <option key={p} value={p}>
             {p}
           </option>
@@ -197,8 +204,10 @@ export function FormularioCliente({
   grupos,
   medios,
   administracion,
+  provincias,
 }: {
   cliente: DatosCliente;
+  provincias: readonly string[];
   grupos: { id: string; nombre: string }[];
   medios: { id: string; nombre: string }[];
   /** CUIT y alta/baja solo los cambia Administración. */
@@ -289,6 +298,7 @@ export function FormularioCliente({
           prefijo="domicilioFiscal"
           valor={cliente.domicilioFiscal}
           estado={estado}
+          provincias={provincias}
         />
       </Seccion>
 
@@ -301,6 +311,7 @@ export function FormularioCliente({
           prefijo="domicilioComercial"
           valor={cliente.domicilioComercial}
           estado={estado}
+          provincias={provincias}
         />
       </Seccion>
 

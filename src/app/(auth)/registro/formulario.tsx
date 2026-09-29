@@ -12,7 +12,7 @@ import { SelectNativo } from "@/components/select-nativo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { CONDICIONES_IVA_ETIQUETA, PROVINCIAS, TIPOS_SOCIEDAD } from "@/lib/argentina";
+import { CONDICIONES_IVA_ETIQUETA, TIPOS_SOCIEDAD } from "@/lib/argentina";
 import { ESTADO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
 import { cn } from "@/lib/utils";
 import { registrarse } from "../acciones";
@@ -83,7 +83,7 @@ const REQUISITOS = [
   { texto: "Un número", cumple: (c: string) => /\d/.test(c) },
 ];
 
-export function FormularioRegistro() {
+export function FormularioRegistro({ provincias }: { provincias: readonly string[] }) {
   const [estado, accion] = useActionState(registrarse, ESTADO_INICIAL);
   const [tipoPersona, setTipoPersona] = useState(estado.valores?.tipoPersona ?? "JURIDICA");
   const [contrasena, setContrasena] = useState("");
@@ -213,7 +213,7 @@ export function FormularioRegistro() {
                   nombre="provincia"
                   etiqueta="Provincia"
                   placeholder="Elegí la provincia…"
-                  opciones={PROVINCIAS.map((p) => [p, p] as const)}
+                  opciones={provincias.map((p) => [p, p] as const)}
                   estado={estado}
                 />
               </div>

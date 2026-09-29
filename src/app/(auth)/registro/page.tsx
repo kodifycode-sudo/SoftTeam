@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { obtenerDb } from "@/server/db";
+import { nombresDeProvincias } from "@/server/modules/catalogo/paises";
 import { FormularioRegistro } from "./formulario";
 
 export const metadata: Metadata = { title: "Registrá tu empresa" };
 
-export default function PaginaRegistro() {
+export default async function PaginaRegistro() {
+  const provincias = await nombresDeProvincias(await obtenerDb(), "AR");
   return (
     <div className="w-full max-w-2xl space-y-8">
       <header className="space-y-2">
@@ -15,7 +18,7 @@ export default function PaginaRegistro() {
           usuarios y contratar paquetes.
         </p>
       </header>
-      <FormularioRegistro />
+      <FormularioRegistro provincias={provincias} />
       <p className="text-center text-sm text-muted-foreground">
         ¿Ya tenés cuenta?{" "}
         <Link
