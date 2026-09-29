@@ -594,5 +594,7 @@ Regla de dependencias: `domain` no importa nada del resto.
      después de cada movimiento.
    - **Exportaciones** de aseguradoras y paquetes (SOFTeam) y de usuarios,
      productores y códigos (portal, con los títulos de la importación).
-   *Decisiones pendientes:* factura adelantada, `TipoComunicacion`, monedas y
-   países (ver la comparación).
+   - **Recibo provisorio** de cada orden pagada (portal y SOFTeam), imprimible
+     o para guardar en PDF: constancia del pago con el detalle de la orden,
+     numerado con la orden ("R-10025"). No es comprobante fiscal: la factura
+     se emite al cobrar (decisión 29/09/2026: no hay factura adelantada).

@@ -72,6 +72,8 @@ openssl rand -hex 32      # para CRON_SECRET
 | `ADMIN_PASSWORD` | Primer despliegue | Contraseña inicial (se quita después, ver paso 6) |
 | `MERCADOPAGO_ACCESS_TOKEN` | No | Token de producción de Mercado Pago |
 | `MERCADOPAGO_WEBHOOK_SECRET` | Con el token | Clave secreta de las notificaciones |
+| `STLIC_EMISOR_CUIT` | Recomendada | CUIT de SOFTeam (11 dígitos), para el recibo provisorio |
+| `STLIC_EMISOR_DOMICILIO` | No | Domicilio de SOFTeam que se imprime en el recibo |
 | `DATABASE_POOL_MAX` | No | Conexiones por instancia (por defecto 5) |
 | `STLIC_CATALOGO_DEMO` | No | `1` **solo en vista previa**: carga paquetes de ejemplo |
 

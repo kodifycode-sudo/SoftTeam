@@ -88,6 +88,7 @@ export default async function OrdenAdmin({
       )}
       <VistaOrden
         detalle={detalle}
+        urlRecibo={`/admin/ordenes/${detalle.orden.id}/recibo`}
         acciones={
           <div className="grid gap-2">
             {orden.estado === "PEND_PAGO" && rol === "ADMINISTRACION" && (

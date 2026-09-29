@@ -27,12 +27,12 @@ export async function EstructuraPanel({
     <SidebarProvider defaultOpen={abierta}>
       <BarraLateral variante={variante} usuario={usuario} permisos={permisos} pie={extraBarra} />
       <SidebarInset className="min-w-0 bg-background">
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md sm:px-4">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md sm:px-4 print:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-5" />
           <div className="flex min-w-0 flex-1 items-center justify-between gap-3">{encabezado}</div>
         </header>
-        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:p-0">
           {children}
         </div>
       </SidebarInset>

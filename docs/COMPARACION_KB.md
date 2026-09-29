@@ -17,7 +17,7 @@ Estados:
 | KB | STLic | Estado |
 |---|---|---|
 | `STLicClientes` | `clientes` | ✅ datos fiscales, contactos, grupo, medios de pago, Xubio, observaciones, editables por SOFTeam |
-| `STLicClientes.FacModo` (pago directo, factura adelantada, suscripción MP, débito en aseguradora) | medio de pago del cliente | ➕ se reemplazó por el medio de pago de alta y de renovación (transferencia, link, suscripción, planilla). ⚠️ **B** "factura adelantada": facturar al emitir la orden y no al pagar (decisión pendiente) |
+| `STLicClientes.FacModo` (pago directo, factura adelantada, suscripción MP, débito en aseguradora) | medio de pago del cliente | ➕ se reemplazó por el medio de pago de alta y de renovación (transferencia, link, suscripción, planilla). ✅ decidido (29/09/2026): la factura se emite al cobrar; con la orden y el pago hay un recibo provisorio |
 | `STLicClientes.IdWoo`, `STLicPq.ProductoWoo` | — | ❌ WooCommerce descartado (se usa Mercado Pago + Xubio) |
 | `STLicClientes.AdminMailValSino` / `AdminTelValSino` | mail verificado por código | ✅ el mail. ❌ la validación del teléfono (no la pide ningún proceso) |
 | `STLicEmpresas` | `empresas` | ✅ nombre, nombre corto, país, tipo de cliente, instalación, activa, fecha de modificación, editables por SOFTeam |
@@ -78,9 +78,6 @@ Estados:
 
 Decisiones pendientes (no se implementan hasta definirlas):
 
-- **Factura adelantada** (`FacModo`): facturar al emitir la orden y no al
-  cobrarla. Cambia cuándo se emite el comprobante en Xubio y qué pasa si la
-  orden se cancela (nota de crédito).
 - **`TipoComunicacion`**: definir con BienSeguro y el Boletín si la
   configuración de comunicaciones sigue en STLic o pasa a cada producto.
 - **Monedas y cotización, países y provincias**: hoy se vende solo en

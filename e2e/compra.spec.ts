@@ -110,6 +110,13 @@ test.describe
       await expect(page.getByText("Pago registrado: 2 paquetes activados.")).toBeVisible();
       await expect(page.getByText("Pagada", { exact: true })).toBeVisible();
       await capturar(page, "23-admin-orden-pagada");
+
+      // Recibo provisorio: constancia del pago hasta que se emite la factura.
+      await page.getByRole("link", { name: "Ver recibo provisorio" }).click();
+      await expect(page.getByRole("heading", { name: "Recibo provisorio" })).toBeVisible();
+      await expect(page.getByText(`R-${numeroOrden}`)).toBeVisible();
+      await expect(page.getByText("Documento no válido como factura.")).toBeVisible();
+      await capturar(page, "23b-recibo-provisorio");
     });
 
     test("el cliente ve su licencia activa", async ({ page }) => {

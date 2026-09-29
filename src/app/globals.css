@@ -172,3 +172,14 @@
     background-size: 44px 44px;
   }
 }
+
+/* Documentos imprimibles (recibos): sin la barra lateral ni su espacio, en blanco. */
+@media print {
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"] {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}

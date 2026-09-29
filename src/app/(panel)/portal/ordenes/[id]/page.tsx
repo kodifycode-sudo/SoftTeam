@@ -86,6 +86,7 @@ export default async function OrdenPortal({
       />
       <VistaOrden
         detalle={detalle}
+        urlRecibo={`/portal/ordenes/${detalle.orden.id}/recibo`}
         acciones={
           detalle.orden.estado === "PEND_PAGO" &&
           detalle.medio.generaLink && (

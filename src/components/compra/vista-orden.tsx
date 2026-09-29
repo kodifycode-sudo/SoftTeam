@@ -8,6 +8,7 @@ import {
   Receipt,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +80,16 @@ function Dato({
 }
 
 /** Vista completa de una orden: encabezado, líneas y desglose congelado. */
-export function VistaOrden({ detalle, acciones }: { detalle: DetalleOrden; acciones?: ReactNode }) {
+export function VistaOrden({
+  detalle,
+  acciones,
+  urlRecibo,
+}: {
+  detalle: DetalleOrden;
+  acciones?: ReactNode;
+  /** Recibo provisorio (orden pagada). */
+  urlRecibo?: string;
+}) {
   const { orden, medio, lineas, facturacion, ticket } = detalle;
   const pendiente = orden.estado === "PEND_PAGO";
 
@@ -134,6 +144,14 @@ export function VistaOrden({ detalle, acciones }: { detalle: DetalleOrden; accio
                     Comprobante en emisión
                   </span>
                 )
+              )}
+              {orden.estado === "PAGADA" && urlRecibo && (
+                <Link
+                  href={urlRecibo}
+                  className="mt-1 block text-xs font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Ver recibo provisorio
+                </Link>
               )}
             </Dato>
           </CardContent>
