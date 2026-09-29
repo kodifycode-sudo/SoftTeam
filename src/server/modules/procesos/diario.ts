@@ -8,6 +8,7 @@ import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
 import { NOMBRE_PRODUCTO, usoDeLimites } from "../configuracion/limites";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
+import { limpiarUsoApi } from "../integraciones/limite";
 import { licenciaDeEmpresa } from "../licencias/licencia-empresa";
 import { leerParametroDe } from "../parametros";
 import { registrarAlerta } from "./alertas";
@@ -22,6 +23,8 @@ const DIAS_AVISO_PLAZO_PAGO = 3;
 export interface ResumenDiario {
   excepcionesVencidas: number;
   alertas: Record<string, number>;
+  /** Contadores de uso de la API de más de un día, borrados. */
+  usoApiBorrado: number;
 }
 
 /**
@@ -29,6 +32,7 @@ export interface ResumenDiario {
  * nada ni duplica alertas).
  * 1. Vence las excepciones de pago cuyo plazo terminó.
  * 2. Genera las alertas del día.
+ * 3. Borra los contadores viejos del límite de la API.
  */
 export async function procesoDiario(db: Db, hoy: Fecha): Promise<ResumenDiario> {
   const excepcionesVencidas = await vencerExcepciones(db, hoy);
@@ -44,7 +48,8 @@ export async function procesoDiario(db: Db, hoy: Fecha): Promise<ResumenDiario> 
   await alertasDePlazoDePago(db, hoy, contar);
   await alertasDeSaldo(db, porcentajeBajo, contar);
   await alertasDeEmpresa(db, hoy, contar);
-  return { excepcionesVencidas, alertas };
+  const usoApiBorrado = await limpiarUsoApi(db);
+  return { excepcionesVencidas, alertas, usoApiBorrado };
 }
 
 /** PEND_PAGO_ACTIVO con plazo vencido → PEND_PAGO: deja de sumar a la licencia. */

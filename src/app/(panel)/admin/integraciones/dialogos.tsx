@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, KeyRound, Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Check, Copy, Gauge, KeyRound, Pencil, Plus, TriangleAlert } from "lucide-react";
 import { useActionState, useState } from "react";
 import { BotonEnviar, Campo, MensajeFormulario } from "@/components/formulario";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -18,6 +18,7 @@ import {
 import { FieldGroup } from "@/components/ui/field";
 import { ESTADO_INICIAL } from "@/lib/formulario";
 import {
+  actualizarLimiteAccion,
   actualizarWebhookAccion,
   crearSistemaAccion,
   type EstadoSecreto,
@@ -206,6 +207,50 @@ export function EditarWebhook({
             etiqueta="URL"
             type="url"
             defaultValue={webhookUrl ?? ""}
+            estado={estado}
+          />
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="ghost" />}>Cerrar</DialogClose>
+            <BotonEnviar>Guardar</BotonEnviar>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function EditarLimite({
+  id,
+  sistema,
+  limitePorMinuto,
+}: {
+  id: string;
+  sistema: string;
+  limitePorMinuto: number;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [estado, accion] = useActionState(actualizarLimiteAccion, ESTADO_INICIAL);
+  return (
+    <Dialog open={abierto} onOpenChange={setAbierto}>
+      <DialogTrigger render={<Button variant="ghost" size="sm" />}>
+        <Gauge data-icon="inline-start" /> Límite
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Límite de {sistema}</DialogTitle>
+          <DialogDescription>
+            Pedidos por minuto que acepta la API. Al superarlo responde 429 con Retry-After hasta el
+            minuto siguiente.
+          </DialogDescription>
+        </DialogHeader>
+        <form action={accion} className="space-y-5">
+          <input type="hidden" name="id" value={id} />
+          <MensajeFormulario estado={estado} />
+          <Campo
+            nombre="limitePorMinuto"
+            etiqueta="Pedidos por minuto"
+            inputMode="numeric"
+            defaultValue={String(limitePorMinuto)}
             estado={estado}
           />
           <DialogFooter>

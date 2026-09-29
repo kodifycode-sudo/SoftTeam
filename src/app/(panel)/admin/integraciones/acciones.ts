@@ -99,3 +99,31 @@ export async function reintentarEventoAccion(formData: FormData): Promise<void> 
   programarEntregaDeEventos();
   revalidatePath("/admin/integraciones");
 }
+
+const esquemaLimite = z.object({
+  id: z.uuid(),
+  limitePorMinuto: z.coerce
+    .number({ error: "Ingresá un número." })
+    .int({ error: "Un número entero." })
+    .min(10, { error: "Entre 10 y 100.000 pedidos por minuto." })
+    .max(100_000, { error: "Entre 10 y 100.000 pedidos por minuto." }),
+});
+
+/** Cambia cuántos pedidos por minuto acepta la API de un sistema (solo Administración). */
+export async function actualizarLimiteAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION"]);
+  const valores = valoresDe(formData);
+  const datos = esquemaLimite.safeParse(valores);
+  if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  await actualizarSistema(
+    await obtenerDb(),
+    datos.data.id,
+    { limitePorMinuto: datos.data.limitePorMinuto },
+    user.id,
+  );
+  revalidatePath("/admin/integraciones");
+  return { ok: true, mensaje: "Límite actualizado." };
+}

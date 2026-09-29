@@ -10,6 +10,7 @@ import { consumir, type PedidoConsumo } from "../consumos/consumir";
 import { autenticarPeticion } from "./autenticacion";
 import { empresaCompleta, licenciaParaApi, listarEmpresasParaSincronizar } from "./datos";
 import { type Enviar, entregarEventos, MAXIMO_INTENTOS, registrarCambioEmpresa } from "./eventos";
+import { limpiarUsoApi, registrarPedido, usoUltimaHora } from "./limite";
 import { crearSistema, rotarSecreto } from "./sistemas";
 
 const HOY = fecha("2026-09-25");
@@ -173,9 +174,12 @@ describe("autenticarPeticion", () => {
         body: cuerpoEnviado,
       });
 
-    expect(await autenticarPeticion(db, peticion(creado.secreto), cuerpo, CLAVE, ahora)).toEqual({
+    expect(
+      await autenticarPeticion(db, peticion(creado.secreto), cuerpo, CLAVE, ahora),
+    ).toMatchObject({
       ok: true,
       sistema,
+      uso: { permitido: true, limite: 600, restantes: 599 },
     });
     expect(
       await autenticarPeticion(db, peticion(creado.secreto), '{"cantidad":9999}', CLAVE, ahora),
@@ -367,5 +371,46 @@ describe("datos de la API", () => {
     const { empresa } = await empresaConCreditos();
     await db.update(t.empresas).set({ activa: false }).where(eq(t.empresas.id, empresa.id));
     expect((await licenciaParaApi(db, empresa.numero, HOY))?.productos).toEqual({});
+  });
+});
+
+describe("límite de pedidos por sistema", () => {
+  it("cuenta por minuto, corta al superar el límite y vuelve a aceptar en el minuto siguiente", async () => {
+    const creado = await crearSistema(
+      db,
+      { sistema: "limitado", nombre: "Limitado" },
+      CLAVE,
+      actorId,
+    );
+    if (!creado.ok) throw new Error("no se creó el sistema");
+    const { id } = (await db.query.apiClientes.findFirst({
+      where: eq(t.apiClientes.sistema, "limitado"),
+    }))!;
+    const minuto = new Date("2026-09-25T15:30:00Z");
+    const a = (segundos: number) => new Date(minuto.getTime() + segundos * 1000);
+
+    const usos = [];
+    for (const segundo of [1, 20, 40]) usos.push(await registrarPedido(db, id, 2, a(segundo)));
+    expect(usos.map((u) => [u.permitido, u.restantes])).toEqual([
+      [true, 1],
+      [true, 0],
+      [false, 0],
+    ]);
+    expect(usos[2]?.reinicio).toBe(20);
+    // Minuto nuevo: cupo nuevo.
+    expect(await registrarPedido(db, id, 2, a(61))).toMatchObject({
+      permitido: true,
+      restantes: 1,
+    });
+
+    // Pedidos simultáneos no se pisan: se cuentan todos.
+    await Promise.all(Array.from({ length: 5 }, () => registrarPedido(db, id, 100, a(130))));
+    const uso = await usoUltimaHora(db, a(200));
+    expect(uso.get(id)).toEqual({ pedidos: 9, pico: 5 });
+
+    expect(
+      await limpiarUsoApi(db, new Date(minuto.getTime() + 2 * 24 * 3600_000)),
+    ).toBeGreaterThanOrEqual(3);
+    expect((await usoUltimaHora(db, a(200))).get(id)).toBeUndefined();
   });
 });

@@ -4,6 +4,7 @@ import {
   CircleCheck,
   CircleX,
   Clock,
+  Gauge,
   Plug,
   Power,
   PowerOff,
@@ -42,9 +43,10 @@ import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarEventosRecientes } from "@/server/modules/integraciones/eventos";
+import { usoUltimaHora } from "@/server/modules/integraciones/limite";
 import { listarSistemas } from "@/server/modules/integraciones/sistemas";
 import { cambiarActivoSistemaAccion, reintentarEventoAccion } from "./acciones";
-import { EditarWebhook, NuevoSistema, RotarSecreto } from "./dialogos";
+import { EditarLimite, EditarWebhook, NuevoSistema, RotarSecreto } from "./dialogos";
 
 export const metadata: Metadata = { title: "Integraciones" };
 
@@ -69,9 +71,10 @@ export default async function Integraciones() {
   const { rol } = await requerirSofteam(["ADMINISTRACION", "SOPORTE"]);
   const puedeEditar = rol === "ADMINISTRACION";
   const db = await obtenerDb();
-  const [sistemas, eventos] = await Promise.all([
+  const [sistemas, eventos, uso] = await Promise.all([
     listarSistemas(db),
     listarEventosRecientes(db, 30),
+    usoUltimaHora(db),
   ]);
 
   return (
@@ -123,11 +126,22 @@ export default async function Integraciones() {
                         ? `Último uso: ${horaCorta(s.ultimoUsoEn)}`
                         : "Todavía no usó la API"}
                     </p>
+                    <p className="flex items-center gap-2 text-muted-foreground">
+                      <Gauge className="size-4 shrink-0" />
+                      Límite: {s.limitePorMinuto.toLocaleString("es-AR")} pedidos por minuto
+                      {uso.get(s.id) &&
+                        ` · última hora: ${uso.get(s.id)?.pedidos.toLocaleString("es-AR")} (pico ${uso.get(s.id)?.pico.toLocaleString("es-AR")}/min)`}
+                    </p>
                   </CardContent>
                   {puedeEditar && (
                     <CardFooter className="flex-wrap gap-1 border-t">
                       <EditarWebhook id={s.id} sistema={s.sistema} webhookUrl={s.webhookUrl} />
                       <RotarSecreto id={s.id} sistema={s.sistema} />
+                      <EditarLimite
+                        id={s.id}
+                        sistema={s.sistema}
+                        limitePorMinuto={s.limitePorMinuto}
+                      />
                       <form action={cambiarActivoSistemaAccion} className="ml-auto">
                         <input type="hidden" name="id" value={s.id} />
                         <input type="hidden" name="activo" value={String(!s.activo)} />

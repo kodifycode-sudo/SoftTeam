@@ -13,6 +13,7 @@ export function listarSistemas(db: Ejecutor) {
       nombre: t.apiClientes.nombre,
       webhookUrl: t.apiClientes.webhookUrl,
       activo: t.apiClientes.activo,
+      limitePorMinuto: t.apiClientes.limitePorMinuto,
       ultimoUsoEn: t.apiClientes.ultimoUsoEn,
       creadoEn: t.apiClientes.creadoEn,
     })
@@ -95,7 +96,7 @@ export async function rotarSecreto(db: Db, id: string, claveMaestra: string, act
 export async function actualizarSistema(
   db: Db,
   id: string,
-  cambios: { webhookUrl?: string | null; activo?: boolean },
+  cambios: { webhookUrl?: string | null; activo?: boolean; limitePorMinuto?: number },
   actorId: string,
 ) {
   await db.transaction(async (tx) => {
@@ -118,6 +119,7 @@ export async function secretoDeSistema(db: Ejecutor, sistema: string, claveMaest
   return {
     id: fila.id,
     webhookUrl: fila.webhookUrl,
+    limitePorMinuto: fila.limitePorMinuto,
     secreto: descifrar(fila.secretoCifrado, claveMaestra),
   };
 }

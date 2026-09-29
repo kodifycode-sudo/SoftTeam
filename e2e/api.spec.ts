@@ -159,6 +159,34 @@ test.describe
       ).toEqual({ ok: true });
     });
 
+    test("al superar su límite por minuto, el sistema recibe 429 con Retry-After", async ({
+      page,
+    }) => {
+      await ingresar(page, ADMIN.email, ADMIN.contrasena);
+      await page.goto("/admin/integraciones");
+      const tarjeta = page.locator("[data-slot=card]").filter({ hasText: sistema });
+      await tarjeta.getByRole("button", { name: "Límite" }).click();
+      await page.getByRole("dialog").getByLabel("Pedidos por minuto").fill("10");
+      await page.getByRole("dialog").getByRole("button", { name: "Guardar" }).click();
+      await expect(page.getByRole("dialog").getByText("Límite actualizado.")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(tarjeta.getByText(/Límite: 10 pedidos por minuto/)).toBeVisible();
+
+      const ok = await llamar("GET", `/api/v1/empresas/${numeroEmpresa}/licencia`);
+      expect(ok.headers.get("ratelimit-limit")).toBe("10");
+      // Si justo cambia el minuto, el cupo se renueva: se sigue hasta el corte.
+      let corte: Response | undefined;
+      for (let i = 0; i < 25 && !corte; i++) {
+        const r = await llamar("GET", `/api/v1/empresas/${numeroEmpresa}/licencia`);
+        if (r.status === 429) corte = r;
+        else expect(r.status).toBe(200);
+      }
+      expect(corte?.status).toBe(429);
+      expect(Number(corte?.headers.get("retry-after"))).toBeGreaterThan(0);
+      expect(corte?.headers.get("ratelimit-remaining")).toBe("0");
+      expect((await corte?.json())?.title).toBe("Demasiados pedidos");
+    });
+
     test("SOFTeam desactiva el sistema y deja de poder usar la API", async ({ page }) => {
       await ingresar(page, ADMIN.email, ADMIN.contrasena);
       await page.goto("/admin/integraciones");

@@ -127,6 +127,13 @@
       "when": 1790716108596,
       "tag": "0017_paises_monedas_provincias",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790718118935,
+      "tag": "0018_limite_api",
+      "breakpoints": true
     }
   ]
 }

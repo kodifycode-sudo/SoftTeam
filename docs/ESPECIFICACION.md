@@ -502,7 +502,10 @@ Regla de dependencias: `domain` no importa nada del resto.
    idempotentes; secretos cifrados (AES-256-GCM); webhooks por outbox con
    reserva de lotes, envío en paralelo y reintentos; contrato OpenAPI;
    pantalla de Integraciones.
-   *Pendiente:* límite de tasa por sistema en la API.
+   Límite de pedidos por sistema (29/09/2026): ventana de un minuto contada en
+   la base (vale para todas las instancias), 600 por defecto y ajustable en
+   Integraciones; al superarlo, 429 con `Retry-After` y cabeceras
+   `RateLimit-*`. La pantalla muestra el uso de la última hora.
 5. ✅ **Configuración de la empresa y perfiles:** usuarios de la empresa con
    accesos a productos y permisos de administración (invitación por mail),
    aseguradoras e interfaces con baja al mes siguiente, productores con sus

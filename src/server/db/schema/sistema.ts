@@ -2,8 +2,10 @@ import {
   bigint,
   boolean,
   index,
+  integer,
   jsonb,
   pgTable,
+  primaryKey,
   smallint,
   text,
   uniqueIndex,
@@ -107,9 +109,25 @@ export const apiClientes = pgTable("api_clientes", {
   secretoCifrado: text().notNull(),
   webhookUrl: varchar({ length: 300 }),
   activo: boolean().notNull().default(true),
+  /** Pedidos por minuto que acepta la API de este sistema (después, 429). */
+  limitePorMinuto: integer().notNull().default(600),
   ultimoUsoEn: instante(),
   ...marcasTiempo,
 });
+
+/** Pedidos de cada sistema por minuto: el límite vale para todas las instancias. */
+export const apiUso = pgTable(
+  "api_uso",
+  {
+    apiClienteId: uuid()
+      .notNull()
+      .references(() => apiClientes.id, { onDelete: "cascade" }),
+    /** Inicio del minuto. */
+    ventana: instante().notNull(),
+    pedidos: integer().notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.apiClienteId, t.ventana] })],
+);
 
 /** Auditoría de cambios sensibles: quién, qué, antes, después y por qué. */
 export const auditoria = pgTable(

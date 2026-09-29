@@ -59,7 +59,29 @@ export async function conApiFirmada(
       console.warn(`[api] petición rechazada: ${autenticacion.error}`);
       return problema(401, "No autorizado", "Firma o sistema inválidos.");
     }
-    return await manejar({ db, sistema: autenticacion.sistema, cuerpo });
+    const { uso } = autenticacion;
+    const cabeceras = {
+      "RateLimit-Limit": String(uso.limite),
+      "RateLimit-Remaining": String(uso.restantes),
+      "RateLimit-Reset": String(uso.reinicio),
+    };
+    if (!uso.permitido) {
+      console.warn(
+        `[api] ${autenticacion.sistema} superó su límite de ${uso.limite} pedidos por minuto`,
+      );
+      const respuesta = problema(
+        429,
+        "Demasiados pedidos",
+        `El sistema superó su límite de ${uso.limite} pedidos por minuto. Reintentá en ${uso.reinicio} segundos.`,
+      );
+      for (const [k, v] of Object.entries({ ...cabeceras, "Retry-After": String(uso.reinicio) })) {
+        respuesta.headers.set(k, v);
+      }
+      return respuesta;
+    }
+    const respuesta = await manejar({ db, sistema: autenticacion.sistema, cuerpo });
+    for (const [k, v] of Object.entries(cabeceras)) respuesta.headers.set(k, v);
+    return respuesta;
   } catch (error) {
     console.error("[api] error inesperado", error);
     return problema(500, "Error interno");

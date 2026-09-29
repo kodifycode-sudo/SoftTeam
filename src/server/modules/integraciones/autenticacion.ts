@@ -8,9 +8,14 @@ import {
   type ErrorFirma,
   verificarFirma,
 } from "@/server/seguridad/firma";
+import { registrarPedido, type UsoApi } from "./limite";
 import { secretoDeSistema } from "./sistemas";
 
 export type ErrorAutenticacion = ErrorFirma | "SISTEMA_DESCONOCIDO";
+
+export type ResultadoAutenticacion =
+  | { ok: true; sistema: string; uso: UsoApi }
+  | { ok: false; error: ErrorAutenticacion };
 
 /**
  * Autentica una petición de un producto: sistema conocido y activo, y firma
@@ -24,7 +29,7 @@ export async function autenticarPeticion(
   cuerpo: string,
   claveMaestra: string,
   ahoraSegundos: number = Math.floor(Date.now() / 1000),
-): Promise<{ ok: true; sistema: string } | { ok: false; error: ErrorAutenticacion }> {
+): Promise<ResultadoAutenticacion> {
   const sistema = peticion.headers.get(CABECERA_SISTEMA)?.trim().toLowerCase();
   if (!sistema) return { ok: false, error: "FIRMA_FALTANTE" };
   const registro = await secretoDeSistema(db, sistema, claveMaestra);
@@ -48,5 +53,12 @@ export async function autenticarPeticion(
     .update(t.apiClientes)
     .set({ ultimoUsoEn: new Date() })
     .where(eq(t.apiClientes.id, registro.id));
-  return { ok: true, sistema };
+  // Se cuenta después de la firma: pedidos ajenos no gastan el cupo del sistema.
+  const uso = await registrarPedido(
+    db,
+    registro.id,
+    registro.limitePorMinuto,
+    new Date(ahoraSegundos * 1000),
+  );
+  return { ok: true, sistema, uso };
 }
