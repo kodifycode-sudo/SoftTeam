@@ -62,7 +62,7 @@ Estados:
 | `AltaStLicUsuarios`, `AltaUsuarioGAM` | invitación por mail | ➕ el usuario elige su contraseña |
 | `EliminaAseguradoraXEmpresas` | dejar de trabajar con una aseguradora | ✅ con baja de interfaces al mes siguiente |
 | `EnviaMail`, `ValidarMail`, `ValidarTelefonoArgentina` | Resend, validación con Zod | ✅ |
-| Exportaciones de cada listado (`*WWExport`) | CSV de clientes, órdenes, consumos y reportes | ✅ parcial. ⚠️ **C** exportar aseguradoras, productores, usuarios y paquetes |
+| Exportaciones de cada listado (`*WWExport`) | CSV (Excel) de cada listado | ✅ clientes, órdenes, consumos, reportes, aseguradoras y paquetes (SOFTeam); usuarios, productores y códigos por compañía (portal, respetando el alcance). Los del portal usan los títulos de la importación: se pueden volver a importar |
 | `PParam*`, `Parametro_*LectEscr` | `leerParametro` | ✅ |
 | GAM (usuarios, roles, recuperación) | Better Auth | ➕ verificación por código, 2FA, sesiones en base |
 

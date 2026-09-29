@@ -1,4 +1,13 @@
-import { CircleCheck, Eye, EyeOff, PackageOpen, Pencil, Plus, Search } from "lucide-react";
+import {
+  CircleCheck,
+  Download,
+  Eye,
+  EyeOff,
+  PackageOpen,
+  Pencil,
+  Plus,
+  Search,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TarjetaPaquete } from "@/components/catalogo/tarjeta-paquete";
@@ -74,11 +83,19 @@ export default async function PaginaPaquetes({ searchParams }: PageProps<"/admin
         titulo="Paquetes"
         descripcion="Catálogo de paquetes a la venta: límites por producto y alternativas de precio."
         acciones={
-          puedeEditar && (
-            <Link href="/admin/paquetes/nuevo" className={buttonVariants({ size: "lg" })}>
-              <Plus data-icon="inline-start" /> Nuevo paquete
-            </Link>
-          )
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/admin/reportes/exportar?reporte=paquetes"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            {puedeEditar && (
+              <Link href="/admin/paquetes/nuevo" className={buttonVariants()}>
+                <Plus data-icon="inline-start" /> Nuevo paquete
+              </Link>
+            )}
+          </div>
         }
       />
 

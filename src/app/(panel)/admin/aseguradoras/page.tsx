@@ -1,7 +1,8 @@
-import { Cable, ShieldCheck } from "lucide-react";
+import { Cable, Download, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Empty,
@@ -69,7 +70,17 @@ export default async function CatalogoAseguradoras() {
       <EncabezadoPagina
         titulo="Aseguradoras"
         descripcion="Catálogo de compañías de Argentina y qué interfaces están disponibles. Las empresas eligen con cuáles trabajan desde su portal."
-        acciones={edita && <NuevaAseguradora />}
+        acciones={
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/admin/reportes/exportar?reporte=aseguradoras"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            {edita && <NuevaAseguradora />}
+          </div>
+        }
       />
       {aseguradoras.length === 0 ? (
         <Empty className="border border-dashed bg-card">

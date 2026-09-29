@@ -1,8 +1,9 @@
-import { MailQuestion, TriangleAlert, UsersRound } from "lucide-react";
+import { Download, MailQuestion, TriangleAlert, UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Empty,
@@ -149,7 +150,14 @@ export default async function PaginaUsuarios() {
             ? `Usuarios de ${contexto.alcanceNombre}. Las licencias son de toda la empresa: los contadores muestran el total.`
             : "Quiénes usan los productos de la empresa y quiénes administran la cuenta."
         }
-        acciones={<BotonNuevoColaborador {...comunes} />}
+        acciones={
+          <div className="flex flex-wrap gap-2">
+            <a href="/portal/usuarios/exportar" className={buttonVariants({ variant: "outline" })}>
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            <BotonNuevoColaborador {...comunes} />
+          </div>
+        }
       />
 
       {excedidos.length > 0 && (

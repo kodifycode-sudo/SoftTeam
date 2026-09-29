@@ -4,6 +4,8 @@ import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { respuestaCsv } from "@/server/exportacion";
+import { listarCatalogoAseguradoras } from "@/server/modules/catalogo/aseguradoras";
+import { listarPaquetes } from "@/server/modules/catalogo/paquetes";
 import { listarClientes } from "@/server/modules/cuentas/consultas";
 import {
   cobranzaPorMes,
@@ -143,6 +145,48 @@ export async function GET(peticion: Request) {
         { titulo: "Corporativo", valor: (f) => f.corporativo },
         { titulo: "Activo", valor: (f) => f.activo },
         { titulo: "Alta", valor: (f) => f.creadoEn },
+      ]);
+    }
+    case "aseguradoras":
+      // Mismos títulos que la importación: el archivo se puede volver a importar.
+      return respuestaCsv("aseguradoras", await listarCatalogoAseguradoras(db), [
+        { titulo: "Nombre", valor: (f) => f.nombre },
+        { titulo: "Abreviatura", valor: (f) => f.abreviatura },
+        { titulo: "Código SSN", valor: (f) => f.codigoLegal },
+        { titulo: "Interfaz con Prodigal", valor: (f) => f.interfazProdigalDisponible },
+        { titulo: "Interfaz con CotiWeb", valor: (f) => f.interfazCotiwebDisponible },
+        { titulo: "Interfaz de documentos", valor: (f) => f.interfazDocumentosDisponible },
+        { titulo: "Discontinuada", valor: (f) => !f.activa },
+        { titulo: "Empresas", valor: (f) => f.empresas },
+        { titulo: "Con Prodigal", valor: (f) => f.conProdigal },
+        { titulo: "Con CotiWeb", valor: (f) => f.conCotiweb },
+      ]);
+    case "paquetes": {
+      // Una fila por alternativa de precio.
+      const paquetes = await listarPaquetes(db, { hoy: fecha, inactivos: true });
+      const filas = paquetes.flatMap((p) => p.alternativas.map((a) => ({ p, a })));
+      return respuestaCsv("paquetes", filas, [
+        { titulo: "Código", valor: (f) => f.p.codigo },
+        { titulo: "Paquete", valor: (f) => f.p.nombre },
+        { titulo: "Tipo", valor: (f) => (f.p.tipo === "TEMPORAL" ? "Temporal" : "Consumible") },
+        { titulo: "Privado", valor: (f) => f.p.privado },
+        { titulo: "Activo", valor: (f) => f.p.activo },
+        { titulo: "Se vende hoy", valor: (f) => f.p.vendible },
+        { titulo: "Venta desde", valor: (f) => f.p.ventaDesde },
+        { titulo: "Venta hasta", valor: (f) => f.p.ventaHasta },
+        {
+          titulo: "Incluye",
+          valor: (f) =>
+            f.p.recursos
+              .map((r) => `${r.nombre}: ${r.cantidad}${r.unidad ? ` ${r.unidad}` : ""}`)
+              .join(", "),
+        },
+        { titulo: "Alternativa", valor: (f) => f.a.nombre },
+        { titulo: "Meses", valor: (f) => f.a.meses },
+        { titulo: "Precio de compra", valor: (f) => importeCsv(f.a.precioCompra) },
+        { titulo: "Precio de renovación", valor: (f) => importeCsv(f.a.precioRenovacion) },
+        { titulo: "Alternativa activa", valor: (f) => f.a.activa },
+        { titulo: "Contratos vigentes", valor: (f) => f.p.contratosVigentes },
       ]);
     }
     default:

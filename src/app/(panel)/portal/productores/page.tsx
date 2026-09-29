@@ -1,9 +1,16 @@
-import { Briefcase, ChevronRight } from "lucide-react";
+import { Briefcase, ChevronRight, Download } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -67,11 +74,28 @@ export default async function PaginaProductores() {
             : "Productores, organizadores y subproductores, con sus códigos en cada aseguradora."
         }
         acciones={
-          <NuevoProductor
-            oficinas={opcionesOficina}
-            tieneInstitorio={uso.funciones.has("prodigal.institorio")}
-            sinOficina={contexto.alcance.tipo === "empresa"}
-          />
+          <div className="flex flex-wrap gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline" />}>
+                <Download data-icon="inline-start" /> Exportar a Excel
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem render={<a href="/portal/productores/exportar" />}>
+                  Productores
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  render={<a href="/portal/productores/exportar?contenido=codigos" />}
+                >
+                  Códigos por compañía
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <NuevoProductor
+              oficinas={opcionesOficina}
+              tieneInstitorio={uso.funciones.has("prodigal.institorio")}
+              sinOficina={contexto.alcance.tipo === "empresa"}
+            />
+          </div>
         }
       />
 
