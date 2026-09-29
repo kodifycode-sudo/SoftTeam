@@ -11,6 +11,7 @@ import {
   cambiarEstadoIncidente,
   creditosDeSoporte,
   type EntradaIncidente,
+  obtenerAdjunto,
   obtenerIncidente,
   responderIncidente,
 } from "./incidentes";
@@ -184,5 +185,46 @@ describe("conversación y estados", () => {
     const sinAsignar = await bandejaDeSoporte(db, { asignadoAId: "SIN_ASIGNAR" });
     expect(sinAsignar.map((i) => i.id)).toContain(alta.id);
     expect(sinAsignar.map((i) => i.id)).not.toContain(baja.id);
+  });
+});
+
+describe("adjuntos", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  const PDF = new TextEncoder().encode("%PDF-1.7 nota interna");
+
+  it("se guardan con el mensaje; el cliente no ve los de notas internas ni los de otra empresa", async () => {
+    const { ctx } = await preparar("PRO-FULL");
+    const abierto = await abrirIncidente(db, ctx, pedido("Error con captura"), HOY, [
+      { nombre: "captura.png", tipo: "image/png", bytes: PNG },
+    ]);
+    if (!abierto.ok) throw new Error(abierto.error);
+    await responderIncidente(
+      db,
+      abierto.id,
+      { usuarioId: soporteId, softeam: true },
+      {
+        texto: "Log del servidor",
+        interno: true,
+        adjuntos: [{ nombre: "log.pdf", tipo: "application/pdf", bytes: PDF }],
+      },
+    );
+
+    const paraSofteam = await obtenerIncidente(db, abierto.id, {});
+    const [captura] = paraSofteam!.mensajes[0]!.adjuntos;
+    const [log] = paraSofteam!.mensajes[1]!.adjuntos;
+    expect(captura).toMatchObject({ nombre: "captura.png", tipo: "image/png", tamano: PNG.length });
+    expect(log?.nombre).toBe("log.pdf");
+
+    const deLaEmpresa = { empresaId: ctx.empresaId };
+    expect((await obtenerAdjunto(db, captura!.id, deLaEmpresa))?.contenido).toEqual(
+      Buffer.from(PNG),
+    );
+    expect(await obtenerAdjunto(db, log!.id, deLaEmpresa)).toBeUndefined();
+    expect(await obtenerAdjunto(db, log!.id, {})).toMatchObject({ tipo: "application/pdf" });
+
+    const otra = await preparar();
+    expect(
+      await obtenerAdjunto(db, captura!.id, { empresaId: otra.ctx.empresaId }),
+    ).toBeUndefined();
   });
 });

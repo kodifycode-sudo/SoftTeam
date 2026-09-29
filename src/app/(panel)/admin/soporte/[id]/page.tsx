@@ -69,7 +69,11 @@ export default async function PedidoSoporteAdmin({ params }: PageProps<"/admin/s
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,18rem)] lg:items-start">
         <Card>
           <CardContent className="space-y-6">
-            <Conversacion mensajes={incidente.mensajes} vista="softeam" />
+            <Conversacion
+              mensajes={incidente.mensajes}
+              vista="softeam"
+              rutaAdjuntos="/admin/soporte/adjuntos"
+            />
             {atiende && !cerrado && (
               <div className="border-t pt-6">
                 <ResponderIncidente

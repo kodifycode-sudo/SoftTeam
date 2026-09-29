@@ -63,7 +63,11 @@ export default async function PedidoSoporte({
       />
       <Card>
         <CardContent className="space-y-6">
-          <Conversacion mensajes={incidente.mensajes} vista="cliente" />
+          <Conversacion
+            mensajes={incidente.mensajes}
+            vista="cliente"
+            rutaAdjuntos="/portal/soporte/adjuntos"
+          />
           {cerrado ? (
             <p className="rounded-xl bg-muted/50 p-4 text-center text-sm text-muted-foreground">
               Este pedido está cerrado. Si necesitás más ayuda, abrí uno nuevo.

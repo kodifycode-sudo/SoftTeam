@@ -568,8 +568,12 @@ Regla de dependencias: `domain` no importa nada del resto.
    - **Notas de SOFTeam** por empresa (las líneas que empiezan con "*" no las
      ve el cliente) e **histórico de actividad** de cada empresa, a partir de
      la auditoría.
-   *Pendiente:* adjuntos en los pedidos de soporte, marca blanca en los mails
-   de STLic.
+   - **Adjuntos en soporte** (29/09/2026): imágenes (PNG, JPG, WebP) o PDF,
+     validados por su contenido; hasta 3 por mensaje, 2 MB cada uno y 3,5 MB
+     entre todos. Se guardan en la base con el mensaje; el cliente ve los de
+     su pedido (nunca los de una nota interna) y SOFTeam todos. Se sirven con
+     `nosniff` y política de contenido restrictiva; el PDF se descarga.
+   *Pendiente:* marca blanca en los mails de STLic.
 9. ✅ **Paridad con la KB GeneXus** (detalle en `docs/COMPARACION_KB.md`):
    - **Importación de datos** (*Panel SOFTeam → Importar datos*, solo
      Administración): clientes y empresas (conserva el número de empresa),

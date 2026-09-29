@@ -7,6 +7,7 @@ import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { enviarAlertasPendientes } from "@/server/modules/procesos/alertas";
 import { enviarAlertaPorMail } from "@/server/modules/procesos/mail";
+import { adjuntosDelFormulario } from "@/server/modules/soporte/adjuntos";
 import {
   asignarIncidente,
   cambiarEstadoIncidente,
@@ -28,13 +29,15 @@ export async function responderSofteamAccion(
   const valores = valoresDe(formData);
   const datos = esquemaRespuesta.safeParse(valores);
   if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  const adjuntos = await adjuntosDelFormulario(formData);
+  if (!adjuntos.ok) return { errores: { adjuntos: [adjuntos.mensaje] }, valores };
   const interno = valores.interno === "on";
   const db = await obtenerDb();
   const resultado = await responderIncidente(
     db,
     datos.data.incidenteId,
     { usuarioId: user.id, softeam: true },
-    { texto: datos.data.texto, interno },
+    { texto: datos.data.texto, interno, adjuntos: adjuntos.adjuntos },
   );
   if (!resultado.ok) {
     return {

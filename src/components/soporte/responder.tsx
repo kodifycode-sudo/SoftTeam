@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { ESTADO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
+import { CampoAdjuntos } from "./campo-adjuntos";
 
 /**
  * Formulario para responder un pedido de soporte. La acción la define cada
@@ -46,6 +47,7 @@ export function ResponderIncidente({
         />
         <FieldError errors={errores?.map((message) => ({ message }))} />
       </Field>
+      <CampoAdjuntos id="adjuntos-respuesta" errores={estado.errores?.adjuntos} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         {permitirInterno ? (
           <Field orientation="horizontal" className="w-auto">

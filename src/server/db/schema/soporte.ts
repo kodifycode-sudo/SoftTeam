@@ -105,3 +105,20 @@ export const marcasEmpresa = pgTable("marcas_empresa", {
   whatsapp: varchar({ length: 30 }),
   ...marcasTiempo,
 });
+
+/** Archivos adjuntos a un mensaje de un pedido de soporte (imágenes o PDF, hasta 2 MB). */
+export const incidenteAdjuntos = pgTable(
+  "incidente_adjuntos",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    mensajeId: uuid()
+      .notNull()
+      .references(() => incidenteMensajes.id, { onDelete: "cascade" }),
+    nombre: varchar({ length: 120 }).notNull(),
+    tipo: varchar({ length: 40 }).notNull(),
+    tamano: integer().notNull(),
+    contenido: binario().notNull(),
+    creadoEn: instante().notNull().defaultNow(),
+  },
+  (t) => [index().on(t.mensajeId)],
+);

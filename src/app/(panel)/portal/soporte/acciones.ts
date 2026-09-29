@@ -6,6 +6,7 @@ import { z } from "zod";
 import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
 import { requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { adjuntosDelFormulario } from "@/server/modules/soporte/adjuntos";
 import {
   abrirIncidente,
   cambiarEstadoIncidente,
@@ -27,6 +28,8 @@ export async function abrirIncidenteAccion(
       valores,
     };
   }
+  const adjuntos = await adjuntosDelFormulario(formData);
+  if (!adjuntos.ok) return { errores: { adjuntos: [adjuntos.mensaje] }, valores };
   const resultado = await abrirIncidente(
     await obtenerDb(),
     {
@@ -36,6 +39,8 @@ export async function abrirIncidenteAccion(
       usuarioId: contexto.usuarioId,
     },
     datos.data,
+    undefined,
+    adjuntos.adjuntos,
   );
   if (!resultado.ok) {
     return {
@@ -63,6 +68,8 @@ export async function responderClienteAccion(
   const valores = valoresDe(formData);
   const datos = esquemaRespuesta.safeParse(valores);
   if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  const adjuntos = await adjuntosDelFormulario(formData);
+  if (!adjuntos.ok) return { errores: { adjuntos: [adjuntos.mensaje] }, valores };
   const resultado = await responderIncidente(
     await obtenerDb(),
     datos.data.incidenteId,
@@ -72,7 +79,7 @@ export async function responderClienteAccion(
       empresaId: contexto.empresaId,
       alcance: contexto.alcance,
     },
-    { texto: datos.data.texto },
+    { texto: datos.data.texto, adjuntos: adjuntos.adjuntos },
   );
   if (!resultado.ok) {
     return {

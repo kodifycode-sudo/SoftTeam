@@ -134,6 +134,13 @@
       "when": 1790718118935,
       "tag": "0018_limite_api",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790718889686,
+      "tag": "0019_adjuntos_soporte",
+      "breakpoints": true
     }
   ]
 }

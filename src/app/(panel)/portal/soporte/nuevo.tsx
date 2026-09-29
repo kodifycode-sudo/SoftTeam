@@ -9,6 +9,7 @@ import {
   MensajeFormulario,
 } from "@/components/formulario";
 import { SelectNativo } from "@/components/select-nativo";
+import { CampoAdjuntos } from "@/components/soporte/campo-adjuntos";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -74,6 +75,7 @@ function ContenidoNuevo({ productos }: { productos: Record<string, string> }) {
           />
           <FieldError errors={errorTexto?.map((message) => ({ message }))} />
         </Field>
+        <CampoAdjuntos id="adjuntos-nuevo" errores={estado.errores?.adjuntos} />
       </FieldGroup>
       <DialogFooter>
         <DialogClose render={<Button type="button" variant="ghost" />}>Cancelar</DialogClose>

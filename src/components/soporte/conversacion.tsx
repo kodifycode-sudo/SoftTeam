@@ -1,4 +1,4 @@
-import { Headset, Lock, UserRound } from "lucide-react";
+import { FileText, Headset, Lock, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +42,13 @@ export interface MensajeConversacion {
   interno: boolean;
   creadoEn: Date;
   autor: string;
+  adjuntos?: { id: string; nombre: string; tipo: string; tamano: number }[];
 }
+
+const tamanoTexto = (bytes: number) =>
+  bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / 1024 / 1024).toLocaleString("es-AR", { maximumFractionDigits: 1 })} MB`;
 
 /**
  * Conversación de un pedido de soporte. Desde el lado de `vista`, los
@@ -52,9 +58,12 @@ export interface MensajeConversacion {
 export function Conversacion({
   mensajes,
   vista,
+  rutaAdjuntos,
 }: {
   mensajes: MensajeConversacion[];
   vista: "cliente" | "softeam";
+  /** Ruta de descarga de los adjuntos ("/portal/soporte/adjuntos"). */
+  rutaAdjuntos: string;
 }) {
   return (
     <ol className="space-y-4" aria-label="Conversación">
@@ -94,6 +103,35 @@ export function Conversacion({
                   </p>
                 )}
                 {m.texto}
+                {m.adjuntos && m.adjuntos.length > 0 && (
+                  <ul className="mt-2 flex flex-wrap gap-2 whitespace-normal">
+                    {m.adjuntos.map((a) => (
+                      <li key={a.id}>
+                        <a
+                          href={`${rutaAdjuntos}/${a.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          className="flex items-center gap-2 rounded-lg border bg-background/70 p-1.5 pr-2.5 text-xs hover:bg-background"
+                        >
+                          {a.tipo.startsWith("image/") ? (
+                            // biome-ignore lint/performance/noImgElement: miniatura de un archivo privado servido por la app, sin optimizar.
+                            <img
+                              src={`${rutaAdjuntos}/${a.id}`}
+                              alt=""
+                              className="size-10 rounded object-cover"
+                            />
+                          ) : (
+                            <FileText className="size-5 text-muted-foreground" />
+                          )}
+                          <span>
+                            <span className="block max-w-40 truncate font-medium">{a.nombre}</span>
+                            <span className="text-muted-foreground">{tamanoTexto(a.tamano)}</span>
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </li>

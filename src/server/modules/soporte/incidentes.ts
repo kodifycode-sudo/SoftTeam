@@ -3,6 +3,7 @@ import { aliasedTable, and, asc, count, desc, eq, ilike, inArray, or, sql } from
 import { z } from "zod";
 import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
+import type { AdjuntoValidado } from "@/domain/soporte/adjuntos";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
@@ -66,6 +67,20 @@ export const esquemaIncidente = z.object({
 
 export type EntradaIncidente = z.infer<typeof esquemaIncidente>;
 
+/** Guarda los adjuntos (ya validados) de un mensaje. */
+async function guardarAdjuntos(tx: Ejecutor, mensajeId: string, adjuntos: AdjuntoValidado[]) {
+  if (adjuntos.length === 0) return;
+  await tx.insert(t.incidenteAdjuntos).values(
+    adjuntos.map((a) => ({
+      mensajeId,
+      nombre: a.nombre,
+      tipo: a.tipo,
+      tamano: a.bytes.length,
+      contenido: Buffer.from(a.bytes),
+    })),
+  );
+}
+
 /** Para deshacer la transacción cuando no hay crédito. */
 class SinCreditos extends Error {}
 
@@ -87,6 +102,7 @@ export async function abrirIncidente(
   },
   entrada: EntradaIncidente,
   hoy: Fecha = hoyArgentina(),
+  adjuntos: AdjuntoValidado[] = [],
 ): Promise<{ ok: true; id: string; numero: number } | { ok: false; error: ErrorAbrir }> {
   const id = randomUUID();
   const alcance = contexto.alcance ?? TODA_LA_EMPRESA;
@@ -145,12 +161,16 @@ export async function abrirIncidente(
           consumoId: registro?.id ?? null,
         })
         .returning({ numero: t.incidentes.numero });
-      await tx.insert(t.incidenteMensajes).values({
-        incidenteId: id,
-        autorId: contexto.usuarioId,
-        deSofteam: false,
-        texto: entrada.texto,
-      });
+      const [mensaje] = await tx
+        .insert(t.incidenteMensajes)
+        .values({
+          incidenteId: id,
+          autorId: contexto.usuarioId,
+          deSofteam: false,
+          texto: entrada.texto,
+        })
+        .returning({ id: t.incidenteMensajes.id });
+      if (mensaje) await guardarAdjuntos(tx, mensaje.id, adjuntos);
       await auditar(tx, {
         actorId: contexto.usuarioId,
         entidad: "incidente",
@@ -324,7 +344,64 @@ export async function obtenerIncidente(
       ),
     )
     .orderBy(asc(t.incidenteMensajes.creadoEn));
-  return { ...incidente, mensajes };
+  const adjuntos = mensajes.length
+    ? await db
+        .select({
+          id: t.incidenteAdjuntos.id,
+          mensajeId: t.incidenteAdjuntos.mensajeId,
+          nombre: t.incidenteAdjuntos.nombre,
+          tipo: t.incidenteAdjuntos.tipo,
+          tamano: t.incidenteAdjuntos.tamano,
+        })
+        .from(t.incidenteAdjuntos)
+        .where(
+          inArray(
+            t.incidenteAdjuntos.mensajeId,
+            mensajes.map((m) => m.id),
+          ),
+        )
+        .orderBy(asc(t.incidenteAdjuntos.creadoEn))
+    : [];
+  return {
+    ...incidente,
+    mensajes: mensajes.map((m) => ({
+      ...m,
+      adjuntos: adjuntos.filter((a) => a.mensajeId === m.id),
+    })),
+  };
+}
+
+/**
+ * Contenido de un adjunto, si quien lo pide puede ver el pedido: SOFTeam,
+ * cualquiera; el cliente, los de su empresa y alcance, y nunca los de una
+ * nota interna.
+ */
+export async function obtenerAdjunto(
+  db: Ejecutor,
+  adjuntoId: string,
+  alcance: { empresaId?: string; alcance?: Alcance },
+) {
+  if (!/^[0-9a-f-]{36}$/i.test(adjuntoId)) return undefined;
+  const [fila] = await db
+    .select({
+      nombre: t.incidenteAdjuntos.nombre,
+      tipo: t.incidenteAdjuntos.tipo,
+      contenido: t.incidenteAdjuntos.contenido,
+    })
+    .from(t.incidenteAdjuntos)
+    .innerJoin(t.incidenteMensajes, eq(t.incidenteMensajes.id, t.incidenteAdjuntos.mensajeId))
+    .innerJoin(t.incidentes, eq(t.incidentes.id, t.incidenteMensajes.incidenteId))
+    .where(
+      and(
+        eq(t.incidenteAdjuntos.id, adjuntoId),
+        alcance.empresaId ? eq(t.incidentes.empresaId, alcance.empresaId) : undefined,
+        alcance.empresaId ? eq(t.incidenteMensajes.interno, false) : undefined,
+        alcance.alcance
+          ? canalOficinaEnAlcance(t.incidentes.canalId, t.incidentes.oficinaId, alcance.alcance)
+          : undefined,
+      ),
+    );
+  return fila;
 }
 
 export type DetalleIncidente = NonNullable<Awaited<ReturnType<typeof obtenerIncidente>>>;
@@ -368,7 +445,7 @@ export async function responderIncidente(
   db: Db,
   id: string,
   autor: Autor,
-  mensaje: { texto: string; interno?: boolean },
+  mensaje: { texto: string; interno?: boolean; adjuntos?: AdjuntoValidado[] },
 ): Promise<{ ok: true } | { ok: false; error: ErrorIncidente }> {
   return db.transaction(async (tx) => {
     const incidente = await cargarParaCambiar(tx, id, autor);
@@ -376,13 +453,17 @@ export async function responderIncidente(
     if (incidente.estado === "CERRADO") return { ok: false, error: "CERRADO" };
     const interno = autor.softeam && Boolean(mensaje.interno);
 
-    await tx.insert(t.incidenteMensajes).values({
-      incidenteId: id,
-      autorId: autor.usuarioId,
-      deSofteam: autor.softeam,
-      interno,
-      texto: mensaje.texto,
-    });
+    const [nuevo] = await tx
+      .insert(t.incidenteMensajes)
+      .values({
+        incidenteId: id,
+        autorId: autor.usuarioId,
+        deSofteam: autor.softeam,
+        interno,
+        texto: mensaje.texto,
+      })
+      .returning({ id: t.incidenteMensajes.id });
+    if (nuevo) await guardarAdjuntos(tx, nuevo.id, mensaje.adjuntos ?? []);
     if (!interno) {
       const estado: EstadoIncidente = autor.softeam ? "ESPERANDO_CLIENTE" : "EN_CURSO";
       await tx

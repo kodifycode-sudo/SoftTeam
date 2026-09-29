@@ -9,6 +9,16 @@ import {
   test,
 } from "./utilidades";
 
+/** Imagen PNG válida de 1×1, como captura de pantalla. */
+const CAPTURA = {
+  name: "captura-error.png",
+  mimeType: "image/png",
+  buffer: Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64",
+  ),
+};
+
 const sufijo = Date.now().toString(36).toUpperCase();
 const razonSocial = `Soporte ${sufijo} SRL`;
 const email = `soporte.${sufijo.toLowerCase()}@brokerdelsur.com.ar`;
@@ -67,6 +77,17 @@ test.describe
       await dialogo
         .getByLabel("¿Qué pasa?")
         .fill("Al emitir una póliza de La Segunda aparece un error de conexión.");
+      // Un archivo que no es imagen ni PDF se rechaza, sin consumir el ticket.
+      await dialogo.getByLabel("Adjuntos (opcional)").setInputFiles({
+        name: "nota.html",
+        mimeType: "image/png",
+        buffer: Buffer.from("<script>alert(1)</script>"),
+      });
+      await dialogo.getByRole("button", { name: "Enviar a Soporte" }).click();
+      await expect(
+        dialogo.getByText('"nota.html" no es una imagen (PNG, JPG, WebP) ni un PDF.'),
+      ).toBeVisible();
+      await dialogo.getByLabel("Adjuntos (opcional)").setInputFiles(CAPTURA);
       await dialogo.getByRole("button", { name: "Enviar a Soporte" }).click();
       await expect(page.getByText(/Recibimos tu pedido #\d+/)).toBeVisible();
       urlPedido = new URL(page.url()).pathname;
@@ -84,7 +105,13 @@ test.describe
       await expect(fila.getByText("Alta")).toBeVisible();
       await fila.getByRole("link").click();
 
+      await expect(page.getByRole("link", { name: /captura-error.png/ })).toBeVisible();
       await page.getByLabel("Tu respuesta").fill("Parece un corte del lado de la compañía.");
+      await page.getByLabel("Adjuntos (opcional)").setInputFiles({
+        name: "log-servidor.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from("%PDF-1.4 log interno"),
+      });
       await page.getByRole("checkbox", { name: /Nota interna/ }).click();
       await page.getByRole("button", { name: "Enviar" }).click();
       await expect(page.getByText("Nota interna guardada.")).toBeVisible();
@@ -102,6 +129,12 @@ test.describe
       await page.goto(urlPedido);
       await expect(page.getByText("Ya lo estamos revisando con la aseguradora.")).toBeVisible();
       await expect(page.getByText("Parece un corte del lado de la compañía.")).toHaveCount(0);
+      // Ve su captura, pero no el adjunto de la nota interna.
+      const captura = page.getByRole("link", { name: /captura-error.png/ });
+      await expect(captura).toBeVisible();
+      await expect(page.getByRole("link", { name: /log-servidor.pdf/ })).toHaveCount(0);
+      const imagen = await page.request.get((await captura.getAttribute("href")) ?? "");
+      expect(imagen.headers()["content-type"]).toBe("image/png");
       await page.getByLabel("Tu respuesta").fill("Gracias, quedo atento.");
       await page.getByRole("button", { name: "Enviar" }).click();
       await expect(page.getByText("Mensaje enviado.")).toBeVisible();
