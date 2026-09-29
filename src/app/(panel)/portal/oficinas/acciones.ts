@@ -125,7 +125,11 @@ export async function editarOficinaAccion(
   const valores = valoresDe(formData);
   const id = z.uuid().safeParse(valores.oficinaId);
   if (!id.success) return { mensaje: "Oficina inválida.", valores };
-  const datos = esquemaEdicionOficina.safeParse({ ...valores, activa: valores.activa === "on" });
+  const datos = esquemaEdicionOficina.safeParse({
+    ...valores,
+    notifica: valores.notifica === "on",
+    activa: valores.activa === "on",
+  });
   if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
   const resultado = await editarOficina(
     await obtenerDb(),

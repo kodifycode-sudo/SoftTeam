@@ -10,9 +10,11 @@ test("el administrador edita su oficina y renombra el canal", async ({ page }) =
   const dialogo = page.getByRole("dialog");
   await dialogo.getByLabel("WhatsApp").fill("+54 9 341 555-0000");
   await dialogo.getByLabel("Web").fill("https://broker.com.ar");
+  await dialogo.getByRole("checkbox", { name: /Envía notificaciones/ }).click();
   await capturar(page, "portal-oficina-editar");
   await dialogo.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByText("Oficina actualizada.")).toBeVisible();
+  await expect(page.getByText("No notifica")).toBeVisible();
 
   // La única oficina activa no se puede desactivar.
   await page.getByRole("button", { name: "Editar la oficina 01-001 Casa central" }).click();

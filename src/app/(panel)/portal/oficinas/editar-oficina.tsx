@@ -32,6 +32,7 @@ export interface DatosOficina {
   whatsapp: string | null;
   domicilio: string | null;
   redes: Partial<Record<"web" | "facebook" | "instagram" | "linkedin", string>> | null;
+  notifica: boolean;
   activa: boolean;
 }
 
@@ -86,6 +87,13 @@ function ContenidoOficina({
           />
         ))}
       </div>
+      <Casilla
+        id={`notifica-${oficina.id}`}
+        nombre="notifica"
+        etiqueta="Envía notificaciones a sus asegurados"
+        descripcion="Si la empresa lo permite en sus políticas. Los productos lo reciben con la oficina."
+        marcada={oficina.notifica}
+      />
       {!puedeDesactivar && oficina.activa && <input type="hidden" name="activa" value="on" />}
       <Casilla
         nombre="activa"

@@ -98,6 +98,7 @@ export default async function PaginaOficinas() {
                     </div>
                     <div className="flex items-center gap-1">
                       {!o.activa && <Badge variant="destructive">Inactiva</Badge>}
+                      {o.activa && !o.notifica && <Badge variant="outline">No notifica</Badge>}
                       {editaOficinas && (
                         <EditarOficina
                           puedeDesactivar={alcance.tipo !== "oficina"}
@@ -109,6 +110,7 @@ export default async function PaginaOficinas() {
                             whatsapp: o.whatsapp,
                             domicilio: o.domicilio,
                             redes: o.redes,
+                            notifica: o.notifica,
                             activa: o.activa,
                           }}
                         />

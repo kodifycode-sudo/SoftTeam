@@ -24,7 +24,7 @@ Estados:
 | `STLicEmpresas.ProdiSino/BSSino/CWSino/CASino` | licencia vigente | ➕ se calcula de los paquetes vigentes: no se desincroniza |
 | `STLicEmpresas.SincProdiFecHora` | eventos de salida y `modificadasDesde` | ➕ sincronización por webhooks y listado incremental |
 | `StLicClienteGrupo` | `grupos_economicos` | ✅ *Panel SOFTeam → Grupos económicos*: alta, edición, cliente principal, cliente de facturación consolidada, miembros y baja del grupo vacío |
-| `STLicCanales`, `STLicOficinas` | `canales`, `oficinas` | ✅ alta, edición (contacto, WhatsApp, redes), desactivación (conservando una activa) y renombrar canales, respetando el alcance del delegado. ⚠️ **C** "notifica" por oficina (hoy es una política de toda la empresa) |
+| `STLicCanales`, `STLicOficinas` | `canales`, `oficinas` | ✅ alta, edición (contacto, WhatsApp, redes), desactivación (conservando una activa) y renombrar canales, respetando el alcance del delegado. ✅ "notifica" por oficina (`STLicOficinas.Notifica`): se marca en cada oficina y la política de la empresa es el interruptor general; los productos lo reciben en EmpresaFull |
 | `STLicPaquetesDisponibles`, `STLicAlternativasPq` | `paquetes`, `alternativas`, recursos | ➕ recursos genéricos en vez de columnas fijas por producto |
 | `STLicPaquetesEmpresa` | `contratos` | ✅. ✅ baja de un contrato activo desde la ficha del cliente (`STLicInactivarPaqueteEmpresa`), con motivo y solo Administración |
 | `STLicPaquetesMovimientos` | `movimientos_saldo` | ✅ libro inmutable. ✅ *Clientes → ficha → Paquetes vigentes → Movimientos*: cargas, consumos y ajustes de un contrato con el saldo después de cada uno y el saldo actual |

@@ -96,6 +96,7 @@ export async function empresaCompleta(db: Ejecutor, numero: number, hoy: Fecha =
           telefono: t.oficinas.telefono,
           whatsapp: t.oficinas.whatsapp,
           domicilio: t.oficinas.domicilio,
+          notifica: t.oficinas.notifica,
           activa: t.oficinas.activa,
         })
         .from(t.oficinas)
@@ -188,6 +189,8 @@ export async function empresaCompleta(db: Ejecutor, numero: number, hoy: Fecha =
       telefono: o.telefono,
       whatsapp: o.whatsapp,
       domicilio: o.domicilio,
+      // La política de la empresa manda: si las oficinas no notifican, ninguna lo hace.
+      notifica: o.notifica && (politicas?.politicas ?? POLITICAS_POR_DEFECTO).oficinasNotifican,
       activa: o.activa,
     })),
     usuarios: colaboradores.map((c) => ({

@@ -1,0 +1,1 @@
+ALTER TABLE "oficinas" ADD COLUMN "notifica" boolean DEFAULT true NOT NULL;

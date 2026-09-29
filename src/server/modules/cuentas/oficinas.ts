@@ -21,6 +21,7 @@ export async function listarOficinas(
       domicilio: t.oficinas.domicilio,
       whatsapp: t.oficinas.whatsapp,
       redes: t.oficinas.redes,
+      notifica: t.oficinas.notifica,
       activa: t.oficinas.activa,
       canalId: t.canales.id,
       canalCodigo: t.canales.codigo,
@@ -165,6 +166,7 @@ export const esquemaEdicionOficina = z.object({
   facebook: red,
   instagram: red,
   linkedin: red,
+  notifica: z.boolean().default(true),
   activa: z.boolean(),
 });
 
@@ -218,6 +220,7 @@ export async function editarOficina(
       whatsapp: entrada.whatsapp || null,
       domicilio: entrada.domicilio || null,
       redes: Object.keys(redes).length ? redes : null,
+      notifica: entrada.notifica,
       activa: entrada.activa,
     };
     await tx.update(t.oficinas).set(valores).where(eq(t.oficinas.id, oficinaId));
@@ -239,6 +242,7 @@ export async function editarOficina(
         whatsapp: antes.whatsapp,
         domicilio: antes.domicilio,
         redes: antes.redes,
+        notifica: antes.notifica,
         activa: antes.activa,
       },
       despues: valores,

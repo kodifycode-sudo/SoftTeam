@@ -159,6 +159,8 @@ export const oficinas = pgTable(
      * (lo asigna SOFTeam). `null`: al cliente de la empresa.
      */
     clienteFacturacionId: uuid().references(() => clientes.id),
+    /** Envía notificaciones a sus asegurados (si la política de la empresa lo permite). */
+    notifica: boolean().notNull().default(true),
     activa: boolean().notNull().default(true),
     ...marcasTiempo,
   },

@@ -4,6 +4,8 @@ import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import type { Db } from "@/server/db/cliente";
 import { crearDbDePrueba, crearEmpresaDePrueba } from "@/server/db/pruebas";
 import * as t from "@/server/db/schema";
+import { POLITICAS_POR_DEFECTO } from "@/server/db/schema/configuracion";
+import { empresaCompleta } from "../integraciones/datos";
 import {
   crearOficina,
   editarOficina,
@@ -152,5 +154,37 @@ describe("edición de oficinas y canales", () => {
     expect(await renombrarCanal(db, empresa.id, centro.canalId, "Litoral", delCanal)).toBe(true);
     const canal = await db.query.canales.findFirst({ where: eq(t.canales.id, centro.canalId) });
     expect(canal?.nombre).toBe("Litoral");
+  });
+});
+
+describe("oficinas que notifican", () => {
+  it("se marca por oficina y la política de la empresa manda en lo que reciben los productos", async () => {
+    const { empresa, centro } = await conDosOficinas();
+    expect(
+      await editarOficina(
+        db,
+        empresa.id,
+        centro.id,
+        datos({ nombre: "Centro", notifica: false }),
+        actor(TODA_LA_EMPRESA),
+      ),
+    ).toEqual({ ok: true });
+    const notifica = async () =>
+      Object.fromEntries(
+        (await empresaCompleta(db, empresa.numero))!.oficinas.map((o) => [o.nombre, o.notifica]),
+      );
+    expect(await notifica()).toMatchObject({ Centro: false, Rosario: true });
+
+    await db
+      .insert(t.politicasEmpresa)
+      .values({
+        empresaId: empresa.id,
+        politicas: { ...POLITICAS_POR_DEFECTO, oficinasNotifican: false },
+      })
+      .onConflictDoUpdate({
+        target: t.politicasEmpresa.empresaId,
+        set: { politicas: { ...POLITICAS_POR_DEFECTO, oficinasNotifican: false } },
+      });
+    expect(await notifica()).toMatchObject({ Centro: false, Rosario: false });
   });
 });
