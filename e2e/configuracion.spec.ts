@@ -81,10 +81,27 @@ test.describe
     }) => {
       await ingresar(page, operativo, CONTRASENA);
       await page.goto("/portal/aseguradoras");
+      await expect(page.getByText("Todavía no elegiste aseguradoras")).toBeVisible();
+
+      // Se eligen varias del catálogo de una vez.
+      await page.getByRole("button", { name: "Agregar aseguradoras" }).first().click();
+      const dialogo = page.getByRole("dialog");
+      await dialogo.getByLabel("Buscar en el catálogo").fill("s");
+      await dialogo.getByRole("checkbox", { name: /La Segunda/ }).click();
+      await dialogo.getByRole("checkbox", { name: /Sancor Seguros/ }).click();
+      await expect(dialogo.getByText("2 elegidas")).toBeVisible();
+      await expect(dialogo.getByRole("checkbox", { name: /Interfaz con Prodigal/ })).toBeDisabled();
+      await capturar(page, "portal-aseguradoras-agregar");
+      await dialogo.getByRole("button", { name: "Agregar 2" }).click();
+      await expect(page.getByText("Agregamos 2 aseguradoras.")).toBeVisible();
+
       const tarjeta = page.locator("[data-slot=card]").filter({ hasText: "La Segunda" });
-      await tarjeta.getByRole("switch", { name: "Trabajo con esta aseguradora" }).click();
-      await expect(page.getByText("Cambio guardado.")).toBeVisible();
       await expect(tarjeta.getByText("Trabajás con ella")).toBeVisible();
+      await expect(
+        page.locator("[data-slot=card]").filter({ hasText: "Sancor Seguros" }),
+      ).toBeVisible();
+      // Las que no eligió no aparecen en su lista.
+      await expect(page.locator("[data-slot=card]").filter({ hasText: "Zurich" })).toHaveCount(0);
 
       // Sin interfaces licenciadas: se rechaza y el interruptor vuelve atrás.
       const interfaz = tarjeta.getByRole("switch", { name: "Interfaz con Prodigal" });
@@ -118,7 +135,10 @@ test.describe
       await page.context().clearCookies();
       await ingresar(page, operativo, CONTRASENA);
       await page.goto("/portal/aseguradoras");
-      await expect(page.locator("[data-slot=card]").filter({ hasText: nombre })).toBeVisible();
+      await page.getByRole("button", { name: "Agregar aseguradoras" }).click();
+      await expect(
+        page.getByRole("dialog").getByRole("checkbox", { name: new RegExp(nombre) }),
+      ).toBeVisible();
     });
 
     test("productores: alta con validación y códigos por aseguradora", async ({ page }) => {

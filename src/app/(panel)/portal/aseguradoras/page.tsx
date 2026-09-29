@@ -22,6 +22,7 @@ import {
   listarAseguradorasEmpresa,
 } from "@/server/modules/configuracion/aseguradoras";
 import { usoDeLimites } from "@/server/modules/configuracion/limites";
+import { AgregarAseguradoras } from "./agregar";
 import { InterruptorAseguradora } from "./interruptor";
 
 export const metadata: Metadata = { title: "Aseguradoras" };
@@ -47,21 +48,42 @@ export default async function PaginaAseguradoras({
     listarAseguradorasEmpresa(db, contexto.empresaId),
     usoDeLimites(db, contexto.empresaId),
   ]);
-  const aseguradoras = todas
-    .filter(
-      (a) =>
-        !busqueda ||
-        a.nombre.toLowerCase().includes(busqueda) ||
-        a.abreviatura.toLowerCase().includes(busqueda),
-    )
-    // Primero las que usa la empresa.
-    .sort((a, b) => Number(b.trabaja) - Number(a.trabaja));
+  // Las de la empresa: con las que trabaja, y las que dejó pero todavía tienen
+  // una interfaz vigente hasta fin de mes.
+  const deLaEmpresa = todas.filter(
+    (a) => a.trabaja || TIPOS_INTERFAZ.some((tipo) => a.interfaces[tipo].vigente),
+  );
+  const aseguradoras = deLaEmpresa.filter(
+    (a) =>
+      !busqueda ||
+      a.nombre.toLowerCase().includes(busqueda) ||
+      a.abreviatura.toLowerCase().includes(busqueda),
+  );
+  const disponibles = todas
+    .filter((a) => !a.trabaja && !a.discontinuada)
+    .map((a) => ({
+      id: a.id,
+      nombre: a.nombre,
+      abreviatura: a.abreviatura,
+      prodigal: a.interfaces.prodigal.disponible,
+      cotiweb: a.interfaces.cotiweb.disponible,
+    }));
+  const agregar = (
+    <AgregarAseguradoras
+      disponibles={disponibles}
+      licencias={{
+        prodigal: uso.interfaces.prodigal.licenciado,
+        cotiweb: uso.interfaces.cotiweb.licenciado,
+      }}
+    />
+  );
 
   return (
     <>
       <EncabezadoPagina
         titulo="Aseguradoras"
         descripcion="Con qué compañías trabajás y qué interfaces tenés activas. Dar de baja una interfaz rige desde el mes siguiente."
+        acciones={agregar}
       />
 
       <section aria-label="Interfaces licenciadas" className="mb-6 grid gap-3 sm:grid-cols-2">
@@ -98,7 +120,7 @@ export default async function PaginaAseguradoras({
               name="q"
               key={busqueda}
               defaultValue={busqueda}
-              placeholder="Buscar aseguradora"
+              placeholder="Buscar entre tus aseguradoras"
               className="h-10 pl-9"
               aria-label="Buscar aseguradora"
             />
@@ -115,9 +137,16 @@ export default async function PaginaAseguradoras({
             <EmptyMedia variant="icon">
               <ShieldCheck />
             </EmptyMedia>
-            <EmptyTitle>Sin resultados</EmptyTitle>
-            <EmptyDescription>No encontramos aseguradoras con ese nombre.</EmptyDescription>
+            <EmptyTitle>
+              {deLaEmpresa.length === 0 ? "Todavía no elegiste aseguradoras" : "Sin resultados"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {deLaEmpresa.length === 0
+                ? "Agregá del catálogo las compañías con las que trabaja la empresa: podés elegir varias de una vez."
+                : "No encontramos, entre las tuyas, aseguradoras con ese nombre."}
+            </EmptyDescription>
           </EmptyHeader>
+          {deLaEmpresa.length === 0 && agregar}
         </Empty>
       ) : (
         <ul className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">

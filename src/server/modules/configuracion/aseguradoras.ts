@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { z } from "zod";
 import {
   type ErrorLimite,
@@ -242,4 +242,70 @@ export async function cambiarAseguradora(
     });
     return { ok: true, ...(bajaDesde ? { bajaDesde } : {}) };
   });
+}
+
+export const esquemaAgregarAseguradoras = z.object({
+  aseguradoraIds: z
+    .array(z.uuid())
+    .min(1, { error: "Elegí al menos una aseguradora." })
+    .max(200)
+    .transform((ids) => [...new Set(ids)]),
+  prodigal: z.boolean(),
+  cotiweb: z.boolean(),
+});
+
+export type EntradaAgregarAseguradoras = z.infer<typeof esquemaAgregarAseguradoras>;
+
+export interface ResultadoAgregarAseguradoras {
+  agregadas: number;
+  /** Las que no se pudieron agregar o cuya interfaz no se activó, con el motivo. */
+  avisos: { nombre: string; que: "trabaja" | TipoInterfaz; error: ErrorAseguradora }[];
+}
+
+/**
+ * La empresa elige varias aseguradoras del catálogo de una vez y, si quiere,
+ * activa sus interfaces. Cada una se agrega con las mismas reglas que de a
+ * una (disponibilidad, discontinuadas, límites de la licencia): las que no
+ * entran se informan y las demás quedan agregadas.
+ */
+export async function agregarAseguradoras(
+  db: Db,
+  empresaId: string,
+  entrada: EntradaAgregarAseguradoras,
+  actorId: string,
+  hoy: Fecha = hoyArgentina(),
+): Promise<ResultadoAgregarAseguradoras> {
+  const catalogo = await db
+    .select({ id: t.aseguradoras.id, nombre: t.aseguradoras.nombre })
+    .from(t.aseguradoras)
+    .where(inArray(t.aseguradoras.id, entrada.aseguradoraIds))
+    .orderBy(asc(t.aseguradoras.nombre));
+  const resultado: ResultadoAgregarAseguradoras = { agregadas: 0, avisos: [] };
+  for (const a of catalogo) {
+    const trabaja = await cambiarAseguradora(
+      db,
+      empresaId,
+      { aseguradoraId: a.id, cambio: "trabaja", valor: true },
+      actorId,
+      hoy,
+    );
+    if (!trabaja.ok) {
+      resultado.avisos.push({ nombre: a.nombre, que: "trabaja", error: trabaja.error });
+      continue;
+    }
+    resultado.agregadas++;
+    for (const tipo of ["prodigal", "cotiweb"] as const) {
+      if (!entrada[tipo]) continue;
+      const interfaz = await cambiarAseguradora(
+        db,
+        empresaId,
+        { aseguradoraId: a.id, cambio: tipo, valor: true },
+        actorId,
+        hoy,
+      );
+      if (!interfaz.ok)
+        resultado.avisos.push({ nombre: a.nombre, que: tipo, error: interfaz.error });
+    }
+  }
+  return resultado;
 }

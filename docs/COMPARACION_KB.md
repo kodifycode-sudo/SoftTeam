@@ -36,7 +36,7 @@ Estados:
 | `STLicPoliticas` | `politicas_empresa` | ✅ |
 | `STLicProductores`, `STLicProdCia` | `productores`, `productor_codigos` | ✅ |
 | `STLicUsuarios` | `colaboradores` | ✅ con accesos, permisos y alcance |
-| `Aseguradoras`, `STLicAseguradoras` | `aseguradoras`, `empresa_aseguradoras` | ✅ `Aseguradoras`: catálogo de SOFTeam, editable e importable por archivo. `STLicAseguradoras`: la empresa elige en su portal con cuáles trabaja y qué interfaces activa (baja al mes siguiente); no se importa |
+| `Aseguradoras`, `STLicAseguradoras` | `aseguradoras`, `empresa_aseguradoras` | ✅ `Aseguradoras`: catálogo de SOFTeam, editable e importable por archivo. `STLicAseguradoras`: la empresa agrega en su portal una o varias del catálogo de una vez (con sus interfaces, si quiere), quita las que deja y activa o da de baja interfaces (baja al mes siguiente); no se importa |
 | `StLicAlertas` | `alertas` | ➕ deduplicadas, con envío por mail y aviso anticipado |
 | `TipoComunicacion` (tipos de comunicación por empresa: sistema, productor, mail, SMS, push, WhatsApp; usuario origen, destino y autorizante) | `tipos_comunicacion` | ✅ decidido (29/09/2026): sigue en STLic. *Portal → Comunicaciones* (administración de toda la empresa): medios y, por tipo de usuario que la origina, destinatarios y autorizantes; los tipos de usuario conservan el código de la KB. Llegan a los productos en EmpresaFull y SOFTeam los ve en la ficha del cliente |
 | `Parametro`, `TParametros`, `TParametros0` | `parametros` | ✅ *Panel SOFTeam → Parámetros*: días de renovación, semáforo y recordatorios de cobro, avisos de vencimiento, saldo bajo y pedido de facturación de oficinas, con validación y auditoría |

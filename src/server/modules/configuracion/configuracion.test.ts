@@ -12,7 +12,12 @@ import {
   invitarUsuarioSofteam,
   listarUsuariosSofteam,
 } from "../cuentas/usuarios-softeam";
-import { cambiarAseguradora, listarAseguradorasEmpresa } from "./aseguradoras";
+import {
+  agregarAseguradoras,
+  cambiarAseguradora,
+  esquemaAgregarAseguradoras,
+  listarAseguradorasEmpresa,
+} from "./aseguradoras";
 import {
   type Actor,
   cambiarEstadoColaborador,
@@ -612,5 +617,40 @@ describe("usuarios de SOFTeam", () => {
     expect(
       await invitarUsuarioSofteam(db, { nombre: "X", email, rol: "SOPORTE" }, "actor"),
     ).toEqual({ ok: false, error: "ES_CLIENTE" });
+  });
+});
+
+describe("agregar varias aseguradoras", () => {
+  it("agrega las elegidas con sus interfaces y avisa las que superan la licencia", async () => {
+    const { empresa, actor } = await preparar(); // 3 interfaces de Prodigal
+    const ids = await Promise.all(
+      ["SEGUNDA", "SANCOR", "FEDPAT", "MERCANT"].map(
+        async (a) =>
+          (await db.query.aseguradoras.findFirst({ where: eq(t.aseguradoras.abreviatura, a) }))!.id,
+      ),
+    );
+    const r = await agregarAseguradoras(
+      db,
+      empresa.id,
+      esquemaAgregarAseguradoras.parse({
+        aseguradoraIds: [...ids, ids[0]],
+        prodigal: true,
+        cotiweb: false,
+      }),
+      actor.usuarioId,
+      HOY,
+    );
+    expect(r.agregadas).toBe(4);
+    expect(r.avisos).toEqual([
+      expect.objectContaining({ que: "prodigal", error: "LIMITE_ALCANZADO" }),
+    ]);
+    const lista = await listarAseguradorasEmpresa(db, empresa.id, HOY);
+    expect(lista.filter((a) => a.trabaja)).toHaveLength(4);
+    expect(lista.filter((a) => a.interfaces.prodigal.vigente)).toHaveLength(3);
+
+    expect(
+      esquemaAgregarAseguradoras.safeParse({ aseguradoraIds: [], prodigal: false, cotiweb: false })
+        .error?.issues[0]?.message,
+    ).toBe("Elegí al menos una aseguradora.");
   });
 });
