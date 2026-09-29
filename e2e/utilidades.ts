@@ -133,7 +133,11 @@ export function codigoTotp(claveBase32: string): string {
   return String(numero).padStart(6, "0");
 }
 
-export const ADMIN = { email: "admin@softeam.local", contrasena: "Softeam.2026!" };
+/** Administrador inicial. Sobre la base de la demo (npm run db:demo) su clave es "admin123". */
+export const ADMIN = {
+  email: "admin@softeam.local",
+  contrasena: process.env.E2E_ADMIN_PASSWORD ?? "Softeam.2026!",
+};
 
 /**
  * `test` con control de consola: si el navegador registra un error (errores

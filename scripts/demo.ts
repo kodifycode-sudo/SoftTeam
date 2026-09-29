@@ -49,7 +49,7 @@ import { confirmarOrden } from "../src/server/modules/ventas/checkout";
 import { registrarPago } from "../src/server/modules/ventas/ordenes";
 
 /** Contraseña de todos los usuarios de prueba. */
-export const CONTRASENA_DEMO = "Demo.STLic2026";
+export const CONTRASENA_DEMO = "admin123";
 
 const HOY: Fecha = hoyArgentina();
 
@@ -77,14 +77,17 @@ async function darAcceso(
   const cuenta = await db.query.cuentasAuth.findFirst({
     where: and(eq(t.cuentasAuth.userId, usuario.id), eq(t.cuentasAuth.providerId, "credential")),
   });
-  // Un usuario que ya tenía contraseña (el administrador inicial) la conserva.
-  if (!cuenta) {
+  // Todos con la misma contraseña de demo, también el administrador inicial.
+  const password = await hashPassword(CONTRASENA_DEMO);
+  if (cuenta) {
+    await db.update(t.cuentasAuth).set({ password }).where(eq(t.cuentasAuth.id, cuenta.id));
+  } else {
     await db.insert(t.cuentasAuth).values({
       id: crypto.randomUUID(),
       accountId: usuario.id,
       providerId: "credential",
       userId: usuario.id,
-      password: await hashPassword(CONTRASENA_DEMO),
+      password,
     });
   }
   await vincularColaboradores(db, usuario.id, email);

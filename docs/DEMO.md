@@ -14,9 +14,9 @@ consumos). Si ya se cargó, no hace nada. Para empezar de cero, borrar
 `.data/pglite` y volver a correrlo. Las pruebas automáticas (e2e) crean
 clientes en la misma base: conviene correrlas sobre otra copia.
 
-**Contraseña de todos los usuarios: `Demo.STLic2026`**, salvo el administrador
-inicial (`admin@softeam.local`), que conserva la suya (`ADMIN_PASSWORD`; en
-desarrollo, `Softeam.2026!`).
+**Contraseña de todos los usuarios, también el administrador: `admin123`**
+(solo para esta base de desarrollo). Para correr las pruebas e2e sobre ella:
+`E2E_ADMIN_PASSWORD=admin123 npx playwright test`.
 
 ## SOFTeam (`/admin`)
 
