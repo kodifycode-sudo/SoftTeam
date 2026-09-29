@@ -567,3 +567,32 @@ Regla de dependencias: `domain` no importa nada del resto.
      la auditoría.
    *Pendiente:* adjuntos en los pedidos de soporte, marca blanca en los mails
    de STLic.
+9. ✅ **Paridad con la KB GeneXus** (detalle en `docs/COMPARACION_KB.md`):
+   - **Importación de datos** (*Panel SOFTeam → Importar datos*, solo
+     Administración): clientes y empresas (conserva el número de empresa),
+     canales y oficinas, usuarios, productores, códigos por compañía, catálogo
+     de aseguradoras y aseguradoras de cada empresa. Archivo separado por ";"
+     (también "," o tabulación) con títulos en la primera línea, con los
+     nombres de la KB o simples; UTF-8 o Windows-1252. Primero se revisa (sin
+     guardar) y después se importa todo o nada; plantilla por tipo y mail de
+     acceso opcional a los administradores nuevos.
+   - **Alta de cliente por SOFTeam** (cliente, empresa, oficina inicial y
+     administrador) y **nueva empresa** para un cliente existente.
+   - **Grupos económicos**: alta, edición, cliente principal, cliente de
+     facturación consolidada, miembros y baja del grupo vacío.
+   - **Oficinas y canales**: edición de datos y redes, desactivación
+     (conservando una activa; un delegado de oficina no desactiva la suya),
+     renombrar canales y si cada oficina envía notificaciones (la política de
+     la empresa es el interruptor general; va en EmpresaFull).
+   - **Baja de un contrato** activo por Administración, con motivo.
+   - **Parámetros del sistema** editables por Administración (Soporte los
+     ve), validados y auditados, y **factores de los medios de envío**
+     (créditos por envío; el mail no se desactiva).
+   - **Bonificación de paquetes** por SOFTeam en órdenes pendientes (ver
+     fase 3).
+   - **Movimientos de saldo de un contrato** para SOFTeam, con el saldo
+     después de cada movimiento.
+   - **Exportaciones** de aseguradoras y paquetes (SOFTeam) y de usuarios,
+     productores y códigos (portal, con los títulos de la importación).
+   *Decisiones pendientes:* factura adelantada, `TipoComunicacion`, monedas y
+   países (ver la comparación).

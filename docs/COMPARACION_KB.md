@@ -30,8 +30,8 @@ Estados:
 | `STLicPaquetesMovimientos` | `movimientos_saldo` | ✅ libro inmutable. ✅ *Clientes → ficha → Paquetes vigentes → Movimientos*: cargas, consumos y ajustes de un contrato con el saldo después de cada uno y el saldo actual |
 | `STLicOrden` | `ordenes` + `orden_items` | ➕ detalle por línea, cálculo congelado. ✅ bonificación de un paquete por SOFTeam en la orden pendiente (con motivo, recurrente o solo esa orden) |
 | `STLicMediosPago` | `medios_pago` | ✅ |
-| `STLicMonedas` (con cotización) | moneda del país | ⚠️ **C** ABM de monedas y cotización (hoy una moneda por país) |
-| `STLicPaises`, `STLicProvincias` | `paises`, provincias fijas | ⚠️ **C** ABM de países y provincias (hoy vienen de la carga inicial) |
+| `STLicMonedas` (con cotización) | moneda del país | ⚠️ decisión pendiente: ABM de monedas y cotización cuando se venda en otra moneda (ver Plan) |
+| `STLicPaises`, `STLicProvincias` | `paises`, provincias fijas | ⚠️ decisión pendiente: ABM cuando se venda fuera de Argentina (ver Plan) |
 | `STLicNotiMedio` (medios y factor) | `medios_envio` | ✅ *Panel SOFTeam → Parámetros → Medios de envío*: factor y estado editables por Administración, auditados; el mail no se desactiva |
 | `STLicPoliticas` | `politicas_empresa` | ✅ |
 | `STLicProductores`, `STLicProdCia` | `productores`, `productor_codigos` | ✅ |
@@ -68,12 +68,24 @@ Estados:
 
 ## Plan
 
-1. **A:** editar clientes y empresas (y desactivarlas), alta y edición de
+1. ✅ **A:** editar clientes y empresas (y desactivarlas), alta y edición de
    grupos económicos, alta de cliente y de empresa por SOFTeam, importación
-   desde CSV.
-2. **B:** editar y desactivar oficinas y canales, dar de baja un contrato
-   puntual, parámetros editables, decidir "factura adelantada" y
-   `TipoComunicacion`.
-3. **C:** monedas y cotización, países y provincias, factores de los medios
-   de envío, movimientos de un contrato, exportaciones restantes,
-   "notifica" por oficina.
+   de datos.
+2. ✅ **B:** editar y desactivar oficinas y canales, dar de baja un contrato
+   puntual, parámetros editables, bonificación de paquetes por SOFTeam.
+3. ✅ **C:** factores de los medios de envío, movimientos de un contrato,
+   exportaciones restantes, "notifica" por oficina.
+
+Decisiones pendientes (no se implementan hasta definirlas):
+
+- **Factura adelantada** (`FacModo`): facturar al emitir la orden y no al
+  cobrarla. Cambia cuándo se emite el comprobante en Xubio y qué pasa si la
+  orden se cancela (nota de crédito).
+- **`TipoComunicacion`**: definir con BienSeguro y el Boletín si la
+  configuración de comunicaciones sigue en STLic o pasa a cada producto.
+- **Monedas y cotización, países y provincias**: hoy se vende solo en
+  Argentina, en pesos, con las provincias fijas. El ABM tiene sentido cuando
+  se venda en otro país o en otra moneda; ahí hay que definir la cotización
+  que congela la orden y la facturación en el exterior.
+- **Pedido de cambio de facturación desde el portal**: hecho y apagado con
+  el parámetro `oficinas.pedido_facturacion` hasta confirmar el caso.
