@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { obtenerDb } from "@/server/db";
 import { nombresDeProvincias } from "@/server/modules/catalogo/paises";
 import { FormularioRegistro } from "./formulario";
@@ -7,6 +8,8 @@ import { FormularioRegistro } from "./formulario";
 export const metadata: Metadata = { title: "Registrá tu empresa" };
 
 export default async function PaginaRegistro() {
+  // Las provincias se leen en cada pedido: SOFTeam las administra.
+  await connection();
   const provincias = await nombresDeProvincias(await obtenerDb(), "AR");
   return (
     <div className="w-full max-w-2xl space-y-8">
