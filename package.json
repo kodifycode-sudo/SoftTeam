@@ -15,6 +15,7 @@
     "db:studio": "drizzle-kit studio",
     "test:e2e": "playwright test",
     "db:migrate": "tsx scripts/migrar.ts",
+    "db:demo": "tsx --conditions=react-server scripts/demo.ts",
     "vercel-build": "npm run db:migrate && next build"
   },
   "dependencies": {
