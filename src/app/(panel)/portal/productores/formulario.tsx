@@ -8,9 +8,9 @@ import {
   Casilla,
   FormularioConservado,
   MensajeFormulario,
+  Selector,
   useAvisoDeAccion,
 } from "@/components/formulario";
-import { SelectNativo } from "@/components/select-nativo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,16 +23,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Field,
   FieldDescription,
   FieldError,
   FieldGroup,
-  FieldLabel,
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field";
 import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
-import { ESTADO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
+import { ESTADO_INICIAL } from "@/lib/formulario";
 import { guardarProductorAccion } from "./acciones";
 
 export interface DatosProductor {
@@ -51,35 +49,6 @@ export interface DatosProductor {
   esOrganizador: boolean;
   esSubproductor: boolean;
   agenteInstitorio: boolean;
-}
-
-function Selector({
-  nombre,
-  etiqueta,
-  estado,
-  valorInicial,
-  children,
-}: {
-  nombre: string;
-  etiqueta: string;
-  estado: EstadoFormulario;
-  valorInicial: string;
-  children: React.ReactNode;
-}) {
-  const errores = estado.errores?.[nombre];
-  return (
-    <Field data-invalid={errores ? true : undefined}>
-      <FieldLabel htmlFor={nombre}>{etiqueta}</FieldLabel>
-      <SelectNativo
-        id={nombre}
-        name={nombre}
-        defaultValue={estado.valores?.[nombre] ?? valorInicial}
-      >
-        {children}
-      </SelectNativo>
-      <FieldError errors={errores?.map((message) => ({ message }))} />
-    </Field>
-  );
 }
 
 function ContenidoProductor({

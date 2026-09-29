@@ -21,6 +21,38 @@ export function erroresPorCampo(error: z.ZodError): Record<string, string[]> {
   return errores;
 }
 
+/** Errores de Zod por ruta completa ("domicilioFiscal.calle"), para formularios anidados. */
+export function erroresPorRuta(error: z.ZodError): Record<string, string[]> {
+  const errores: Record<string, string[]> = {};
+  for (const issue of error.issues) {
+    const campo = issue.path.map(String).join(".") || "_";
+    errores[campo] = [...(errores[campo] ?? []), issue.message];
+  }
+  return errores;
+}
+
+/**
+ * Valores planos con claves "a.b" a un objeto anidado ({ a: { b } }). Los
+ * vacíos se omiten: así los campos opcionales quedan `undefined`.
+ */
+export function anidar(valores: Record<string, string>): Record<string, unknown> {
+  const raiz: Record<string, unknown> = {};
+  for (const [clave, valor] of Object.entries(valores)) {
+    const partes = clave.split(".");
+    // Claves que podrían tocar el prototipo de Object: se descartan enteras.
+    if (valor === "" || partes.some((p) => CLAVES_PROHIBIDAS.has(p))) continue;
+    let nodo = raiz;
+    for (const parte of partes.slice(0, -1)) {
+      if (typeof nodo[parte] !== "object" || nodo[parte] === null) nodo[parte] = {};
+      nodo = nodo[parte] as Record<string, unknown>;
+    }
+    nodo[partes.at(-1) as string] = valor;
+  }
+  return raiz;
+}
+
+const CLAVES_PROHIBIDAS = new Set(["__proto__", "constructor", "prototype"]);
+
 /** FormData a objeto plano de strings (los checkbox marcados llegan como "on"). */
 export function valoresDe(formData: FormData): Record<string, string> {
   const valores: Record<string, string> = {};

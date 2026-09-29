@@ -16,6 +16,8 @@ export const ENTIDADES_AUDITORIA: Record<string, string> = {
   usuario_softeam: "Usuario SOFTeam",
   sistema_api: "Sistema integrado",
   cliente: "Cliente",
+  empresa: "Empresa",
+  usuario: "Usuario",
   contrato: "Contrato",
   proceso: "Proceso",
   ticket: "Ticket de descuento",

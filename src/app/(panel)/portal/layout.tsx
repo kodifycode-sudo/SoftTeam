@@ -35,7 +35,12 @@ export default async function LayoutPortal({ children }: LayoutProps<"/portal">)
   return (
     <EstructuraPanel
       variante="portal"
-      usuario={{ nombre: contexto.nombreUsuario, email: contexto.email, rol }}
+      usuario={{
+        nombre: contexto.nombreUsuario,
+        email: contexto.email,
+        rol,
+        seguridad: "/portal/seguridad",
+      }}
       permisos={[
         ...(comercial ? ["comercial"] : []),
         ...(puedeConfigurar(contexto) ? ["configuracion"] : []),

@@ -1,8 +1,10 @@
 import {
   ArrowLeft,
   Building2,
+  CircleCheck,
   Mail,
   MapPin,
+  Pencil,
   Phone,
   Receipt,
   UserRound,
@@ -14,9 +16,17 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ListaActividad } from "@/components/actividad";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { formatearCuit } from "@/domain/cuentas/cuit";
 import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
 import { fechaCorta } from "@/lib/formato";
@@ -30,6 +40,7 @@ import {
   pedidosPendientes,
 } from "@/server/modules/cuentas/facturacion-oficinas";
 import { abiertosPorEmpresa } from "@/server/modules/soporte/incidentes";
+import { EditarEmpresa } from "./editar-empresa";
 import { FacturacionOficinas } from "./facturacion-oficinas";
 import { NotasEmpresa } from "./notas";
 
@@ -78,9 +89,12 @@ function TarjetaContacto({ titulo, contacto }: { titulo: string; contacto: Conta
 const domicilioTexto = (d: Domicilio | null) =>
   d ? `${d.calle}, ${d.ciudad} (${d.codigoPostal}), ${d.provincia}` : "—";
 
-export default async function PaginaCliente({ params }: PageProps<"/admin/clientes/[id]">) {
+export default async function PaginaCliente({
+  params,
+  searchParams,
+}: PageProps<"/admin/clientes/[id]">) {
   const { rol } = await requerirSofteam();
-  const { id } = await params;
+  const [{ id }, { aviso }] = await Promise.all([params, searchParams]);
   if (!UUID.test(id)) notFound();
   const db = await obtenerDb();
   const cliente = await obtenerCliente(db, id);
@@ -94,6 +108,7 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
     pedidosPendientes(db, ids),
   ]);
   const editaFacturacion = rol === "ADMINISTRACION" || rol === "COMERCIAL";
+  const edita = editaFacturacion;
 
   return (
     <>
@@ -109,6 +124,14 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
         descripcion={`Alta el ${fechaCorta(cliente.creadoEn)}`}
         acciones={
           <>
+            {edita && (
+              <Link
+                href={`/admin/clientes/${cliente.id}/editar`}
+                className={buttonVariants({ variant: "outline" })}
+              >
+                <Pencil data-icon="inline-start" /> Editar datos
+              </Link>
+            )}
             {cliente.grupo && <Badge variant="outline">Grupo {cliente.grupo.nombreCorto}</Badge>}
             <Badge variant={cliente.activo ? "secondary" : "destructive"}>
               {cliente.activo ? "Activo" : "Inactivo"}
@@ -116,6 +139,15 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
           </>
         }
       />
+
+      {aviso === "guardado" && (
+        <Alert className="mb-6 border-success/30 bg-success/5 text-success">
+          <CircleCheck />
+          <AlertDescription className="text-success">
+            Guardamos los datos del cliente.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -170,6 +202,23 @@ export default async function PaginaCliente({ params }: PageProps<"/admin/client
               <CardDescription>
                 Empresa #{e.numero} · {e.nombreCorto}
               </CardDescription>
+              {edita && (
+                <CardAction>
+                  <EditarEmpresa
+                    clienteId={cliente.id}
+                    administracion={rol === "ADMINISTRACION"}
+                    empresa={{
+                      id: e.id,
+                      version: e.actualizadoEn.toISOString(),
+                      nombre: e.nombre,
+                      nombreCorto: e.nombreCorto,
+                      tipoCliente: e.tipoCliente,
+                      tipoInstalacion: e.tipoInstalacion,
+                      activa: e.activa,
+                    }}
+                  />
+                </CardAction>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-1.5">

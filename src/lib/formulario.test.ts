@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { rutaInternaSegura } from "./formulario";
+import { anidar, rutaInternaSegura } from "./formulario";
+
+describe("anidar", () => {
+  it("arma objetos anidados y omite los vacíos", () => {
+    expect(
+      anidar({ nombre: "Ana", "domicilio.calle": "Córdoba 1", "domicilio.piso": "", "c.d.e": "x" }),
+    ).toEqual({ nombre: "Ana", domicilio: { calle: "Córdoba 1" }, c: { d: { e: "x" } } });
+  });
+
+  it("no permite contaminar el prototipo", () => {
+    const resultado = anidar({ "__proto__.contaminado": "sí", "constructor.prototype.x": "sí" });
+    expect(({} as Record<string, unknown>).contaminado).toBeUndefined();
+    expect(resultado).toEqual({});
+  });
+});
 
 describe("rutaInternaSegura", () => {
   it("acepta rutas internas", () => {

@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
+import { SelectNativo } from "@/components/select-nativo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -184,6 +185,43 @@ export function Casilla({
         </FieldLabel>
         {descripcion && <FieldDescription>{descripcion}</FieldDescription>}
       </FieldContent>
+    </Field>
+  );
+}
+
+/** Lista desplegable nativa con etiqueta y errores del servidor; conserva lo elegido. */
+export function Selector({
+  nombre,
+  etiqueta,
+  ayuda,
+  estado,
+  valorInicial,
+  children,
+}: {
+  nombre: string;
+  etiqueta: string;
+  ayuda?: ReactNode;
+  estado: EstadoFormulario;
+  valorInicial: string;
+  children: ReactNode;
+}) {
+  const errores = estado.errores?.[nombre];
+  const id = `campo-${nombre}`;
+  const valor = estado.valores?.[nombre] ?? valorInicial;
+  return (
+    <Field data-invalid={errores ? true : undefined}>
+      <FieldLabel htmlFor={id}>{etiqueta}</FieldLabel>
+      <SelectNativo
+        key={valor}
+        id={id}
+        name={nombre}
+        defaultValue={valor}
+        aria-invalid={errores ? true : undefined}
+      >
+        {children}
+      </SelectNativo>
+      {ayuda && <FieldDescription>{ayuda}</FieldDescription>}
+      <FieldError errors={errores?.map((message) => ({ message }))} />
     </Field>
   );
 }

@@ -7,7 +7,7 @@ import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/formulario";
 import { obtenerAuth } from "@/server/auth";
 import { codigoDeError, esErrorDeAuth, esLimiteDeIntentos } from "@/server/auth/errores";
-import { requerirSofteam } from "@/server/auth/sesion";
+import { requerirUsuario } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { auditarDosFactores } from "@/server/modules/cuentas/dos-factores";
 
@@ -46,7 +46,7 @@ export async function iniciarActivacionAccion(
   _: EstadoDosFactores,
   formData: FormData,
 ): Promise<EstadoDosFactores> {
-  await requerirSofteam();
+  await requerirUsuario();
   const password = contrasena.safeParse(formData.get("password"));
   if (!password.success) return { errores: { password: ["Ingresá tu contraseña"] } };
   try {
@@ -72,7 +72,7 @@ export async function confirmarActivacionAccion(
   _: EstadoDosFactores,
   formData: FormData,
 ): Promise<EstadoDosFactores> {
-  const { user } = await requerirSofteam();
+  const { user } = await requerirUsuario();
   const codigo = z
     .string()
     .regex(/^\d{6}$/)
@@ -85,7 +85,7 @@ export async function confirmarActivacionAccion(
     return rechazo(error, "codigo");
   }
   await auditarDosFactores(await obtenerDb(), user.id, "2fa_activado");
-  revalidatePath("/admin", "layout");
+  revalidatePath("/", "layout");
   return { ok: true, mensaje: "Listo: la verificación en dos pasos está activa." };
 }
 
@@ -93,7 +93,7 @@ export async function desactivarAccion(
   _: EstadoDosFactores,
   formData: FormData,
 ): Promise<EstadoDosFactores> {
-  const { user } = await requerirSofteam();
+  const { user } = await requerirUsuario();
   const password = contrasena.safeParse(formData.get("password"));
   if (!password.success) return { errores: { password: ["Ingresá tu contraseña"] } };
   try {
@@ -106,7 +106,7 @@ export async function desactivarAccion(
     return rechazo(error, "password");
   }
   await auditarDosFactores(await obtenerDb(), user.id, "2fa_desactivado");
-  revalidatePath("/admin", "layout");
+  revalidatePath("/", "layout");
   return { ok: true, mensaje: "Desactivaste la verificación en dos pasos." };
 }
 
@@ -115,7 +115,7 @@ export async function regenerarCodigosAccion(
   _: EstadoDosFactores,
   formData: FormData,
 ): Promise<EstadoDosFactores> {
-  const { user } = await requerirSofteam();
+  const { user } = await requerirUsuario();
   const password = contrasena.safeParse(formData.get("password"));
   if (!password.success) return { errores: { password: ["Ingresá tu contraseña"] } };
   try {

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { DosFactores } from "@/components/seguridad/dos-factores";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { tieneDosFactores } from "@/server/modules/cuentas/dos-factores";
-import { DosFactores } from "./dos-factores";
 
 export const metadata: Metadata = { title: "Seguridad de la cuenta" };
 
@@ -17,7 +17,10 @@ export default async function PaginaSeguridad() {
         descripcion={`Protegé tu usuario de SOFTeam (${user.email}).`}
       />
       <div className="max-w-4xl">
-        <DosFactores activo={activo} />
+        <DosFactores
+          activo={activo}
+          motivo="Con tu usuario se pueden ver y cambiar los datos de todos los clientes. Protegelo con un código de tu celular además de la contraseña."
+        />
       </div>
     </>
   );

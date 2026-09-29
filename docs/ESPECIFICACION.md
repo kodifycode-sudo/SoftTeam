@@ -473,9 +473,12 @@ Regla de dependencias: `domain` no importa nada del resto.
 2. ✅ **Catálogo y cuentas:** paquetes y alternativas (ABM), medios de pago,
    clientes y empresas (consulta), oficinas y canales, alta en línea con
    verificación del mail, portal del cliente.
-   *Pendiente de esta fase:* ABM de grupos económicos, edición de datos del
-   cliente y de la empresa desde SOFTeam, ABM de productos/recursos y países
-   (hoy se cargan con la semilla).
+   Edición de los datos del cliente (fiscales, domicilios, contactos, grupo,
+   medios de pago, notas) y de la empresa desde SOFTeam, con control de
+   concurrencia y auditoría; el CUIT y las bajas, solo Administración.
+   *Pendiente de esta fase:* ver `docs/COMPARACION_KB.md` (grupos
+   económicos, alta de cliente y de empresa por SOFTeam, importación desde
+   CSV, países y productos).
 3. ✅ **Compra:** carrito persistente, checkout con cálculo completo (medio de
    pago, IVA, ticket), confirmación transaccional e idempotente, vista de
    orden, registro de pago y cancelación desde SOFTeam. El carrito puede
@@ -524,7 +527,7 @@ Regla de dependencias: `domain` no importa nada del resto.
    cobro, envío de avisos por mail, pantalla de procesos y alertas, avisos y
    renovación automática sí/no en el portal. Todo idempotente y registrado en
    `job_run`.
-   *Pendiente:* tickets en las órdenes de renovación, actualización de la
+   *Pendiente:* actualización de la
    suscripción de MercadoPago (fase 7), vista de la orden agrupada para el
    cliente agrupador.
 7. ✅ **Cobro:** interfaz propia de pasarela y de facturación, con simulador

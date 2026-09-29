@@ -93,7 +93,14 @@ function CodigoApp({ estado }: { estado: EstadoDosFactores }) {
  * viven acá (siempre montado): al activar o desactivar, la página cambia de
  * rama y el aviso igual tiene que mostrarse.
  */
-export function DosFactores({ activo }: { activo: boolean }) {
+export function DosFactores({
+  activo,
+  motivo,
+}: {
+  activo: boolean;
+  /** Por qué conviene activarla (cambia entre SOFTeam y las empresas). */
+  motivo: string;
+}) {
   const [inicio, iniciar] = useActionState(iniciarActivacionAccion, INICIAL);
   // Cada intento fallido vacía el campo del código (se vuelve a montar).
   const [intentos, setIntentos] = useState(0);
@@ -176,10 +183,7 @@ export function DosFactores({ activo }: { activo: boolean }) {
           <ShieldOff className="size-5 text-muted-foreground" /> Verificación en dos pasos
           <Badge variant="outline">Desactivada</Badge>
         </CardTitle>
-        <CardDescription>
-          Con tu usuario se pueden ver y cambiar los datos de todos los clientes. Protegelo con un
-          código de tu celular además de la contraseña.
-        </CardDescription>
+        <CardDescription>{motivo}</CardDescription>
       </CardHeader>
       <CardContent>
         {!inicio.ok ? (

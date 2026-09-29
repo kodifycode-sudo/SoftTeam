@@ -1,11 +1,25 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
-import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
+import {
+  anidar,
+  type EstadoFormulario,
+  erroresPorCampo,
+  erroresPorRuta,
+  valoresDe,
+} from "@/lib/formulario";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { guardarNotas } from "@/server/modules/cuentas/actividad";
+import {
+  type ErrorEdicion,
+  esquemaEdicionCliente,
+  esquemaEdicionEmpresa,
+  guardarCliente,
+  guardarEmpresa,
+} from "@/server/modules/cuentas/edicion";
 import {
   asignarFacturacionOficina,
   type ErrorFacturacionOficina,
@@ -13,6 +27,7 @@ import {
   esquemaFacturacionOficina,
   resolverPedidoFacturacion,
 } from "@/server/modules/cuentas/facturacion-oficinas";
+import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 
 export async function guardarNotasAccion(
   _: EstadoFormulario,
@@ -110,4 +125,68 @@ export async function resolverPedidoFacturacionAccion(
         ? "Pedido aprobado: ya rige la nueva facturación."
         : "Pedido rechazado. Le avisamos a la empresa.",
   };
+}
+
+const MENSAJES_EDICION: Record<ErrorEdicion, EstadoFormulario> = {
+  NO_EXISTE: { mensaje: "Ya no existe." },
+  CONFLICTO: {
+    mensaje:
+      "Alguien más lo modificó mientras lo editabas. Recargá la página para ver los cambios y volvé a aplicar los tuyos.",
+  },
+  CUIT_DUPLICADO: { errores: { cuit: ["Ya hay otro cliente con ese CUIT."] } },
+  SIN_PERMISO: { mensaje: "Solo Administración puede cambiar el CUIT o dar de baja." },
+  GRUPO_INVALIDO: { errores: { grupoId: ["Elegí un grupo económico de la lista."] } },
+  MEDIO_INVALIDO: { mensaje: "Elegí medios de pago de la lista." },
+};
+
+/** Corrige los datos del cliente (Administración o Comercial). */
+export async function guardarClienteAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user, rol } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
+  const valores = valoresDe(formData);
+  const clienteId = z.uuid().safeParse(valores.clienteId);
+  if (!clienteId.success) return { mensaje: "Cliente inválido.", valores };
+  const datos = esquemaEdicionCliente.safeParse({
+    ...anidar(valores),
+    activo: valores.activo === "on",
+  });
+  if (!datos.success) {
+    return { errores: erroresPorRuta(datos.error), mensaje: "Revisá los datos marcados.", valores };
+  }
+  const resultado = await guardarCliente(await obtenerDb(), clienteId.data, datos.data, {
+    usuarioId: user.id,
+    administracion: rol === "ADMINISTRACION",
+  });
+  if (!resultado.ok) return { ...MENSAJES_EDICION[resultado.error], valores };
+  revalidatePath(`/admin/clientes/${clienteId.data}`);
+  redirect(`/admin/clientes/${clienteId.data}?aviso=guardado`);
+}
+
+/** Corrige los datos de una empresa (Administración o Comercial). */
+export async function guardarEmpresaAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user, rol } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
+  const valores = valoresDe(formData);
+  const ids = z.object({ empresaId: z.uuid(), clienteId: z.uuid() }).safeParse(valores);
+  if (!ids.success) return { mensaje: "Empresa inválida.", valores };
+  const datos = esquemaEdicionEmpresa.safeParse({ ...valores, activa: valores.activa === "on" });
+  if (!datos.success) {
+    return {
+      errores: erroresPorCampo(datos.error),
+      mensaje: "Revisá los datos marcados.",
+      valores,
+    };
+  }
+  const resultado = await guardarEmpresa(await obtenerDb(), ids.data.empresaId, datos.data, {
+    usuarioId: user.id,
+    administracion: rol === "ADMINISTRACION",
+  });
+  if (!resultado.ok) return { ...MENSAJES_EDICION[resultado.error], valores };
+  programarEntregaDeEventos();
+  revalidatePath(`/admin/clientes/${ids.data.clienteId}`);
+  return { ok: true, mensaje: "Empresa actualizada." };
 }
