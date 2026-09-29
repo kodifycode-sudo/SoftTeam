@@ -77,16 +77,14 @@ async function darAcceso(
   const cuenta = await db.query.cuentasAuth.findFirst({
     where: and(eq(t.cuentasAuth.userId, usuario.id), eq(t.cuentasAuth.providerId, "credential")),
   });
-  const password = await hashPassword(CONTRASENA_DEMO);
-  if (cuenta) {
-    await db.update(t.cuentasAuth).set({ password }).where(eq(t.cuentasAuth.id, cuenta.id));
-  } else {
+  // Un usuario que ya tenía contraseña (el administrador inicial) la conserva.
+  if (!cuenta) {
     await db.insert(t.cuentasAuth).values({
       id: crypto.randomUUID(),
       accountId: usuario.id,
       providerId: "credential",
       userId: usuario.id,
-      password,
+      password: await hashPassword(CONTRASENA_DEMO),
     });
   }
   await vincularColaboradores(db, usuario.id, email);
