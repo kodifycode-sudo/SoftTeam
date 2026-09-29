@@ -548,8 +548,9 @@ Regla de dependencias: `domain` no importa nada del resto.
    CUIT (lo crea si no existe), factura al contado con `externalId` por orden
    (idempotente) y pedido del CAE; se activa con las variables `XUBIO_*`.
    *Pendiente:* probar Xubio con una cuenta real y Mercado Pago contra su
-   sandbox; suscripción de Mercado Pago (débito automático), a definir cómo
-   encaja con las renovaciones quincenales.
+   sandbox. Suscripción de Mercado Pago (débito automático): queda para más
+   adelante (decisión 29/09/2026); el medio está desactivado y las
+   renovaciones se pagan con link o transferencia.
 8. ✅ **Pulido:**
    - **Reportes** para SOFTeam (cobranza por mes, órdenes impagas por
      antigüedad, vencimientos con estado de renovación, consumos, empresas por

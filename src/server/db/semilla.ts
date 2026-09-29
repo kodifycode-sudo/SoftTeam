@@ -156,6 +156,8 @@ export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }
         nombre: "Débito automático (Mercado Pago)",
         tipo: "SUSCRIPCION_MP",
         generaLink: true,
+        // Queda para más adelante: falta definir cómo encaja con las renovaciones quincenales.
+        activo: false,
         habilitadoAlta: false,
         habilitadoAdicional: false,
         orden: 3,

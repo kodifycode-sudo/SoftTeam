@@ -141,6 +141,13 @@
       "when": 1790718889686,
       "tag": "0019_adjuntos_soporte",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790722375609,
+      "tag": "0020_desactivar_debito_automatico",
+      "breakpoints": true
     }
   ]
 }
