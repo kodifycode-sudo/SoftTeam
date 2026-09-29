@@ -133,3 +133,30 @@ test.describe
       await expect(page.getByRole("button", { name: "Renovar Prodigal Inicial" })).toHaveCount(0);
     });
   });
+
+test.describe
+  .serial("baja de un paquete por SOFTeam", () => {
+    test("Administración da de baja un paquete activo con motivo", async ({ page }) => {
+      await ingresar(page, ADMIN.email, ADMIN.contrasena);
+      await page.goto(`/admin/clientes?q=${encodeURIComponent(razonSocial)}`);
+      await page.getByRole("link", { name: razonSocial }).first().click();
+
+      // Con la renovación ya generada, primero hay que cancelar esa orden.
+      await page.getByRole("button", { name: "Dar de baja Prodigal Inicial" }).click();
+      await page.getByRole("dialog").getByLabel("Motivo").fill("Prueba de baja");
+      await page.getByRole("dialog").getByRole("button", { name: "Dar de baja" }).click();
+      await expect(page.getByRole("dialog").getByText(/cancelá primero esa orden/)).toBeVisible();
+      await page.keyboard.press("Escape");
+
+      await page.getByRole("button", { name: "Dar de baja Notificaciones 10.000" }).click();
+      await page
+        .getByRole("dialog")
+        .getByLabel("Motivo")
+        .fill("El cliente ya no envía notificaciones");
+      await page.getByRole("dialog").getByRole("button", { name: "Dar de baja" }).click();
+      await expect(page.getByText("Paquete dado de baja.")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Dar de baja Notificaciones 10.000" }),
+      ).toHaveCount(0);
+    });
+  });

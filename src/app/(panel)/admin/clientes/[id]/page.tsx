@@ -39,11 +39,13 @@ import {
   facturacionDeOficinas,
   pedidosPendientes,
 } from "@/server/modules/cuentas/facturacion-oficinas";
+import { licenciaDeEmpresa } from "@/server/modules/licencias/licencia-empresa";
 import { abiertosPorEmpresa } from "@/server/modules/soporte/incidentes";
 import { EditarEmpresa } from "./editar-empresa";
 import { FacturacionOficinas } from "./facturacion-oficinas";
 import { NotasEmpresa } from "./notas";
 import { NuevaEmpresa } from "./nueva-empresa";
+import { PaquetesVigentes } from "./paquetes-vigentes";
 
 export const metadata: Metadata = { title: "Cliente" };
 
@@ -101,10 +103,11 @@ export default async function PaginaCliente({
   const cliente = await obtenerCliente(db, id);
   if (!cliente) notFound();
   const ids = cliente.empresas.map((e) => e.id);
-  const [abiertos, notas, actividad, oficinas, pedidos] = await Promise.all([
+  const [abiertos, notas, actividad, licencias, oficinas, pedidos] = await Promise.all([
     abiertosPorEmpresa(db, ids),
     Promise.all(ids.map((e) => notasDeEmpresa(db, e, true))),
     Promise.all(ids.map((e) => actividadDeEmpresa(db, e, { esSofteam: true, limite: 8 }))),
+    Promise.all(ids.map((e) => licenciaDeEmpresa(db, e))),
     facturacionDeOficinas(db, ids),
     pedidosPendientes(db, ids),
   ]);
@@ -279,6 +282,18 @@ export default async function PaginaCliente({
                     cliente: o.cliente,
                     pedido: pedidos.find((p) => p.oficinaId === o.id) ?? null,
                   }))}
+              />
+              <PaquetesVigentes
+                clienteId={cliente.id}
+                administracion={rol === "ADMINISTRACION"}
+                paquetes={(licencias[n]?.contratosVigentes ?? []).map((c) => ({
+                  id: c.id,
+                  paquete: c.paquete,
+                  cantidad: c.cantidad,
+                  estado: c.estado,
+                  hasta: c.hasta,
+                  vigencia: c.hasta ? `Hasta el ${fechaCorta(c.hasta)}` : "Hasta agotar el saldo",
+                }))}
               />
               <NotasEmpresa empresaId={e.id} clienteId={cliente.id} notas={notas[n] ?? ""} />
               <div className="space-y-2 border-t pt-4">

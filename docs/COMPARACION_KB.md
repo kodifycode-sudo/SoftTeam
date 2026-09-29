@@ -26,7 +26,7 @@ Estados:
 | `StLicClienteGrupo` | `grupos_economicos` | ✅ *Panel SOFTeam → Grupos económicos*: alta, edición, cliente principal, cliente de facturación consolidada, miembros y baja del grupo vacío |
 | `STLicCanales`, `STLicOficinas` | `canales`, `oficinas` | ✅ alta, edición (contacto, WhatsApp, redes), desactivación (conservando una activa) y renombrar canales, respetando el alcance del delegado. ⚠️ **C** "notifica" por oficina (hoy es una política de toda la empresa) |
 | `STLicPaquetesDisponibles`, `STLicAlternativasPq` | `paquetes`, `alternativas`, recursos | ➕ recursos genéricos en vez de columnas fijas por producto |
-| `STLicPaquetesEmpresa` | `contratos` | ✅. ⚠️ **B** dar de baja un contrato puntual desde SOFTeam (`STLicInactivarPaqueteEmpresa`) |
+| `STLicPaquetesEmpresa` | `contratos` | ✅. ✅ baja de un contrato activo desde la ficha del cliente (`STLicInactivarPaqueteEmpresa`), con motivo y solo Administración |
 | `STLicPaquetesMovimientos` | `movimientos_saldo` | ✅ libro inmutable. ⚠️ **C** ver los movimientos de un contrato desde SOFTeam |
 | `STLicOrden` | `ordenes` + `orden_items` | ➕ detalle por línea, cálculo congelado |
 | `STLicMediosPago` | `medios_pago` | ✅ |

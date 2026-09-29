@@ -30,6 +30,10 @@ import {
 } from "@/server/modules/cuentas/facturacion-oficinas";
 import { enviarInvitacion } from "@/server/modules/cuentas/invitaciones";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
+import {
+  darDeBajaContrato,
+  type ErrorBajaContrato,
+} from "@/server/modules/licencias/baja-contrato";
 
 export async function guardarNotasAccion(
   _: EstadoFormulario,
@@ -223,4 +227,36 @@ export async function nuevaEmpresaAccion(
   programarEntregaDeEventos();
   revalidatePath(`/admin/clientes/${clienteId.data}`);
   return { ok: true, mensaje: `Creamos la empresa ${datos.data.empresa.nombre}.` };
+}
+
+const MENSAJES_BAJA: Record<ErrorBajaContrato, EstadoFormulario> = {
+  NO_EXISTE: { mensaje: "El paquete ya no existe." },
+  NO_ACTIVO: {
+    mensaje: "Solo se da de baja un paquete activo; uno pendiente de pago se cancela con su orden.",
+  },
+  TIENE_RENOVACION: {
+    mensaje: "Ya tiene la renovación generada: cancelá primero esa orden desde Órdenes.",
+  },
+  FALTA_MOTIVO: { errores: { motivo: ["Contá por qué se da de baja (queda en la auditoría)."] } },
+};
+
+/** Baja de un paquete activo antes de su vencimiento (solo Administración). */
+export async function bajaContratoAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION"]);
+  const valores = valoresDe(formData);
+  const ids = z.object({ contratoId: z.uuid(), clienteId: z.uuid() }).safeParse(valores);
+  if (!ids.success) return { mensaje: "Paquete inválido." };
+  const resultado = await darDeBajaContrato(
+    await obtenerDb(),
+    ids.data.contratoId,
+    valores.motivo ?? "",
+    user.id,
+  );
+  if (!resultado.ok) return { ...MENSAJES_BAJA[resultado.error], valores };
+  programarEntregaDeEventos();
+  revalidatePath(`/admin/clientes/${ids.data.clienteId}`);
+  return { ok: true, mensaje: "Paquete dado de baja." };
 }
