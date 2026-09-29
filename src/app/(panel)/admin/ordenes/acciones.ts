@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
-import type { EstadoFormulario } from "@/lib/formulario";
+import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerFacturador, obtenerPasarela, urlBase } from "@/server/cobros";
 import { obtenerDb } from "@/server/db";
@@ -16,6 +16,11 @@ import { reenviarLinkDePago } from "@/server/modules/cobros/pagos";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 import { enviarAlertasPendientes } from "@/server/modules/procesos/alertas";
 import { enviarAlertaPorMail } from "@/server/modules/procesos/mail";
+import {
+  bonificarContrato,
+  type ErrorBonificacion,
+  esquemaBonificacion,
+} from "@/server/modules/ventas/bonificacion";
 import { cancelarOrden, registrarPago } from "@/server/modules/ventas/ordenes";
 
 const MENSAJES = {
@@ -143,4 +148,33 @@ export async function marcarRevisadaAccion(formData: FormData): Promise<void> {
     });
   });
   revalidatePath(`/admin/ordenes/${id.data}`);
+}
+
+const MENSAJES_BONIFICACION: Record<ErrorBonificacion, string> = {
+  NO_EXISTE: "El paquete ya no existe.",
+  ORDEN_NO_PENDIENTE: "Solo se bonifica una orden pendiente de pago.",
+  CON_TICKET: "La orden tiene un código de descuento: la bonificación no se combina con él.",
+  CALCULO: "No se pudo recalcular la orden.",
+};
+
+/** Bonifica un paquete de una orden pendiente (Administración o Comercial). */
+export async function bonificarAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
+  const valores = valoresDe(formData);
+  const ordenId = z.uuid().safeParse(valores.ordenId);
+  if (!ordenId.success) return { mensaje: "Orden inválida." };
+  const datos = esquemaBonificacion.safeParse({
+    contratoId: valores.contratoId,
+    porcentaje: valores.porcentaje ?? "",
+    recurrente: valores.recurrente === "on",
+    motivo: valores.motivo ?? "",
+  });
+  if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  const resultado = await bonificarContrato(await obtenerDb(), datos.data, user.id);
+  if (!resultado.ok) return { mensaje: MENSAJES_BONIFICACION[resultado.error], valores };
+  revalidatePath(`/admin/ordenes/${ordenId.data}`);
+  return { ok: true, mensaje: "Bonificación aplicada: la orden se recalculó." };
 }

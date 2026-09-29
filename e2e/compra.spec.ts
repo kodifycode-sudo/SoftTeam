@@ -80,6 +80,31 @@ test.describe
         .getByRole("link", { name: `#${numeroOrden}` })
         .first()
         .click();
+
+      // Bonificación de un paquete: la orden se recalcula; con 0 % se quita.
+      await page.getByRole("button", { name: "Bonificar un paquete" }).click();
+      const dialogo = page.getByRole("dialog");
+      await dialogo.getByLabel("Paquete").selectOption({ label: "Prodigal Inicial · Mensual ×2" });
+      await dialogo.getByLabel("Bonificación (%)").fill("10");
+      await dialogo.getByRole("button", { name: "Aplicar y recalcular" }).click();
+      await expect(dialogo.getByText("Contá el motivo (queda en la auditoría).")).toBeVisible();
+      await dialogo.getByLabel("Motivo").fill("Cliente de muchos años");
+      await dialogo.getByRole("button", { name: "Aplicar y recalcular" }).click();
+      await expect(page.getByText("Bonificación aplicada: la orden se recalculó.")).toBeVisible();
+      // (76.000 − 10 % + 30.000) − 5 % por transferencia + IVA.
+      await expect(page.getByText("$ 113.110,80").first()).toBeVisible();
+      await capturar(page, "22b-admin-orden-bonificada");
+
+      await page.getByRole("button", { name: "Bonificar un paquete" }).click();
+      await page
+        .getByRole("dialog")
+        .getByLabel("Paquete")
+        .selectOption({ label: "Prodigal Inicial · Mensual ×2" });
+      await page.getByRole("dialog").getByLabel("Bonificación (%)").fill("0");
+      await page.getByRole("dialog").getByLabel("Motivo").fill("Se quita la prueba");
+      await page.getByRole("dialog").getByRole("button", { name: "Aplicar y recalcular" }).click();
+      await expect(page.getByText("$ 121.847,00").first()).toBeVisible();
+
       await page.getByRole("button", { name: "Registrar pago" }).click();
       await page.getByRole("button", { name: "Sí, registrar pago" }).click();
       await expect(page.getByText("Pago registrado: 2 paquetes activados.")).toBeVisible();

@@ -492,7 +492,11 @@ Regla de dependencias: `domain` no importa nada del resto.
    portal (la empresa lo pide y SOFTeam lo aprueba o rechaza) está hecho pero
    apagado por parámetro hasta confirmar el caso (ver 4.3, "A quién se factura").
    Renovación manual desde los vencimientos del portal (ver sección 6).
-   *Pendiente de esta fase:* bonificación de paquetes por SOFTeam.
+   Bonificación de paquetes por SOFTeam (Administración o Comercial): sobre una
+   orden pendiente sin ticket, un porcentaje por paquete con motivo; la orden se
+   recalcula con el ajuste del medio y el IVA congelados, el link de pago se
+   invalida y queda auditado. Si es recurrente, la renovación la conserva; 0 %
+   la quita.
 4. ✅ **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con
    listado de sincronización, EmpresaFull v1, licencia vigente y consumos
    idempotentes; secretos cifrados (AES-256-GCM); webhooks por outbox con

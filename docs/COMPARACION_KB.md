@@ -28,7 +28,7 @@ Estados:
 | `STLicPaquetesDisponibles`, `STLicAlternativasPq` | `paquetes`, `alternativas`, recursos | ➕ recursos genéricos en vez de columnas fijas por producto |
 | `STLicPaquetesEmpresa` | `contratos` | ✅. ✅ baja de un contrato activo desde la ficha del cliente (`STLicInactivarPaqueteEmpresa`), con motivo y solo Administración |
 | `STLicPaquetesMovimientos` | `movimientos_saldo` | ✅ libro inmutable. ⚠️ **C** ver los movimientos de un contrato desde SOFTeam |
-| `STLicOrden` | `ordenes` + `orden_items` | ➕ detalle por línea, cálculo congelado |
+| `STLicOrden` | `ordenes` + `orden_items` | ➕ detalle por línea, cálculo congelado. ✅ bonificación de un paquete por SOFTeam en la orden pendiente (con motivo, recurrente o solo esa orden) |
 | `STLicMediosPago` | `medios_pago` | ✅ |
 | `STLicMonedas` (con cotización) | moneda del país | ⚠️ **C** ABM de monedas y cotización (hoy una moneda por país) |
 | `STLicPaises`, `STLicProvincias` | `paises`, provincias fijas | ⚠️ **C** ABM de países y provincias (hoy vienen de la carga inicial) |

@@ -12,6 +12,7 @@ import { obtenerDb } from "@/server/db";
 import { obtenerOrden } from "@/server/modules/ventas/ordenes";
 import { marcarRevisadaAccion } from "../acciones";
 import { AccionesOrden } from "./acciones-orden";
+import { Bonificar } from "./bonificar";
 import { EmitirFactura, ReenviarLink } from "./cobro";
 
 export const metadata: Metadata = { title: "Orden" };
@@ -92,6 +93,17 @@ export default async function OrdenAdmin({
             {orden.estado === "PEND_PAGO" && rol === "ADMINISTRACION" && (
               <AccionesOrden ordenId={orden.id} numero={orden.numero} total={pesos(orden.total)} />
             )}
+            {orden.estado === "PEND_PAGO" &&
+              !orden.ticketId &&
+              (rol === "ADMINISTRACION" || rol === "COMERCIAL") && (
+                <Bonificar
+                  ordenId={orden.id}
+                  lineas={detalle.lineas.map((l) => ({
+                    contratoId: l.contratoId,
+                    descripcion: l.descripcion,
+                  }))}
+                />
+              )}
             {orden.estado === "PEND_PAGO" && detalle.medio.generaLink && rol !== "SOPORTE" && (
               <ReenviarLink ordenId={orden.id} reenvios={orden.linkReenvios} />
             )}

@@ -45,6 +45,7 @@ export const ACCIONES_AUDITORIA: Record<string, string> = {
   importacion: "Importación",
   miembro_alta: "Suma un cliente",
   miembro_baja: "Saca un cliente",
+  bonificacion: "Bonificación",
   "2fa_activado": "Activó la verificación en dos pasos",
   "2fa_desactivado": "Desactivó la verificación en dos pasos",
   "2fa_codigos": "Regeneró los códigos de respaldo",
