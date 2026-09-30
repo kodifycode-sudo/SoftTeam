@@ -8,6 +8,11 @@ import { z } from "zod";
 const esquema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    /**
+     * "pruebas": un despliegue para probar (datos de demostración). No exige
+     * Resend: los mails se muestran en los logs en lugar de enviarse.
+     */
+    STLIC_AMBIENTE: z.enum(["produccion", "pruebas"]).default("produccion"),
     /** Postgres (Neon). Sin valor, en desarrollo se usa PGlite en `.data/pglite`. */
     DATABASE_URL: z.url().optional(),
     /** Conexiones por instancia hacia Postgres (con el pooler de Neon alcanza con pocas). */
@@ -89,13 +94,14 @@ const esquema = z
     // las claves de producción se exigen al ejecutarla, no al compilarla.
     if (env.NODE_ENV !== "production" || process.env.NEXT_PHASE === "phase-production-build")
       return;
-    for (const clave of [
+    const obligatorias = [
       "DATABASE_URL",
       "BETTER_AUTH_SECRET",
-      "RESEND_API_KEY",
       "STLIC_CLAVE_MAESTRA",
       "CRON_SECRET",
-    ] as const) {
+      ...(env.STLIC_AMBIENTE === "pruebas" ? [] : (["RESEND_API_KEY"] as const)),
+    ] as const;
+    for (const clave of obligatorias) {
       if (!env[clave]) {
         ctx.addIssue({ code: "custom", path: [clave], message: "Obligatoria en producción" });
       }

@@ -5,9 +5,13 @@
  * soporte, un grupo económico y avisos.
  *
  * Se carga con las mismas reglas del sistema (altas, carrito, pagos,
- * consumos), así los datos son coherentes. Solo para desarrollo:
+ * consumos), así los datos son coherentes. Para desarrollo y ambientes de
+ * pruebas, nunca para producción real:
  *
- *   npm run db:demo            (con el servidor de desarrollo detenido)
+ *   npm run db:demo            base local (con el servidor de desarrollo detenido)
+ *
+ *   Sobre Postgres (Neon), con la conexión directa y confirmación explícita:
+ *   DATABASE_URL=… STLIC_DEMO_REMOTO=si npm run db:demo
  *
  * No hace nada si ya se cargó (lo reconoce por el usuario de Comercial).
  */
@@ -15,7 +19,7 @@ import { hashPassword } from "better-auth/crypto";
 import { and, eq } from "drizzle-orm";
 import { TODA_LA_EMPRESA } from "../src/domain/cuentas/alcance";
 import { type Fecha, hoy as hoyArgentina, sumarDias } from "../src/domain/fecha";
-import { crearDbPglite, type Db } from "../src/server/db/cliente";
+import { crearDbPglite, crearDbPostgres, type Db } from "../src/server/db/cliente";
 import * as t from "../src/server/db/schema";
 import { sembrarDatosBase } from "../src/server/db/semilla";
 import { cambiarAseguradora } from "../src/server/modules/configuracion/aseguradoras";
@@ -285,8 +289,36 @@ async function productor(
   }
 }
 
+/** Base local (PGlite) o, con confirmación, un Postgres remoto. */
+async function abrirBase(): Promise<Db> {
+  const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+  if (!url) return crearDbPglite(".data/pglite");
+  if (process.env.STLIC_DEMO_REMOTO !== "si") {
+    throw new Error(
+      "Hay DATABASE_URL: para cargar la demo en una base remota, confirmalo con STLIC_DEMO_REMOTO=si (nunca en producción real).",
+    );
+  }
+  console.info(`[demo] base remota: ${new URL(url).host}`);
+  return crearDbPostgres(url, 1);
+}
+
+/** Interfaces disponibles en el catálogo de ejemplo (en producción las habilita SOFTeam). */
+async function habilitarInterfacesDemo(db: Db) {
+  const sinProdigal = ["ZURICH"];
+  const sinCotiweb = ["RIVADAV"];
+  for (const a of await db.select().from(t.aseguradoras)) {
+    await db
+      .update(t.aseguradoras)
+      .set({
+        interfazProdigalDisponible: !sinProdigal.includes(a.abreviatura),
+        interfazCotiwebDisponible: !sinCotiweb.includes(a.abreviatura),
+      })
+      .where(eq(t.aseguradoras.id, a.id));
+  }
+}
+
 async function principal() {
-  const db = await crearDbPglite(".data/pglite");
+  const db = await abrirBase();
   await sembrarDatosBase(db, { demo: true });
   if (
     await db.query.usuarios.findFirst({ where: eq(t.usuarios.email, "comercial@softeam.local") })
@@ -295,6 +327,7 @@ async function principal() {
     return;
   }
   console.info("[demo] cargando…");
+  await habilitarInterfacesDemo(db);
 
   // ─── SOFTeam: un usuario por rol ──────────────────────────────────────────
   const adminId = await darAcceso(

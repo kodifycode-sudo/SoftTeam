@@ -41,8 +41,8 @@ function html(mail: Mail): string {
 }
 
 /**
- * Envía un mail. En desarrollo, sin clave de Resend, lo muestra en la consola
- * del servidor (así se prueba el alta sin configurar nada).
+ * Envía un mail. Sin clave de Resend (desarrollo o ambiente de pruebas), lo
+ * muestra en la consola del servidor: así se prueba el alta sin configurar nada.
  */
 export async function enviarMail(mail: Mail): Promise<void> {
   if (!env.RESEND_API_KEY) {

@@ -78,6 +78,7 @@ openssl rand -hex 32      # para CRON_SECRET
 | `STLIC_EMISOR_CUIT` | Recomendada | CUIT de SOFTeam (11 dígitos), para el recibo provisorio |
 | `STLIC_EMISOR_DOMICILIO` | No | Domicilio de SOFTeam que se imprime en el recibo |
 | `DATABASE_POOL_MAX` | No | Conexiones por instancia (por defecto 5) |
+| `STLIC_AMBIENTE` | No | `pruebas` en un despliegue para probar: no exige Resend (los mails quedan en los logs de Vercel). En producción real, no definirla |
 | `STLIC_CATALOGO_DEMO` | No | `1` **solo en vista previa**: carga paquetes de ejemplo |
 
 Si falta una variable obligatoria, la app no arranca y el error dice cuál.
@@ -170,6 +171,17 @@ CUIT, y si no existe lo crea. Cada factura lleva `externalId = stlic-<orden>`:
 un reintento no emite dos veces. Sin estas variables, en producción las
 órdenes pagadas quedan "pendientes de facturar" y el proceso diario las
 factura cuando se configura.
+
+### Ambiente de pruebas con datos de demostración
+
+Para un despliegue de pruebas (nunca producción real): `STLIC_AMBIENTE=pruebas`
+y cargar la demo en su base con la conexión directa, confirmándolo:
+
+```bash
+DATABASE_URL_UNPOOLED=<conexión directa> STLIC_DEMO_REMOTO=si npm run db:demo
+```
+
+Los usuarios y la contraseña están en `docs/DEMO.md`.
 
 ## 10. Antes de abrir a los clientes
 
