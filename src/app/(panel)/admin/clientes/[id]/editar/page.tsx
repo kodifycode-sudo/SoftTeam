@@ -1,10 +1,7 @@
 import { asc, eq } from "drizzle-orm";
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
-import { buttonVariants } from "@/components/ui/button";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import * as t from "@/server/db/schema";
@@ -36,13 +33,12 @@ export default async function EditarCliente({ params }: PageProps<"/admin/client
 
   return (
     <>
-      <Link
-        href={`/admin/clientes/${cliente.id}`}
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> {cliente.nombre}
-      </Link>
       <EncabezadoPagina
+        migas={[
+          { texto: "Clientes", href: "/admin/clientes" },
+          { texto: cliente.nombre, href: `/admin/clientes/${cliente.id}` },
+          { texto: "Editar datos" },
+        ]}
         etiqueta={`Cliente #${cliente.numero}`}
         titulo="Editar datos del cliente"
         descripcion="Los cambios quedan en la auditoría con el valor anterior."

@@ -1,10 +1,8 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
@@ -52,13 +50,12 @@ export default async function MovimientosContrato({ params }: PageProps<"/admin/
 
   return (
     <>
-      <Link
-        href={`/admin/clientes/${c.clienteId}`}
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> {c.empresa}
-      </Link>
       <EncabezadoPagina
+        migas={[
+          { texto: "Clientes", href: "/admin/clientes" },
+          { texto: c.empresa, href: `/admin/clientes/${c.clienteId}` },
+          { texto: c.paquete },
+        ]}
         etiqueta={`${c.empresa} · Empresa #${c.empresaNumero}`}
         titulo={`${c.paquete} · ${c.alternativa}${c.cantidad > 1 ? ` ×${c.cantidad}` : ""}`}
         descripcion={

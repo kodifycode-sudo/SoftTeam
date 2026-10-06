@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleCheck, Hash, Power, PowerOff, Trash2 } from "lucide-react";
+import { CircleCheck, Hash, Power, PowerOff, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -70,13 +70,8 @@ export default async function PaginaProductor({
 
   return (
     <>
-      <Link
-        href="/portal/productores"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Productores
-      </Link>
       <EncabezadoPagina
+        migas={[{ texto: "Productores", href: "/portal/productores" }, { texto: productor.nombre }]}
         titulo={productor.nombre}
         etiqueta={
           <span className="flex flex-wrap gap-1.5">

@@ -1,9 +1,6 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
-import { buttonVariants } from "@/components/ui/button";
 import { aTextoDecimal } from "@/domain/dinero";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
@@ -22,13 +19,8 @@ export default async function EditarPaquete({ params }: PageProps<"/admin/paquet
 
   return (
     <>
-      <Link
-        href="/admin/paquetes"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Paquetes
-      </Link>
       <EncabezadoPagina
+        migas={[{ texto: "Paquetes", href: "/admin/paquetes" }, { texto: paquete.nombre }]}
         etiqueta={paquete.codigo}
         titulo={`Editar ${paquete.nombre}`}
         descripcion="Los cambios aplican a las contrataciones nuevas. Los contratos existentes conservan sus límites y precios."

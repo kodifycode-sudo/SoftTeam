@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Building2,
   CircleCheck,
   Mail,
@@ -119,13 +118,8 @@ export default async function PaginaCliente({
 
   return (
     <>
-      <Link
-        href="/admin/clientes"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Clientes
-      </Link>
       <EncabezadoPagina
+        migas={[{ texto: "Clientes", href: "/admin/clientes" }, { texto: cliente.nombre }]}
         etiqueta={`Cliente #${cliente.numero}`}
         titulo={cliente.nombre}
         descripcion={`Alta el ${fechaCorta(cliente.creadoEn)}`}

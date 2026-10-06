@@ -1,12 +1,11 @@
-import { ArrowLeft, CircleCheck, XCircle } from "lucide-react";
+import { CircleCheck, XCircle } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Conversacion, EstadoIncidente } from "@/components/soporte/conversacion";
 import { ResponderIncidente } from "@/components/soporte/responder";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
@@ -30,12 +29,6 @@ export default async function PedidoSoporte({
 
   return (
     <>
-      <Link
-        href="/portal/soporte"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Soporte
-      </Link>
       {nuevo === "1" && (
         <Alert className="mb-6 border-success/30 bg-success/5 text-success">
           <CircleCheck />
@@ -45,6 +38,10 @@ export default async function PedidoSoporte({
         </Alert>
       )}
       <EncabezadoPagina
+        migas={[
+          { texto: "Soporte", href: "/portal/soporte" },
+          { texto: `Pedido #${incidente.numero}` },
+        ]}
         etiqueta={`#${incidente.numero} · ${PRODUCTOS_SOPORTE[incidente.producto as keyof typeof PRODUCTOS_SOPORTE] ?? incidente.producto}`}
         titulo={incidente.asunto}
         acciones={

@@ -1,6 +1,5 @@
-import { ArrowLeft, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { SelectNativo } from "@/components/select-nativo";
@@ -12,7 +11,7 @@ import {
 } from "@/components/soporte/conversacion";
 import { ResponderIncidente } from "@/components/soporte/responder";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fechaCorta } from "@/lib/formato";
 import { requerirSofteam } from "@/server/auth/sesion";
@@ -42,13 +41,11 @@ export default async function PedidoSoporteAdmin({ params }: PageProps<"/admin/s
 
   return (
     <>
-      <Link
-        href="/admin/soporte"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Soporte
-      </Link>
       <EncabezadoPagina
+        migas={[
+          { texto: "Soporte", href: "/admin/soporte" },
+          { texto: `Pedido #${incidente.numero}` },
+        ]}
         etiqueta={
           <span className="inline-flex items-center gap-1.5">
             <Building2 className="size-4" /> {incidente.empresa} · Empresa #

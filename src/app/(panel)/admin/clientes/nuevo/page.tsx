@@ -1,8 +1,5 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
-import { buttonVariants } from "@/components/ui/button";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { nombresDeProvincias } from "@/server/modules/catalogo/paises";
@@ -15,13 +12,8 @@ export default async function NuevoCliente() {
   const provincias = await nombresDeProvincias(await obtenerDb(), "AR");
   return (
     <>
-      <Link
-        href="/admin/clientes"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Clientes
-      </Link>
       <EncabezadoPagina
+        migas={[{ texto: "Clientes", href: "/admin/clientes" }, { texto: "Nuevo cliente" }]}
         titulo="Nuevo cliente"
         descripcion="Para quien no se registra solo (por ejemplo, un corporativo). Crea el cliente, su empresa con la oficina Casa central y el administrador."
       />

@@ -1,11 +1,10 @@
-import { ArrowLeft, Building2, CircleCheck, TriangleAlert } from "lucide-react";
+import { Building2, CircleCheck, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EstadoOrden, VistaOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { fechaCorta, pesos } from "@/lib/formato";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
@@ -39,12 +38,6 @@ export default async function OrdenAdmin({
 
   return (
     <>
-      <Link
-        href="/admin/ordenes"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Órdenes
-      </Link>
       {mensaje && (
         <Alert className="mb-5 border-success/30 bg-success/5">
           <CircleCheck className="text-success" />
@@ -52,6 +45,7 @@ export default async function OrdenAdmin({
         </Alert>
       )}
       <EncabezadoPagina
+        migas={[{ texto: "Órdenes", href: "/admin/ordenes" }, { texto: `Orden #${orden.numero}` }]}
         etiqueta={
           empresa ? (
             <span className="inline-flex items-center gap-1.5">

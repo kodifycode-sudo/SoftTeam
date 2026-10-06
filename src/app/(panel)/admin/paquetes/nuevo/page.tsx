@@ -1,8 +1,5 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
-import { buttonVariants } from "@/components/ui/button";
 import { hoy } from "@/domain/fecha";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
@@ -17,13 +14,11 @@ export default async function NuevoPaquete() {
   const productos = await recursosPorProducto(db);
   return (
     <>
-      <Link
-        href="/admin/paquetes"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Paquetes
-      </Link>
-      <EncabezadoPagina titulo="Nuevo paquete" descripcion="Definí qué incluye y cuánto cuesta." />
+      <EncabezadoPagina
+        migas={[{ texto: "Paquetes", href: "/admin/paquetes" }, { texto: "Nuevo paquete" }]}
+        titulo="Nuevo paquete"
+        descripcion="Definí qué incluye y cuánto cuesta."
+      />
       <FormularioPaquete
         productos={productos}
         inicial={{

@@ -1,10 +1,10 @@
-import { ArrowLeft, Receipt, Star, UsersRound } from "lucide-react";
+import { Receipt, Star, UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatearCuit } from "@/domain/cuentas/cuit";
 import { requerirSofteam } from "@/server/auth/sesion";
@@ -26,13 +26,8 @@ export default async function PaginaGrupo({ params }: PageProps<"/admin/grupos/[
 
   return (
     <>
-      <Link
-        href="/admin/grupos"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Grupos económicos
-      </Link>
       <EncabezadoPagina
+        migas={[{ texto: "Grupos económicos", href: "/admin/grupos" }, { texto: grupo.nombre }]}
         etiqueta={grupo.nombreCorto}
         titulo={grupo.nombre}
         acciones={

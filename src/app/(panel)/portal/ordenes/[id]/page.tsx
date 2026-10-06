@@ -1,11 +1,10 @@
-import { ArrowLeft, CircleAlert, Clock, CreditCard, PartyPopper } from "lucide-react";
+import { CircleAlert, Clock, CreditCard, PartyPopper } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EstadoOrden, VistaOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { requerirComercial } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
@@ -32,12 +31,6 @@ export default async function OrdenPortal({
 
   return (
     <>
-      <Link
-        href="/portal/ordenes"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2 mb-3" })}
-      >
-        <ArrowLeft data-icon="inline-start" /> Mis órdenes
-      </Link>
       {nueva === "1" && (
         <Card className="mb-6 flex-row items-center gap-4 border-success/30 bg-success/5 p-5">
           <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-success text-success-foreground">
@@ -81,6 +74,10 @@ export default async function OrdenPortal({
         </Alert>
       )}
       <EncabezadoPagina
+        migas={[
+          { texto: "Mis órdenes", href: "/portal/ordenes" },
+          { texto: `Orden #${detalle.orden.numero}` },
+        ]}
         titulo={`Orden #${detalle.orden.numero}`}
         acciones={<EstadoOrden estado={detalle.orden.estado} />}
       />

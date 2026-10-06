@@ -5,6 +5,8 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { BarraLateral } from "./barra-lateral";
 import type { UsuarioMenu } from "./menu-usuario";
+import { type Miga, MigasDePan } from "./migas";
+import { PaletaComandos } from "./paleta-comandos";
 
 /** Estructura común de los paneles: barra lateral, encabezado fijo y contenido. */
 export async function EstructuraPanel({
@@ -32,6 +34,7 @@ export async function EstructuraPanel({
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-5" />
           <div className="flex min-w-0 flex-1 items-center justify-between gap-3">{encabezado}</div>
+          <PaletaComandos variante={variante} permisos={permisos} />
           <SelectorTema />
         </header>
         <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:p-0">
@@ -48,15 +51,23 @@ export function EncabezadoPagina({
   descripcion,
   acciones,
   etiqueta,
+  migas,
 }: {
   titulo: ReactNode;
   descripcion?: ReactNode;
   acciones?: ReactNode;
   etiqueta?: ReactNode;
+  /** Camino desde el listado hasta esta página; el último paso es la página actual. */
+  migas?: readonly Miga[];
 }) {
   return (
     <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0 space-y-1.5">
+        {migas && (
+          <div className="mb-3">
+            <MigasDePan migas={migas} />
+          </div>
+        )}
         {etiqueta && <div className="text-sm font-medium text-primary">{etiqueta}</div>}
         <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{titulo}</h1>
         {descripcion && (
