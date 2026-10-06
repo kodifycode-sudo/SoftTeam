@@ -1,6 +1,7 @@
 import { BadgeCheck, Calculator, FolderKanban, Newspaper, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { LogoSofteam, MarcaStlic } from "@/components/marca";
+import { SelectorTema } from "@/components/tema";
 
 const PRODUCTOS = [
   { icono: FolderKanban, nombre: "Prodigal", detalle: "Gestión de cartera" },
@@ -58,7 +59,8 @@ export default function LayoutAcceso({ children }: LayoutProps<"/">) {
         </p>
       </aside>
 
-      <main className="flex flex-col items-center px-4 py-8 sm:px-8 sm:py-12 lg:justify-center">
+      <main className="relative flex flex-col items-center px-4 py-8 sm:px-8 sm:py-12 lg:justify-center">
+        <SelectorTema className="absolute top-3 right-3 sm:top-4 sm:right-4" />
         <Link href="/" className="mb-8 lg:hidden">
           <LogoSofteam className="h-9" />
         </Link>

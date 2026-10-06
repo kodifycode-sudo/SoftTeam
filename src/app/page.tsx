@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MarcaStlic } from "@/components/marca";
+import { SelectorTema } from "@/components/tema";
 import { buttonVariants } from "@/components/ui/button";
 import { obtenerSesion } from "@/server/auth/sesion";
 
@@ -64,15 +65,18 @@ export default async function Inicio() {
 
         <header className="relative mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
           <MarcaStlic />
-          <Link
-            href="/ingresar"
-            className={buttonVariants({
-              variant: "ghost",
-              className: "text-navy-foreground hover:bg-white/10 hover:text-white",
-            })}
-          >
-            Ingresar
-          </Link>
+          <div className="flex items-center gap-1">
+            <SelectorTema className="text-navy-foreground hover:bg-white/10 hover:text-white" />
+            <Link
+              href="/ingresar"
+              className={buttonVariants({
+                variant: "ghost",
+                className: "text-navy-foreground hover:bg-white/10 hover:text-white",
+              })}
+            >
+              Ingresar
+            </Link>
+          </div>
         </header>
 
         <div className="relative mx-auto max-w-6xl px-4 pt-12 pb-20 sm:px-6 sm:pt-20 sm:pb-28">

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
+import { SelectorTema } from "@/components/tema";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { BarraLateral } from "./barra-lateral";
@@ -31,6 +32,7 @@ export async function EstructuraPanel({
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-5" />
           <div className="flex min-w-0 flex-1 items-center justify-between gap-3">{encabezado}</div>
+          <SelectorTema />
         </header>
         <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:p-0">
           {children}
