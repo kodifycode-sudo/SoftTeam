@@ -8,6 +8,7 @@ import {
   PackageSearch,
   PartyPopper,
   ShieldCheck,
+  TriangleAlert,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -25,6 +26,8 @@ import {
 } from "@/components/ui/empty";
 import { abarcaOficina } from "@/domain/cuentas/alcance";
 import { diasEntre, hoy, sumarDias } from "@/domain/fecha";
+import { type Atencion, pendientesDeAtencion } from "@/domain/licencias/atencion";
+import { estadoDeSaldo } from "@/domain/procesos/calendario";
 import { fechaCorta, numero, pesos } from "@/lib/formato";
 import { productoUI } from "@/lib/productos";
 import { cn } from "@/lib/utils";
@@ -38,6 +41,7 @@ import {
 import { obtenerDb } from "@/server/db";
 import { pasosCompletados } from "@/server/modules/cuentas/primeros-pasos";
 import { type ItemLicencia, licenciaDeEmpresa } from "@/server/modules/licencias/licencia-empresa";
+import { leerParametroDe } from "@/server/modules/parametros";
 import { estadoDeRenovacion } from "@/server/modules/procesos/renovacion-automatica";
 import { type Renovable, renovablesDeEmpresa } from "@/server/modules/ventas/carrito";
 import { RenovarPaquete } from "./compra/renovar";
@@ -46,7 +50,13 @@ import { InterruptorRenovacion } from "./renovacion";
 
 export const metadata: Metadata = { title: "Inicio" };
 
-function ValorItem({ item }: { item: ItemLicencia }) {
+const TONOS_SALDO = {
+  NORMAL: "bg-success",
+  BAJO: "bg-warning",
+  AGOTADO: "bg-destructive",
+} as const;
+
+function ValorItem({ item, porcentajeBajo }: { item: ItemLicencia; porcentajeBajo: number }) {
   if (item.clase === "FUNCION") {
     return (
       <li className="flex items-center gap-2 text-sm">
@@ -56,15 +66,17 @@ function ValorItem({ item }: { item: ItemLicencia }) {
   }
   if (item.disponible !== null) {
     const porcentaje = item.total > 0 ? Math.round((item.disponible / item.total) * 100) : 0;
-    const tono =
-      porcentaje > 25 ? "bg-success" : porcentaje >= 10 ? "bg-warning" : "bg-destructive";
+    // Mismo criterio que las alertas de saldo bajo (parámetro configurable).
+    const tono = TONOS_SALDO[estadoDeSaldo(item.total, item.disponible, porcentajeBajo)];
     return (
       <li className="space-y-1.5">
         <div className="flex items-baseline justify-between gap-2 text-sm">
           <span>{item.nombre}</span>
-          <span className="tabular-nums">
+          {/* Lo que queda, no lo usado: la barra se vacía a medida que se consume. */}
+          <span className="shrink-0 tabular-nums">
+            <span className="text-xs text-muted-foreground">quedan </span>
             <strong>{numero(item.disponible)}</strong>
-            <span className="text-muted-foreground"> / {numero(item.total)}</span>
+            <span className="text-muted-foreground"> de {numero(item.total)}</span>
           </span>
         </div>
         {/* biome-ignore lint/a11y/useSemanticElements: <meter> no se puede estilizar igual en todos los navegadores; el role conserva la semántica. */}
@@ -73,7 +85,7 @@ function ValorItem({ item }: { item: ItemLicencia }) {
           aria-valuemin={0}
           aria-valuemax={item.total}
           aria-valuenow={item.disponible}
-          aria-label={`${item.nombre}: ${porcentaje} % disponible`}
+          aria-label={`${item.nombre}: quedan ${numero(item.disponible)} de ${numero(item.total)}`}
           className="h-1.5 overflow-hidden rounded-full bg-muted"
         >
           <div
@@ -92,6 +104,54 @@ function ValorItem({ item }: { item: ItemLicencia }) {
         <span className="text-xs font-normal text-muted-foreground">{item.unidad}</span>
       </span>
     </li>
+  );
+}
+
+/** Aviso arriba de todo cuando algo de la licencia pide atención (si no, nada). */
+function AvisoAtencion({ atencion, comercial }: { atencion: Atencion; comercial: boolean }) {
+  const { vencen, saldosBajos } = atencion;
+  if (vencen.length === 0 && saldosBajos.length === 0) return null;
+  return (
+    <Card
+      role="status"
+      className="mb-6 flex-col gap-4 border-warning/50 bg-warning/10 p-5 sm:flex-row sm:items-start"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-warning/20 text-[oklch(0.5_0.13_70)] dark:text-warning">
+        <TriangleAlert className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="font-semibold">Hay cosas de tu licencia para revisar</p>
+        <ul className="space-y-0.5 text-sm text-muted-foreground">
+          {vencen.map((v) => (
+            <li key={v.paquete}>
+              <span className="font-medium text-foreground">{v.paquete}</span>{" "}
+              {v.dias === 0 ? "vence hoy" : `vence en ${v.dias} día${v.dias === 1 ? "" : "s"}`} y no
+              se renueva solo.
+            </li>
+          ))}
+          {saldosBajos.map((c) => (
+            <li key={c.nombre}>
+              <span className="font-medium text-foreground">{c.nombre}</span>
+              {c.agotado
+                ? ": no queda saldo."
+                : `: quedan ${numero(c.disponible)} de ${numero(c.total)}.`}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2">
+        {vencen.length > 0 && (
+          <a href="#vencimientos" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Ver vencimientos
+          </a>
+        )}
+        {comercial && (
+          <Link href="/portal/paquetes" className={buttonVariants({ size: "sm" })}>
+            Sumar paquetes
+          </Link>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -174,6 +234,32 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
     vencimientos.filter((c) => c.tipoPaquete === "TEMPORAL").map((c) => c.id),
   );
   const comercial = puedeComprar(contexto);
+  const [[diasAviso], porcentajeBajo] = await Promise.all([
+    leerParametroDe(db, "alertas.vencimiento_dias"),
+    leerParametroDe(db, "alertas.saldo_bajo_porcentaje"),
+  ]);
+  /** Con renovación automática activa (o ya generada) no hay nada que hacer antes del vencimiento. */
+  const renuevaSolo = (contratoId: string) => {
+    const renovacion = renovaciones.get(contratoId);
+    return !!renovacion && (!renovacion.noRenovar || renovacion.ordenRenovacion !== null);
+  };
+  const atencion = pendientesDeAtencion(
+    fechaHoy,
+    vencimientos.map((c) => ({
+      paquete: c.paquete,
+      hasta: c.hasta,
+      renuevaSolo: renuevaSolo(c.id),
+    })),
+    licencia.productos.flatMap((p) =>
+      p.items.flatMap((i) =>
+        i.disponible === null
+          ? []
+          : [{ nombre: i.nombre, total: i.total, disponible: i.disponible }],
+      ),
+    ),
+    { diasAviso, porcentajeBajo },
+  );
+
   // Renovación manual: los paquetes de la bolsa que compra (empresa u oficina).
   const renovables = puedeContratar(contexto)
     ? await renovablesDeEmpresa(db, contexto.empresaId, oficinaDeCompra(contexto), fechaHoy)
@@ -215,6 +301,8 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
           permisos={{ comercial, configuracion: puedeConfigurar(contexto) }}
         />
       )}
+
+      <AvisoAtencion atencion={atencion} comercial={comercial} />
 
       <section className="relative mb-8 overflow-hidden rounded-3xl bg-navy p-6 text-navy-foreground sm:p-8">
         <div
@@ -298,7 +386,7 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
                         {p.items
                           .filter((i) => i.total > 0)
                           .map((i) => (
-                            <ValorItem key={i.recursoId} item={i} />
+                            <ValorItem key={i.recursoId} item={i} porcentajeBajo={porcentajeBajo} />
                           ))}
                       </ul>
                     </CardContent>
@@ -308,7 +396,7 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
             </div>
           </section>
 
-          <Card className="h-fit">
+          <Card id="vencimientos" className="h-fit scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarClock className="size-4 text-primary" /> Vencimientos
@@ -353,7 +441,8 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
                             variant="outline"
                             className={cn(
                               "tabular-nums",
-                              dias <= 15 &&
+                              dias <= diasAviso &&
+                                !renuevaSolo(c.id) &&
                                 "border-warning/50 bg-warning/10 text-[oklch(0.5_0.13_70)] dark:text-warning",
                             )}
                           >

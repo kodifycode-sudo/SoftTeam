@@ -363,6 +363,14 @@ período). Reejecutar un día no duplica nada.
 | Entrega de eventos | Continuo, con reintentos | Envía webhooks desde el outbox, con reintento y backoff |
 | Recordatorios de cobro | Configurable (10, 20 y 28) | Avisos de órdenes impagas y semáforo de antigüedad (10 y 21 días) |
 
+**Aviso en el inicio del portal.** Con los mismos parámetros que las alertas
+(`alertas.vencimiento_dias`, primer valor, y `alertas.saldo_bajo_porcentaje`),
+el inicio muestra arriba de todo lo que pide atención: paquetes que vencen
+dentro de esa anticipación **sin** renovación automática (ni renovación ya
+generada), y cupos o saldos bajos o agotados. Sin nada pendiente, no aparece.
+Las barras de uso muestran lo que queda y se pintan con el mismo criterio
+(normal, bajo, agotado). Regla en `src/domain/licencias/atencion.ts`.
+
 ---
 
 ## 8. Seguridad
