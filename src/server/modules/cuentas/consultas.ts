@@ -1,21 +1,36 @@
 import { and, asc, count, desc, eq, ilike, inArray, or, sql, sum } from "drizzle-orm";
 import type { Fecha } from "@/domain/fecha";
+import type { Orden, Pagina } from "@/lib/listados";
 import type { Ejecutor } from "@/server/db/cliente";
+import { ordenarPor, paginar, totalFiltrado } from "@/server/db/listados";
 import * as t from "@/server/db/schema";
 
 const escaparLike = (texto: string) => texto.replace(/[\\%_]/g, (c) => `\\${c}`);
 
+export const COLUMNAS_CLIENTES = ["numero", "nombre", "empresas", "alta"] as const;
+export type ColumnaClientes = (typeof COLUMNAS_CLIENTES)[number];
+
 export interface FiltrosClientes {
   busqueda?: string;
   inactivos?: boolean;
+  /** Sin página, devuelve todos (exportación). */
+  pagina?: Pagina;
+  orden?: Orden<ColumnaClientes>;
 }
 
 export async function listarClientes(db: Ejecutor, filtros: FiltrosClientes = {}) {
   const busqueda = filtros.busqueda?.trim();
   const patron = busqueda ? `%${escaparLike(busqueda)}%` : undefined;
   const digitos = busqueda?.replace(/\D/g, "");
+  const empresas = sql<number>`(select count(*)::int from ${t.empresas} e where e.cliente_id = ${t.clientes.id})`;
+  const columnasOrden = {
+    numero: t.clientes.numero,
+    nombre: sql`lower(${t.clientes.nombre})`,
+    empresas,
+    alta: t.clientes.creadoEn,
+  };
 
-  return db
+  const consulta = db
     .select({
       id: t.clientes.id,
       numero: t.clientes.numero,
@@ -27,8 +42,9 @@ export async function listarClientes(db: Ejecutor, filtros: FiltrosClientes = {}
       grupo: t.gruposEconomicos.nombreCorto,
       administrador: sql<string>`${t.clientes.contactoAdministrador}->>'nombre'`,
       email: sql<string>`${t.clientes.contactoAdministrador}->>'email'`,
-      empresas: sql<number>`(select count(*)::int from ${t.empresas} e where e.cliente_id = ${t.clientes.id})`,
+      empresas,
       corporativo: sql<boolean>`exists (select 1 from ${t.empresas} e where e.cliente_id = ${t.clientes.id} and e.tipo_cliente = 'CORPORATIVO')`,
+      totalFilas: totalFiltrado(),
     })
     .from(t.clientes)
     .leftJoin(t.gruposEconomicos, eq(t.gruposEconomicos.id, t.clientes.grupoId))
@@ -45,8 +61,15 @@ export async function listarClientes(db: Ejecutor, filtros: FiltrosClientes = {}
           : undefined,
       ),
     )
-    .orderBy(desc(t.clientes.creadoEn))
-    .limit(200);
+    .orderBy(
+      ...ordenarPor(
+        columnasOrden,
+        filtros.orden ?? { columna: "alta", direccion: "desc" },
+        t.clientes.numero,
+      ),
+    )
+    .$dynamic();
+  return paginar(consulta, filtros.pagina);
 }
 
 export async function obtenerCliente(db: Ejecutor, clienteId: string) {

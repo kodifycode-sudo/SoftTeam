@@ -1,7 +1,9 @@
 import { ChevronRight, Download, Plus, Search, UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { ColumnaOrdenable, Paginacion } from "@/components/panel/listado";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,19 +26,37 @@ import {
 import { formatearCuit } from "@/domain/cuentas/cuit";
 import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
 import { fechaCorta } from "@/lib/formato";
+import { hrefListado, leerListado } from "@/lib/listados";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
-import { listarClientes } from "@/server/modules/cuentas/consultas";
+import { totalDe } from "@/server/db/listados";
+import { COLUMNAS_CLIENTES, listarClientes } from "@/server/modules/cuentas/consultas";
 
 export const metadata: Metadata = { title: "Clientes" };
 
+const BASE = "/admin/clientes";
+
 export default async function PaginaClientes({ searchParams }: PageProps<"/admin/clientes">) {
   const { rol } = await requerirSofteam();
-  const { q, inactivos } = await searchParams;
+  const parametros = await searchParams;
+  const { q, inactivos } = parametros;
   const busqueda = typeof q === "string" ? q : "";
   const conInactivos = inactivos === "1";
+  const { pagina, orden } = leerListado(parametros, COLUMNAS_CLIENTES, {
+    columna: "alta",
+    direccion: "desc",
+  });
   const db = await obtenerDb();
-  const clientes = await listarClientes(db, { busqueda, inactivos: conInactivos });
+  const clientes = await listarClientes(db, {
+    busqueda,
+    inactivos: conInactivos,
+    pagina,
+    orden,
+  });
+  if (clientes.length === 0 && pagina.numero > 1) {
+    redirect(hrefListado(BASE, parametros, { pagina: 1 }));
+  }
+  const columna = { orden, base: BASE, parametros };
 
   return (
     <>
@@ -135,12 +155,20 @@ export default async function PaginaClientes({ searchParams }: PageProps<"/admin
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="w-20 pl-4">N.º</TableHead>
-                  <TableHead>Cliente</TableHead>
+                  <ColumnaOrdenable columna="numero" {...columna} className="w-20 pl-4">
+                    N.º
+                  </ColumnaOrdenable>
+                  <ColumnaOrdenable columna="nombre" {...columna}>
+                    Cliente
+                  </ColumnaOrdenable>
                   <TableHead>CUIT</TableHead>
                   <TableHead className="hidden lg:table-cell">Condición IVA</TableHead>
-                  <TableHead className="text-center">Empresas</TableHead>
-                  <TableHead className="hidden xl:table-cell">Alta</TableHead>
+                  <ColumnaOrdenable columna="empresas" {...columna} className="text-center">
+                    Empresas
+                  </ColumnaOrdenable>
+                  <ColumnaOrdenable columna="alta" {...columna} className="hidden xl:table-cell">
+                    Alta
+                  </ColumnaOrdenable>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -180,10 +208,13 @@ export default async function PaginaClientes({ searchParams }: PageProps<"/admin
               </TableBody>
             </Table>
           </Card>
-          <p className="mt-3 text-xs text-muted-foreground">
-            {clientes.length} cliente{clientes.length === 1 ? "" : "s"}
-            {clientes.length === 200 && " (se muestran los 200 más recientes; refiná la búsqueda)"}
-          </p>
+          <Paginacion
+            pagina={pagina}
+            total={totalDe(clientes)}
+            base={BASE}
+            parametros={parametros}
+            nombre={["cliente", "clientes"]}
+          />
         </>
       )}
     </>

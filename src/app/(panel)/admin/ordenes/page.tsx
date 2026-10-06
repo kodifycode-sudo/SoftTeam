@@ -1,8 +1,10 @@
 import { ChevronRight, Download, Receipt, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { EstadoOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { ColumnaOrdenable, Paginacion } from "@/components/panel/listado";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,13 +25,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fechaCorta, pesos } from "@/lib/formato";
+import { hrefListado, leerListado } from "@/lib/listados";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { totalDe } from "@/server/db/listados";
 import { leerParametroDe } from "@/server/modules/parametros";
-import { type EstadoOrden as Estado, listarOrdenes } from "@/server/modules/ventas/ordenes";
+import {
+  COLUMNAS_ORDENES,
+  type EstadoOrden as Estado,
+  listarOrdenes,
+} from "@/server/modules/ventas/ordenes";
 
 export const metadata: Metadata = { title: "Órdenes" };
+
+const BASE = "/admin/ordenes";
 
 const FILTROS: [Estado | "", string][] = [
   ["PEND_PAGO", "Pendientes"],
@@ -59,11 +69,19 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
   const sp = await searchParams;
   const estado = FILTROS.some(([v]) => v === sp.estado) ? (sp.estado as Estado | "") : "PEND_PAGO";
   const busqueda = typeof sp.q === "string" ? sp.q : "";
+  const { pagina, orden } = leerListado(sp, COLUMNAS_ORDENES, {
+    columna: "emitida",
+    direccion: "desc",
+  });
   const db = await obtenerDb();
   const [ordenes, umbrales] = await Promise.all([
-    listarOrdenes(db, { estado: estado || undefined, busqueda }),
+    listarOrdenes(db, { estado: estado || undefined, busqueda, pagina, orden }),
     leerParametroDe(db, "cobranza.semaforo_dias"),
   ]);
+  if (ordenes.length === 0 && pagina.numero > 1) {
+    redirect(hrefListado(BASE, sp, { pagina: 1 }));
+  }
+  const columna = { orden, base: BASE, parametros: sp };
   const ahora = Date.now();
   const dias = (d: Date) => Math.floor((ahora - d.getTime()) / 86_400_000);
 
@@ -172,12 +190,25 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="pl-4">Orden</TableHead>
-                  <TableHead>Empresa</TableHead>
+                  <ColumnaOrdenable columna="numero" {...columna} className="pl-4">
+                    Orden
+                  </ColumnaOrdenable>
+                  <ColumnaOrdenable columna="empresa" {...columna}>
+                    Empresa
+                  </ColumnaOrdenable>
                   <TableHead className="hidden lg:table-cell">Medio de pago</TableHead>
-                  <TableHead>Emitida</TableHead>
+                  <ColumnaOrdenable columna="emitida" {...columna}>
+                    Emitida
+                  </ColumnaOrdenable>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                  <ColumnaOrdenable
+                    columna="total"
+                    {...columna}
+                    alinear="derecha"
+                    className="text-right"
+                  >
+                    Total
+                  </ColumnaOrdenable>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -231,6 +262,13 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
               </TableBody>
             </Table>
           </Card>
+          <Paginacion
+            pagina={pagina}
+            total={totalDe(ordenes)}
+            base={BASE}
+            parametros={sp}
+            nombre={["orden", "órdenes"]}
+          />
         </>
       )}
     </>

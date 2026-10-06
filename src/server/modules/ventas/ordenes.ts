@@ -1,9 +1,11 @@
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import type { Alcance } from "@/domain/cuentas/alcance";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import { periodoAlta, puedeTransicionar } from "@/domain/licencias/contrato";
 import { exito, type Resultado, rechazo } from "@/domain/resultado";
+import type { Orden, Pagina } from "@/lib/listados";
 import type { Db, Ejecutor, Tx } from "@/server/db/cliente";
+import { ordenarPor, paginar, totalFiltrado } from "@/server/db/listados";
 import * as t from "@/server/db/schema";
 import { ordenEnAlcance } from "../cuentas/alcance";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
@@ -35,15 +37,27 @@ export function alcanceDeOrden(alcance: AlcanceOrden) {
   );
 }
 
+export const COLUMNAS_ORDENES = ["numero", "empresa", "emitida", "total"] as const;
+export type ColumnaOrdenes = (typeof COLUMNAS_ORDENES)[number];
+
 export async function listarOrdenes(
   db: Ejecutor,
   filtros: AlcanceOrden & {
     estado?: EstadoOrden;
     busqueda?: string;
+    /** Sin página, devuelve todas (exportación). */
+    pagina?: Pagina;
+    orden?: Orden<ColumnaOrdenes>;
   } = {},
 ) {
   const numero = filtros.busqueda?.replace(/\D/g, "");
-  return db
+  const columnasOrden = {
+    numero: t.ordenes.numero,
+    empresa: sql`lower(coalesce(${t.empresas.nombre}, ${t.clientes.nombre}))`,
+    emitida: t.ordenes.emitidaEn,
+    total: t.ordenes.total,
+  };
+  const consulta = db
     .select({
       id: t.ordenes.id,
       numero: t.ordenes.numero,
@@ -61,6 +75,7 @@ export async function listarOrdenes(
       empresaNumero: t.empresas.numero,
       cliente: t.clientes.nombre,
       items: sql<number>`(select count(*)::int from ${t.ordenItems} oi where oi.orden_id = ${t.ordenes.id})`,
+      totalFilas: totalFiltrado(),
     })
     .from(t.ordenes)
     .innerJoin(t.mediosPago, eq(t.mediosPago.id, t.ordenes.medioPagoId))
@@ -73,8 +88,15 @@ export async function listarOrdenes(
         numero ? eq(t.ordenes.numero, Number(numero)) : undefined,
       ),
     )
-    .orderBy(desc(t.ordenes.emitidaEn))
-    .limit(200);
+    .orderBy(
+      ...ordenarPor(
+        columnasOrden,
+        filtros.orden ?? { columna: "emitida", direccion: "desc" },
+        t.ordenes.numero,
+      ),
+    )
+    .$dynamic();
+  return paginar(consulta, filtros.pagina);
 }
 
 /**

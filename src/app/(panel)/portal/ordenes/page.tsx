@@ -1,8 +1,10 @@
 import { ChevronRight, Download, Receipt } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { EstadoOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { Paginacion } from "@/components/panel/listado";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,20 +17,28 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { fechaCorta, pesos } from "@/lib/formato";
+import { hrefListado, leerPagina } from "@/lib/listados";
 import { requerirComercial } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { totalDe } from "@/server/db/listados";
 import { listarOrdenes } from "@/server/modules/ventas/ordenes";
 
 export const metadata: Metadata = { title: "Mis órdenes" };
 
-export default async function MisOrdenes() {
+export default async function MisOrdenes({ searchParams }: PageProps<"/portal/ordenes">) {
   const contexto = await requerirComercial();
+  const parametros = await searchParams;
+  const pagina = leerPagina(parametros);
   const db = await obtenerDb();
   const ordenes = await listarOrdenes(db, {
     empresaId: contexto.empresaId,
     clienteId: contexto.clienteId,
     alcance: contexto.alcance,
+    pagina,
   });
+  if (ordenes.length === 0 && pagina.numero > 1) {
+    redirect(hrefListado("/portal/ordenes", parametros, { pagina: 1 }));
+  }
 
   return (
     <>
@@ -90,6 +100,15 @@ export default async function MisOrdenes() {
             </li>
           ))}
         </ul>
+      )}
+      {ordenes.length > 0 && (
+        <Paginacion
+          pagina={pagina}
+          total={totalDe(ordenes)}
+          base="/portal/ordenes"
+          parametros={parametros}
+          nombre={["orden", "órdenes"]}
+        />
       )}
     </>
   );

@@ -4,7 +4,9 @@ import { z } from "zod";
 import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { AdjuntoValidado } from "@/domain/soporte/adjuntos";
+import type { Orden, Pagina } from "@/lib/listados";
 import type { Db, Ejecutor } from "@/server/db/cliente";
+import { ordenarPor, paginar, totalFiltrado } from "@/server/db/listados";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
 import { consumir } from "../consumos/consumir";
@@ -211,6 +213,17 @@ const columnasListado = {
   mensajes: sql<number>`(select count(*)::int from ${t.incidenteMensajes} m where m.incidente_id = "incidentes"."id" and not m.interno)`,
   /** El último mensaje visible es del cliente: le toca responder a SOFTeam. */
   esperaSofteam: sql<boolean>`coalesce((select not m.de_softeam from ${t.incidenteMensajes} m where m.incidente_id = "incidentes"."id" and not m.interno order by m.creado_en desc limit 1), true)`,
+  totalFilas: totalFiltrado(),
+};
+
+export const COLUMNAS_INCIDENTES = ["numero", "empresa", "prioridad", "actividad"] as const;
+export type ColumnaIncidentes = (typeof COLUMNAS_INCIDENTES)[number];
+
+const columnasOrden = {
+  numero: t.incidentes.numero,
+  empresa: sql`lower(${t.empresas.nombre})`,
+  prioridad: sql`case ${t.incidentes.prioridad} when 'ALTA' then 0 when 'MEDIA' then 1 else 2 end`,
+  actividad: t.incidentes.ultimaActividadEn,
 };
 
 /** Pedidos de la empresa (un delegado ve los de su canal u oficina). */
@@ -218,8 +231,9 @@ export async function incidentesDeEmpresa(
   db: Ejecutor,
   empresaId: string,
   alcance: Alcance = TODA_LA_EMPRESA,
+  pagina?: Pagina,
 ) {
-  return db
+  const consulta = db
     .select(columnasListado)
     .from(t.incidentes)
     .innerJoin(t.empresas, eq(t.empresas.id, t.incidentes.empresaId))
@@ -230,14 +244,18 @@ export async function incidentesDeEmpresa(
         canalOficinaEnAlcance(t.incidentes.canalId, t.incidentes.oficinaId, alcance),
       ),
     )
-    .orderBy(desc(t.incidentes.ultimaActividadEn))
-    .limit(200);
+    .orderBy(desc(t.incidentes.ultimaActividadEn), desc(t.incidentes.numero))
+    .$dynamic();
+  return paginar(consulta, pagina);
 }
 
 export interface FiltrosBandeja {
   estado?: EstadoIncidente | "ABIERTOS" | undefined;
   asignadoAId?: string | "SIN_ASIGNAR" | undefined;
   texto?: string | undefined;
+  pagina?: Pagina | undefined;
+  /** Por defecto, prioridad: lo urgente primero y, a igual prioridad, lo que más espera. */
+  orden?: Orden<ColumnaIncidentes> | undefined;
 }
 
 /** Bandeja de Soporte: por defecto, los abiertos, los más urgentes y antiguos primero. */
@@ -245,7 +263,7 @@ export async function bandejaDeSoporte(db: Ejecutor, filtros: FiltrosBandeja) {
   const texto = filtros.texto?.trim();
   const patron = texto ? `%${texto.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : undefined;
   const estado = filtros.estado ?? "ABIERTOS";
-  return db
+  const consulta = db
     .select(columnasListado)
     .from(t.incidentes)
     .innerJoin(t.empresas, eq(t.empresas.id, t.incidentes.empresaId))
@@ -270,10 +288,14 @@ export async function bandejaDeSoporte(db: Ejecutor, filtros: FiltrosBandeja) {
       ),
     )
     .orderBy(
-      sql`case ${t.incidentes.prioridad} when 'ALTA' then 0 when 'MEDIA' then 1 else 2 end`,
-      asc(t.incidentes.ultimaActividadEn),
+      ...ordenarPor(
+        columnasOrden,
+        filtros.orden ?? { columna: "prioridad", direccion: "asc" },
+        t.incidentes.ultimaActividadEn,
+      ),
     )
-    .limit(200);
+    .$dynamic();
+  return paginar(consulta, filtros.pagina);
 }
 
 export type IncidenteListado = Awaited<ReturnType<typeof bandejaDeSoporte>>[number];

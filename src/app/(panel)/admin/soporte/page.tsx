@@ -1,7 +1,9 @@
 import { Headset, MessageSquareWarning, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { ColumnaOrdenable, Paginacion } from "@/components/panel/listado";
 import { SelectNativo } from "@/components/select-nativo";
 import { ESTADOS_INCIDENTE, EstadoIncidente, PRIORIDADES } from "@/components/soporte/conversacion";
 import { Badge } from "@/components/ui/badge";
@@ -23,16 +25,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { hrefListado, leerListado } from "@/lib/listados";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { totalDe } from "@/server/db/listados";
 import {
   bandejaDeSoporte,
+  COLUMNAS_INCIDENTES,
   type EstadoIncidente as Estado,
   PRODUCTOS_SOPORTE,
 } from "@/server/modules/soporte/incidentes";
 
 export const metadata: Metadata = { title: "Soporte" };
+
+const BASE = "/admin/soporte";
 
 const horaCorta = (d: Date) =>
   new Intl.DateTimeFormat("es-AR", {
@@ -50,11 +57,21 @@ export default async function BandejaSoporte({ searchParams }: PageProps<"/admin
       : "ABIERTOS";
   const asignacion = typeof sp.asignado === "string" ? sp.asignado : "";
   const texto = typeof sp.q === "string" ? sp.q : "";
+  const { pagina, orden } = leerListado(sp, COLUMNAS_INCIDENTES, {
+    columna: "prioridad",
+    direccion: "asc",
+  });
   const incidentes = await bandejaDeSoporte(await obtenerDb(), {
     estado,
     asignadoAId: asignacion === "mios" ? user.id : asignacion === "sin" ? "SIN_ASIGNAR" : undefined,
     texto,
+    pagina,
+    orden,
   });
+  if (incidentes.length === 0 && pagina.numero > 1) {
+    redirect(hrefListado(BASE, sp, { pagina: 1 }));
+  }
+  const columna = { orden, base: BASE, parametros: sp };
 
   return (
     <>
@@ -122,12 +139,20 @@ export default async function BandejaSoporte({ searchParams }: PageProps<"/admin
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="pl-4">Pedido</TableHead>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>Prioridad</TableHead>
+                  <ColumnaOrdenable columna="numero" {...columna} className="pl-4">
+                    Pedido
+                  </ColumnaOrdenable>
+                  <ColumnaOrdenable columna="empresa" {...columna}>
+                    Empresa
+                  </ColumnaOrdenable>
+                  <ColumnaOrdenable columna="prioridad" {...columna}>
+                    Prioridad
+                  </ColumnaOrdenable>
                   <TableHead>Estado</TableHead>
                   <TableHead>Asignado</TableHead>
-                  <TableHead>Última actividad</TableHead>
+                  <ColumnaOrdenable columna="actividad" {...columna}>
+                    Última actividad
+                  </ColumnaOrdenable>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -183,6 +208,15 @@ export default async function BandejaSoporte({ searchParams }: PageProps<"/admin
             </Table>
           </div>
         </Card>
+      )}
+      {incidentes.length > 0 && (
+        <Paginacion
+          pagina={pagina}
+          total={totalDe(incidentes)}
+          base={BASE}
+          parametros={sp}
+          nombre={["pedido", "pedidos"]}
+        />
       )}
     </>
   );

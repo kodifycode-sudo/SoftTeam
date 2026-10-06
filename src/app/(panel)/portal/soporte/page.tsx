@@ -1,7 +1,9 @@
 import { ChevronRight, LifeBuoy, MessageSquareReply, PackageSearch } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { Paginacion } from "@/components/panel/listado";
 import { EstadoIncidente } from "@/components/soporte/conversacion";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -14,8 +16,10 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { fechaCorta } from "@/lib/formato";
+import { hrefListado, leerPagina } from "@/lib/listados";
 import { puedeComprar, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { totalDe } from "@/server/db/listados";
 import {
   creditosDeSoporte,
   incidentesDeEmpresa,
@@ -25,13 +29,18 @@ import { NuevoIncidente } from "./nuevo";
 
 export const metadata: Metadata = { title: "Soporte" };
 
-export default async function PaginaSoporte() {
+export default async function PaginaSoporte({ searchParams }: PageProps<"/portal/soporte">) {
   const contexto = await requerirCliente();
+  const parametros = await searchParams;
+  const pagina = leerPagina(parametros);
   const db = await obtenerDb();
   const [creditos, incidentes] = await Promise.all([
     creditosDeSoporte(db, contexto.empresaId),
-    incidentesDeEmpresa(db, contexto.empresaId, contexto.alcance),
+    incidentesDeEmpresa(db, contexto.empresaId, contexto.alcance, pagina),
   ]);
+  if (incidentes.length === 0 && pagina.numero > 1) {
+    redirect(hrefListado("/portal/soporte", parametros, { pagina: 1 }));
+  }
 
   return (
     <>
@@ -127,6 +136,15 @@ export default async function PaginaSoporte() {
             </li>
           ))}
         </ul>
+      )}
+      {incidentes.length > 0 && (
+        <Paginacion
+          pagina={pagina}
+          total={totalDe(incidentes)}
+          base="/portal/soporte"
+          parametros={parametros}
+          nombre={["pedido", "pedidos"]}
+        />
       )}
     </>
   );
