@@ -287,7 +287,28 @@ export function FormularioRegistro({ provincias }: { provincias: readonly string
             >
               <Checkbox id="aceptaTerminos" name="aceptaTerminos" value="on" />
               <FieldLabel htmlFor="aceptaTerminos" className="font-normal">
-                Acepto las condiciones de uso y el tratamiento de mis datos.
+                {/* En otra pestaña: así no se pierde lo cargado en el formulario. */}
+                <span>
+                  Acepto los{" "}
+                  <a
+                    href="/terminos"
+                    target="_blank"
+                    rel="noopener"
+                    className="text-primary underline underline-offset-4"
+                  >
+                    términos y condiciones
+                  </a>{" "}
+                  y la{" "}
+                  <a
+                    href="/privacidad"
+                    target="_blank"
+                    rel="noopener"
+                    className="text-primary underline underline-offset-4"
+                  >
+                    política de privacidad
+                  </a>
+                  .
+                </span>
               </FieldLabel>
             </Field>
             <FieldError errors={estado.errores?.aceptaTerminos?.map((message) => ({ message }))} />

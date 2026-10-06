@@ -94,7 +94,7 @@ export async function registrarCliente(page: Page, razonSocial: string, email: s
   await page.getByLabel("Mail", { exact: true }).fill(email);
   await page.getByLabel("Contraseña", { exact: true }).fill(CONTRASENA);
   await page.getByLabel("Repetí la contraseña").fill(CONTRASENA);
-  await page.getByRole("checkbox", { name: "Acepto las condiciones de uso" }).click();
+  await page.getByRole("checkbox", { name: /Acepto los términos y condiciones/ }).click();
   await page.getByRole("button", { name: "Crear cuenta y continuar" }).click();
   await expect(page).toHaveURL(/\/registro\/verificar/);
   await page.getByLabel("Código de verificación").fill(await codigoEnviadoA(email));

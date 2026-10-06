@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PieLegal } from "@/components/legal";
 import { MarcaStlic } from "@/components/marca";
 import { SelectorTema } from "@/components/tema";
 import { buttonVariants } from "@/components/ui/button";
@@ -135,14 +136,7 @@ export default async function Inicio() {
         ))}
       </section>
 
-      <footer className="mt-auto border-t">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:justify-between sm:px-6">
-          <span>SOFTeam Sistemas · de Contacto Asegurado SRL</span>
-          <a href="https://softeam.com.ar/st/" className="hover:text-foreground" rel="noopener">
-            softeam.com.ar
-          </a>
-        </div>
-      </footer>
+      <PieLegal className="mt-auto" />
     </div>
   );
 }

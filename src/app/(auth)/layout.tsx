@@ -65,6 +65,17 @@ export default function LayoutAcceso({ children }: LayoutProps<"/">) {
           <LogoSofteam className="h-9" />
         </Link>
         {children}
+        <nav
+          aria-label="Legales"
+          className="mt-10 flex gap-5 text-xs text-muted-foreground lg:absolute lg:bottom-6"
+        >
+          <Link href="/terminos" className="hover:text-foreground">
+            Términos y condiciones
+          </Link>
+          <Link href="/privacidad" className="hover:text-foreground">
+            Privacidad
+          </Link>
+        </nav>
       </main>
     </div>
   );
