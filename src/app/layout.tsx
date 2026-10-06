@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { SincronizarTema } from "@/components/tema";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { env } from "@/env";
 import { SCRIPT_TEMA } from "@/lib/tema";
 import "./globals.css";
 
@@ -12,6 +13,18 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: { default: "STLic · SOFTeam", template: "%s · STLic" },
   description: "Licencias, paquetes y cuentas de los productos de SOFTeam.",
+  // Base de las URL absolutas de la imagen para compartir.
+  metadataBase: new URL(env.BETTER_AUTH_URL),
+  applicationName: "STLic",
+  openGraph: {
+    type: "website",
+    locale: "es_AR",
+    siteName: "STLic · SOFTeam",
+    title: "STLic · Portal de clientes de SOFTeam",
+    description:
+      "Contratá, renová y seguí el uso de Prodigal, CotiWeb, BienSeguro y Boletín C@ desde un solo lugar.",
+  },
+  twitter: { card: "summary_large_image" },
   robots: { index: false, follow: false },
 };
 
