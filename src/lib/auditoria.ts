@@ -1,3 +1,5 @@
+import { fechaCorta } from "@/lib/formato";
+
 /*
  * Nombres legibles de la auditoría: los usan la pantalla de auditoría y el
  * histórico de actividad de cada empresa.
@@ -98,4 +100,91 @@ export function nombreDe(antes: unknown, despues: unknown): string | undefined {
     }
   }
   return undefined;
+}
+
+/** Campos técnicos que no aportan al leer un cambio. */
+const CAMPOS_OMITIDOS = new Set(["actualizadoEn", "updatedAt", "creadoEn", "createdAt"]);
+
+const ISO_FECHA_HORA = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const ISO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Palabras de los nombres de campo que llevan tilde, siglas o nombre propio. */
+const PALABRAS: Record<string, string> = {
+  codigo: "código",
+  numero: "número",
+  telefono: "teléfono",
+  razon: "razón",
+  condicion: "condición",
+  direccion: "dirección",
+  matricula: "matrícula",
+  ultima: "última",
+  ultimo: "último",
+  periodo: "período",
+  bonificacion: "bonificación",
+  renovacion: "renovación",
+  generacion: "generación",
+  descripcion: "descripción",
+  comunicacion: "comunicación",
+  notificacion: "notificación",
+  prodigal: "Prodigal",
+  cotiweb: "CotiWeb",
+  bienseguro: "BienSeguro",
+  iva: "IVA",
+  cuit: "CUIT",
+  id: "id",
+};
+
+/** "interfazProdigalBajaDesde" → "Interfaz Prodigal baja desde". */
+export function campoLegible(campo: string): string {
+  const texto = campo
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .split(" ")
+    .map((palabra) => PALABRAS[palabra] ?? palabra)
+    .join(" ");
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+/** Valor de un campo como texto corto: Sí/No, —, fechas legibles, objetos en JSON. */
+export function valorLegible(valor: unknown): string {
+  if (valor === null || valor === undefined || valor === "") return "—";
+  if (typeof valor === "boolean") return valor ? "Sí" : "No";
+  if (typeof valor === "string" && ISO_FECHA_HORA.test(valor)) {
+    return new Intl.DateTimeFormat("es-AR", {
+      dateStyle: "short",
+      timeStyle: "short",
+      timeZone: "America/Argentina/Buenos_Aires",
+    }).format(new Date(valor));
+  }
+  if (typeof valor === "string" && ISO_FECHA.test(valor)) return fechaCorta(valor);
+  if (typeof valor === "object") return JSON.stringify(valor);
+  return String(valor);
+}
+
+export interface Diferencia {
+  campo: string;
+  antes: string;
+  despues: string;
+}
+
+const esObjeto = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object" && !Array.isArray(v);
+
+/**
+ * Campos que cambiaron entre `antes` y `despues`. En un alta (sin antes) o
+ * una baja (sin después) lista los campos con valor del lado que existe.
+ */
+export function diferencias(antes: unknown, despues: unknown): Diferencia[] {
+  const a = esObjeto(antes) ? antes : {};
+  const d = esObjeto(despues) ? despues : {};
+  const campos = [...new Set([...Object.keys(a), ...Object.keys(d)])];
+  return campos
+    .filter((c) => !CAMPOS_OMITIDOS.has(c))
+    .filter((c) => JSON.stringify(a[c] ?? null) !== JSON.stringify(d[c] ?? null))
+    .map((c) => ({
+      campo: campoLegible(c),
+      antes: valorLegible(a[c]),
+      despues: valorLegible(d[c]),
+    }));
 }

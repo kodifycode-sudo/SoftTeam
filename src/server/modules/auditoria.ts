@@ -59,6 +59,7 @@ export async function listarAuditoria(db: Ejecutor, filtros: FiltrosAuditoria) {
       antes: t.auditoria.antes,
       despues: t.auditoria.despues,
       motivo: t.auditoria.motivo,
+      empresaId: t.auditoria.empresaId,
     })
     .from(t.auditoria)
     .leftJoin(t.usuarios, eq(t.usuarios.id, t.auditoria.actorId))

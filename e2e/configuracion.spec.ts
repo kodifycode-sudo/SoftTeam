@@ -215,7 +215,9 @@ test.describe
       await page.getByRole("button", { name: "Filtrar" }).click();
       await expect(page.getByText("Alta de código").first()).toBeVisible();
       await page.getByText("Alta de código").first().click();
-      await expect(page.locator("details[open]").getByText('"codigo": "AB-12"')).toBeVisible();
+      // El detalle muestra el cambio campo por campo.
+      const cambio = page.locator("details[open]").getByRole("row").filter({ hasText: "Código" });
+      await expect(cambio.getByRole("cell", { name: "AB-12" })).toBeVisible();
       await capturar(page, "admin-auditoria");
 
       await page.getByRole("link", { name: "Usuarios SOFTeam" }).click();

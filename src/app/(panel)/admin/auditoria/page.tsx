@@ -14,10 +14,12 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import { accionLegible, ENTIDADES_AUDITORIA, nombreDe } from "@/lib/auditoria";
+import { accionLegible, diferencias, ENTIDADES_AUDITORIA, nombreDe } from "@/lib/auditoria";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { entidadesAuditadas, listarAuditoria } from "@/server/modules/auditoria";
+import { type Referencia, referenciasAuditoria } from "@/server/modules/auditoria-referencias";
+import { actorAutomatico } from "@/server/modules/cuentas/actividad";
 
 export const metadata: Metadata = { title: "Auditoría" };
 
@@ -40,6 +42,72 @@ function Json({ titulo, valor }: { titulo: string; valor: unknown }) {
   );
 }
 
+/** Qué cambió, campo por campo; el JSON completo queda a mano por si hace falta. */
+function Cambios({ antes, despues }: { antes: unknown; despues: unknown }) {
+  if ((antes === null || antes === undefined) && (despues === null || despues === undefined)) {
+    return null;
+  }
+  const filas = diferencias(antes, despues);
+  return (
+    <div className="space-y-3">
+      {filas.length > 0 ? (
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 font-medium">Campo</th>
+                <th className="px-3 py-2 font-medium">Antes</th>
+                <th className="px-3 py-2 font-medium">Después</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filas.map((f) => (
+                <tr key={f.campo}>
+                  <td className="px-3 py-2 font-medium whitespace-nowrap">{f.campo}</td>
+                  <td className="max-w-xs px-3 py-2 break-words text-muted-foreground">
+                    {f.antes}
+                  </td>
+                  <td className="max-w-xs px-3 py-2 break-words">{f.despues}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">Ningún dato cambió de valor.</p>
+      )}
+      <details className="group/json">
+        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+          Ver los datos completos
+        </summary>
+        <div className="mt-2 flex flex-col gap-3 lg:flex-row">
+          <Json titulo="Antes" valor={antes} />
+          <Json titulo="Después" valor={despues} />
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function EnlaceReferencia({
+  referencia,
+  className,
+}: {
+  referencia: Referencia;
+  className?: string;
+}) {
+  return referencia.href ? (
+    <Link
+      href={referencia.href}
+      className={`underline-offset-4 hover:underline ${className ?? ""}`}
+    >
+      {referencia.texto}
+    </Link>
+  ) : (
+    <span className={className}>{referencia.texto}</span>
+  );
+}
+
 export default async function PaginaAuditoria({ searchParams }: PageProps<"/admin/auditoria">) {
   await requerirSofteam(["ADMINISTRACION", "SOPORTE"]);
   const { entidad, q, antes } = await searchParams;
@@ -53,6 +121,7 @@ export default async function PaginaAuditoria({ searchParams }: PageProps<"/admi
     listarAuditoria(db, filtros),
     entidadesAuditadas(db),
   ]);
+  const referencias = await referenciasAuditoria(db, registros);
 
   const masAntiguos = new URLSearchParams();
   if (filtros.entidad) masAntiguos.set("entidad", filtros.entidad);
@@ -115,51 +184,61 @@ export default async function PaginaAuditoria({ searchParams }: PageProps<"/admi
         </Empty>
       ) : (
         <Card className="gap-0 divide-y overflow-hidden p-0">
-          {registros.map((r) => (
-            <details key={r.id} className="group">
-              <summary className="flex cursor-pointer list-none flex-col gap-1.5 px-4 py-3 hover:bg-muted/40 sm:flex-row sm:items-center sm:gap-4 [&::-webkit-details-marker]:hidden">
-                <span className="w-40 shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {fechaHora(r.en)}
-                </span>
-                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                  <Badge variant="outline">{ENTIDADES_AUDITORIA[r.entidad] ?? r.entidad}</Badge>
-                  <span className="font-medium">{accionLegible(r.accion)}</span>
-                  {nombreDe(r.antes, r.despues) && (
-                    <span className="truncate text-sm">{nombreDe(r.antes, r.despues)}</span>
+          {registros.map((r) => {
+            const { objeto, empresa } = referencias.get(r.id) ?? {};
+            const nombreGuardado = nombreDe(r.antes, r.despues);
+            return (
+              <details key={r.id} className="group">
+                <summary className="flex cursor-pointer list-none flex-col gap-1.5 px-4 py-3 hover:bg-muted/40 sm:flex-row sm:items-center sm:gap-4 [&::-webkit-details-marker]:hidden">
+                  <span className="w-40 shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {fechaHora(r.en)}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                    <Badge variant="outline">{ENTIDADES_AUDITORIA[r.entidad] ?? r.entidad}</Badge>
+                    <span className="font-medium">{accionLegible(r.accion)}</span>
+                    {objeto ? (
+                      <EnlaceReferencia referencia={objeto} className="truncate text-sm" />
+                    ) : (
+                      nombreGuardado && <span className="truncate text-sm">{nombreGuardado}</span>
+                    )}
+                    {empresa && (
+                      <span className="truncate text-sm text-muted-foreground">
+                        · <EnlaceReferencia referencia={empresa} />
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-2 text-sm sm:w-56 sm:justify-end">
+                    <span className="truncate">
+                      {r.actorNombre ??
+                        (r.actorTipo === "usuario"
+                          ? "Usuario eliminado"
+                          : actorAutomatico(r.actorTipo))}
+                    </span>
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                  </span>
+                </summary>
+                <div className="space-y-3 bg-muted/20 px-4 py-4">
+                  {r.actorEmail && (
+                    <p className="text-xs text-muted-foreground">
+                      Por {r.actorNombre} ({r.actorEmail})
+                    </p>
                   )}
-                  <span className="truncate font-mono text-xs text-muted-foreground">
-                    {r.entidadId}
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-sm sm:w-56 sm:justify-end">
-                  <span className="truncate">
-                    {r.actorNombre ??
-                      (r.actorTipo === "usuario" ? "Usuario eliminado" : r.actorTipo)}
-                  </span>
-                  <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
-                </span>
-              </summary>
-              <div className="space-y-3 bg-muted/20 px-4 py-4">
-                {r.actorEmail && (
+                  {r.motivo && (
+                    <p className="text-sm">
+                      <span className="font-medium">Motivo:</span> {r.motivo}
+                    </p>
+                  )}
+                  <Cambios antes={r.antes} despues={r.despues} />
+                  {r.antes === null && r.despues === null && !r.motivo && (
+                    <p className="text-xs text-muted-foreground">Sin más detalle.</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    Por {r.actorNombre} ({r.actorEmail})
+                    Identificador: <span className="font-mono">{r.entidadId}</span>
                   </p>
-                )}
-                {r.motivo && (
-                  <p className="text-sm">
-                    <span className="font-medium">Motivo:</span> {r.motivo}
-                  </p>
-                )}
-                <div className="flex flex-col gap-3 lg:flex-row">
-                  <Json titulo="Antes" valor={r.antes} />
-                  <Json titulo="Después" valor={r.despues} />
                 </div>
-                {r.antes === null && r.despues === null && !r.motivo && (
-                  <p className="text-xs text-muted-foreground">Sin más detalle.</p>
-                )}
-              </div>
-            </details>
-          ))}
+              </details>
+            );
+          })}
         </Card>
       )}
 
