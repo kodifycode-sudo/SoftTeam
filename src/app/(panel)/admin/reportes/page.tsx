@@ -180,14 +180,15 @@ async function Cobranza({ fecha }: { fecha: ReturnType<typeof hoy> }) {
         <GraficoBarras
           descripcion="Emitido y cobrado en los últimos 12 meses"
           series={[
-            { nombre: "Emitido", clase: "bg-primary/40" },
-            { nombre: "Cobrado", clase: "bg-primary" },
+            { nombre: "Emitido", color: "var(--chart-1)" },
+            { nombre: "Cobrado", color: "var(--chart-2)" },
           ]}
           grupos={meses.map((m, i) => ({
             etiqueta: mesGrafico(m.mes, i),
+            detalle: mesCorto(m.mes),
             valores: [aPesos(m.emitido), aPesos(m.cobrado)],
           }))}
-          formato={(v) => pesos(BigInt(Math.round(v * 100)))}
+          unidad="pesos"
         />
         <div className="mt-4 overflow-x-auto">
           <Table>
@@ -401,9 +402,9 @@ async function Vencimientos({ fecha, dias }: { fecha: ReturnType<typeof hoy>; di
 }
 
 const FAMILIAS = [
-  { familia: "notificaciones", nombre: "Notificaciones", clase: "bg-brand" },
-  { familia: "cotizaciones", nombre: "Cotizaciones", clase: "bg-primary" },
-  { familia: "soporte", nombre: "Soporte", clase: "bg-success" },
+  { familia: "notificaciones", nombre: "Notificaciones", color: "var(--chart-1)" },
+  { familia: "cotizaciones", nombre: "Cotizaciones", color: "var(--chart-2)" },
+  { familia: "soporte", nombre: "Soporte", color: "var(--chart-3)" },
 ] as const;
 
 async function Consumos({ fecha, mes }: { fecha: ReturnType<typeof hoy>; mes: string }) {
@@ -430,12 +431,12 @@ async function Consumos({ fecha, mes }: { fecha: ReturnType<typeof hoy>; mes: st
           <>
             <GraficoBarras
               descripcion="Créditos consumidos por mes y familia"
-              series={FAMILIAS.map((f) => ({ nombre: f.nombre, clase: f.clase }))}
+              series={FAMILIAS.map((f) => ({ nombre: f.nombre, color: f.color }))}
               grupos={meses.map((m, i) => ({
                 etiqueta: mesGrafico(m, i),
+                detalle: mesCorto(m),
                 valores: FAMILIAS.map((f) => credito(m, f.familia)),
               }))}
-              formato={numero}
             />
             <div className="mt-4 overflow-x-auto">
               <Table>

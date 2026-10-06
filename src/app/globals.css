@@ -89,9 +89,12 @@
   --success-foreground: oklch(0.99 0 0);
   --warning: oklch(0.78 0.16 75);
   --warning-foreground: oklch(0.25 0.05 70);
+  /* Series de gráficos en orden fijo (1, 2, 3…), validadas para daltonismo y
+     contraste. El ámbar es el amarillo de marca oscurecido: el original no se
+     distingue sobre blanco. */
   --chart-1: oklch(0.538 0.178 255.5);
-  --chart-2: oklch(0.839 0.162 84.4);
-  --chart-3: oklch(0.65 0.12 190);
+  --chart-2: oklch(0.75 0.16 75);
+  --chart-3: oklch(0.6 0.11 190);
   --chart-4: oklch(0.446 0.037 257.3);
   --chart-5: oklch(0.53 0.207 22.3);
   --radius: 0.75rem;
@@ -132,9 +135,9 @@
   --success-foreground: oklch(0.16 0.03 258);
   --warning: oklch(0.8 0.15 78);
   --warning-foreground: oklch(0.22 0.05 70);
-  --chart-1: oklch(0.66 0.15 252);
-  --chart-2: oklch(0.839 0.162 84.4);
-  --chart-3: oklch(0.7 0.12 190);
+  --chart-1: oklch(0.64 0.15 252);
+  --chart-2: oklch(0.66 0.15 78);
+  --chart-3: oklch(0.6 0.11 185);
   --chart-4: oklch(0.72 0.02 257);
   --chart-5: oklch(0.65 0.2 22);
   --sidebar: oklch(0.15 0.03 258);
