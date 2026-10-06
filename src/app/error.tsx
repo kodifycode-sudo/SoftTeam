@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 
 export default function ErrorGeneral({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   return (
     <EstadoPagina
@@ -25,7 +25,7 @@ export default function ErrorGeneral({
           )}
         </>
       }
-      acciones={<Button onClick={reset}>Reintentar</Button>}
+      acciones={<Button onClick={() => retry()}>Reintentar</Button>}
     />
   );
 }
