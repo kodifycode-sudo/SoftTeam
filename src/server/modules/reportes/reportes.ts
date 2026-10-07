@@ -3,7 +3,9 @@ import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { centavos } from "@/domain/dinero";
 import { diasEntre, type Fecha, inicioDeMes, sumarDias, sumarMeses } from "@/domain/fecha";
 import { periodosComparables } from "@/domain/reportes/periodos";
+import type { Pagina } from "@/lib/listados";
 import type { Ejecutor } from "@/server/db/cliente";
+import { paginar, totalFiltrado } from "@/server/db/listados";
 import * as t from "@/server/db/schema";
 import { oficinaEnAlcance } from "../cuentas/alcance";
 
@@ -430,19 +432,21 @@ export async function incidentesPorEstado(db: Ejecutor) {
 
 /** Historial de consumos de una empresa, lo más reciente primero. */
 /** Consumos de la empresa (un delegado ve los de sus oficinas). */
+/** Consumos de la empresa, los últimos primero. Sin página, devuelve todos (exportación). */
 export async function consumosDeEmpresa(
   db: Ejecutor,
   empresaId: string,
-  limite = 500,
   alcance: Alcance = TODA_LA_EMPRESA,
+  pagina?: Pagina,
 ) {
-  return db
+  const consulta = db
     .select({
       id: t.consumos.id,
       registradoEn: t.consumos.registradoEn,
       familia: t.consumos.familia,
       sistema: t.consumos.sistema,
       medio: t.consumos.medioEnvioId,
+      medioNombre: t.mediosEnvio.nombre,
       cantidad: t.consumos.cantidad,
       solicitados: t.consumos.creditosSolicitados,
       consumidos: t.consumos.creditosConsumidos,
@@ -450,11 +454,14 @@ export async function consumosDeEmpresa(
       oficina: sql<
         string | null
       >`(select c.codigo || '-' || o.codigo from ${t.oficinas} o join ${t.canales} c on c.id = o.canal_id where o.id = "consumos"."oficina_id")`,
+      totalFilas: totalFiltrado(),
     })
     .from(t.consumos)
+    .leftJoin(t.mediosEnvio, eq(t.mediosEnvio.id, t.consumos.medioEnvioId))
     .where(
       and(eq(t.consumos.empresaId, empresaId), oficinaEnAlcance(t.consumos.oficinaId, alcance)),
     )
-    .orderBy(desc(t.consumos.registradoEn))
-    .limit(limite);
+    .orderBy(desc(t.consumos.registradoEn), desc(t.consumos.id))
+    .$dynamic();
+  return paginar(consulta, pagina);
 }

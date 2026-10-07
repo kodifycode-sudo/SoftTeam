@@ -57,6 +57,13 @@ describe("histórico de actividad", () => {
     expect(paraCliente).toMatchObject([
       { entidad: "politicas", actor: "Ana Cliente", despues: null },
     ]);
+
+    // Dice sobre qué fue el cambio; el enlace (al panel de SOFTeam) solo para SOFTeam.
+    expect(paraSofteam[1]?.objeto).toEqual({
+      texto: empresa.nombre,
+      href: `/admin/clientes/${empresa.clienteId}`,
+    });
+    expect(paraCliente[0]?.objeto).toEqual({ texto: empresa.nombre });
   });
 });
 

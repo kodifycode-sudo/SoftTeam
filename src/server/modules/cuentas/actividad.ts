@@ -3,6 +3,7 @@ import { notasVisibles } from "@/domain/cuentas/marca";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { type Referencia, referenciasAuditoria } from "../auditoria-referencias";
 
 /** Notas de SOFTeam sobre la empresa, filtradas según quién mira. */
 export async function notasDeEmpresa(db: Ejecutor, empresaId: string, esSofteam: boolean) {
@@ -53,6 +54,8 @@ export interface Actividad {
   actor: string;
   antes: unknown;
   despues: unknown;
+  /** Sobre qué fue el cambio ("Allianz", "Orden #10033"); con enlace solo para SOFTeam. */
+  objeto?: Referencia;
 }
 
 /**
@@ -70,6 +73,8 @@ export async function actividadDeEmpresa(
       id: t.auditoria.id,
       en: t.auditoria.en,
       entidad: t.auditoria.entidad,
+      entidadId: t.auditoria.entidadId,
+      empresaId: t.auditoria.empresaId,
       accion: t.auditoria.accion,
       actorTipo: t.auditoria.actorTipo,
       actorNombre: t.usuarios.name,
@@ -83,9 +88,11 @@ export async function actividadDeEmpresa(
     .orderBy(desc(t.auditoria.id))
     .limit(opciones.limite ?? 30);
 
+  const referencias = await referenciasAuditoria(db, filas);
   return filas
     .filter((f) => opciones.esSofteam || f.entidad !== "notas")
     .map((f) => {
+      const objeto = referencias.get(f.id)?.objeto;
       const deSofteam = f.actorRol !== null || f.actorTipo !== "usuario";
       const actor =
         !opciones.esSofteam && deSofteam
@@ -100,6 +107,8 @@ export async function actividadDeEmpresa(
         actor,
         antes: opciones.esSofteam ? f.antes : null,
         despues: opciones.esSofteam ? f.despues : null,
+        // Los enlaces van al panel de SOFTeam: el cliente ve solo el nombre.
+        ...(objeto ? { objeto: opciones.esSofteam ? objeto : { texto: objeto.texto } } : {}),
       };
     });
 }

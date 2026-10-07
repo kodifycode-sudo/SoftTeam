@@ -1,4 +1,5 @@
 import { History } from "lucide-react";
+import Link from "next/link";
 import { accionLegible, ENTIDADES_AUDITORIA, nombreDe } from "@/lib/auditoria";
 import type { Actividad } from "@/server/modules/cuentas/actividad";
 
@@ -21,7 +22,7 @@ export function ListaActividad({ actividad }: { actividad: Actividad[] }) {
   return (
     <ol className="space-y-3 border-l pl-4">
       {actividad.map((a) => {
-        const nombre = nombreDe(a.antes, a.despues);
+        const nombre = a.objeto?.texto ?? nombreDe(a.antes, a.despues);
         return (
           <li key={a.id} className="relative text-sm">
             <span
@@ -32,7 +33,18 @@ export function ListaActividad({ actividad }: { actividad: Actividad[] }) {
               <span className="font-medium">{accionLegible(a.accion)}</span>{" "}
               <span className="text-muted-foreground">
                 · {ENTIDADES_AUDITORIA[a.entidad] ?? a.entidad}
-                {nombre && `: ${nombre}`}
+                {nombre && ": "}
+                {nombre &&
+                  (a.objeto?.href ? (
+                    <Link
+                      href={a.objeto.href}
+                      className="text-foreground underline-offset-4 hover:underline"
+                    >
+                      {nombre}
+                    </Link>
+                  ) : (
+                    <span className="text-foreground">{nombre}</span>
+                  ))}
               </span>
             </p>
             <p className="text-xs text-muted-foreground">

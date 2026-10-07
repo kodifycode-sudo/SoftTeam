@@ -136,7 +136,8 @@ export function VistaOrden({
               )}
               {orden.facturaNumero ? (
                 <span className="mt-1 block text-xs font-medium text-success">
-                  Comprobante {orden.facturaNumero}
+                  Comprobante{" "}
+                  <span className="whitespace-nowrap tabular-nums">{orden.facturaNumero}</span>
                 </span>
               ) : (
                 orden.estado === "PAGADA" && (

@@ -110,6 +110,9 @@ test.describe
       await expect(dialogo.getByLabel("Mail del administrador")).toHaveValue(administrador);
       await dialogo.getByRole("button", { name: "Crear empresa" }).click();
       await expect(page.getByText(`Creamos la empresa Norte ${sufijo}.`)).toBeVisible();
-      await expect(page.getByText(`Norte ${sufijo}`, { exact: true })).toBeVisible();
+      // La tarjeta de la empresa (el nombre también aparece en la actividad).
+      await expect(
+        page.locator('[data-slot="card-title"]', { hasText: `Norte ${sufijo}` }),
+      ).toBeVisible();
     });
   });

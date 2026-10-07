@@ -1,8 +1,10 @@
 /** Nombre de cada tipo de alerta, para pantallas del panel y del portal. */
 export const ETIQUETA_ALERTA = {
-  VENCIMIENTO_15D: "Vence en 15 días",
-  VENCIMIENTO_7D: "Vence en 7 días",
-  VENCIMIENTO_1D: "Vence mañana",
+  // Los días de cada aviso son configurables (alertas.vencimiento_dias): la etiqueta
+  // dice qué aviso es y el texto, cuántos días faltan.
+  VENCIMIENTO_15D: "Primer aviso de vencimiento",
+  VENCIMIENTO_7D: "Segundo aviso de vencimiento",
+  VENCIMIENTO_1D: "Último aviso de vencimiento",
   SALDO_BAJO: "Saldo bajo",
   SALDO_AGOTADO: "Saldo agotado",
   PLAZO_PAGO_POR_VENCER: "Plazo de pago por vencer",

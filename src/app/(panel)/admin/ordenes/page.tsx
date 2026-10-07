@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { fechaCorta, pesos } from "@/lib/formato";
 import { hrefListado, leerListado } from "@/lib/listados";
+import { nombresEquivalentes } from "@/lib/nombres";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
@@ -225,7 +226,10 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
                     </TableCell>
                     <TableCell>
                       <span className="block">{o.empresa ?? "Orden agrupada"}</span>
-                      <span className="text-xs text-muted-foreground">{o.cliente}</span>
+                      {/* El cliente solo si dice algo más que el nombre de la empresa. */}
+                      {!(o.empresa && nombresEquivalentes(o.empresa, o.cliente)) && (
+                        <span className="text-xs text-muted-foreground">{o.cliente}</span>
+                      )}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">{o.medio}</TableCell>
                     <TableCell>

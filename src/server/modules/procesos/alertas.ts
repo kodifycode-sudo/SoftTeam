@@ -178,9 +178,10 @@ export interface MailAlerta {
 export type EnviarAlerta = (mail: MailAlerta) => Promise<void>;
 
 const ASUNTOS: Partial<Record<TipoAlerta, string>> = {
-  VENCIMIENTO_15D: "Un paquete vence en 15 días",
-  VENCIMIENTO_7D: "Un paquete vence en una semana",
-  VENCIMIENTO_1D: "Un paquete vence mañana",
+  // Los días son configurables (alertas.vencimiento_dias): el cuerpo dice cuántos faltan.
+  VENCIMIENTO_15D: "Un paquete está por vencer",
+  VENCIMIENTO_7D: "Un paquete vence pronto",
+  VENCIMIENTO_1D: "Último aviso: un paquete está por vencer",
   SALDO_BAJO: "Te queda poco saldo",
   SALDO_AGOTADO: "Se agotó tu saldo",
   PLAZO_PAGO_POR_VENCER: "Vence el plazo para pagar",

@@ -1,6 +1,8 @@
 import { Activity, Download } from "lucide-react";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
+import { Paginacion } from "@/components/panel/listado";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -19,9 +21,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { numero } from "@/lib/formato";
+import { hrefListado, leerPagina } from "@/lib/listados";
+import { productoUI } from "@/lib/productos";
 import { cn } from "@/lib/utils";
 import { requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { totalDe } from "@/server/db/listados";
 import { consumosDeEmpresa } from "@/server/modules/reportes/reportes";
 
 export const metadata: Metadata = { title: "Consumos" };
@@ -39,20 +44,28 @@ const fechaHora = (d: Date) =>
     timeZone: "America/Argentina/Buenos_Aires",
   }).format(d);
 
-export default async function PaginaConsumos() {
+/** De dónde vino el consumo: el producto que lo informó, o el portal (soporte). */
+const origen = (sistema: string) => (sistema === "stlic" ? "Portal" : productoUI(sistema).nombre);
+
+export default async function PaginaConsumos({ searchParams }: PageProps<"/portal/consumos">) {
   const contexto = await requerirCliente();
+  const parametros = await searchParams;
+  const pagina = leerPagina(parametros, 50);
   const consumos = await consumosDeEmpresa(
     await obtenerDb(),
     contexto.empresaId,
-    200,
     contexto.alcance,
+    pagina,
   );
+  if (consumos.length === 0 && pagina.numero > 1) {
+    redirect(hrefListado("/portal/consumos", parametros, { pagina: 1 }));
+  }
 
   return (
     <>
       <EncabezadoPagina
         titulo="Consumos"
-        descripcion="Lo que descontaron los productos (notificaciones y cotizaciones) y los pedidos de soporte. Se ven los últimos 200; la exportación trae todo."
+        descripcion="Lo que descontaron los productos (notificaciones y cotizaciones) y los pedidos de soporte, lo último primero."
         acciones={
           <a href="/portal/consumos/exportar" className={buttonVariants({ variant: "outline" })}>
             <Download data-icon="inline-start" /> Exportar a Excel
@@ -80,6 +93,7 @@ export default async function PaginaConsumos() {
                 <TableRow>
                   <TableHead className="pl-4">Fecha</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Origen</TableHead>
                   <TableHead>Detalle</TableHead>
                   <TableHead className="text-right">Créditos</TableHead>
                 </TableRow>
@@ -91,14 +105,15 @@ export default async function PaginaConsumos() {
                       {fechaHora(c.registradoEn)}
                     </TableCell>
                     <TableCell>{FAMILIAS[c.familia] ?? c.familia}</TableCell>
+                    <TableCell className="whitespace-nowrap">{origen(c.sistema)}</TableCell>
                     <TableCell className="max-w-md truncate text-sm text-muted-foreground">
                       {[
                         c.concepto,
-                        c.medio && `por ${c.medio}`,
-                        c.oficina && `oficina ${c.oficina}`,
+                        (c.medioNombre ?? c.medio) && `por ${c.medioNombre ?? c.medio}`,
+                        c.oficina && `Oficina ${c.oficina}`,
                       ]
                         .filter(Boolean)
-                        .join(" · ") || c.sistema}
+                        .join(" · ") || "—"}
                     </TableCell>
                     <TableCell
                       className={cn(
@@ -117,6 +132,15 @@ export default async function PaginaConsumos() {
             </Table>
           </div>
         </Card>
+      )}
+      {consumos.length > 0 && (
+        <Paginacion
+          pagina={pagina}
+          total={totalDe(consumos)}
+          base="/portal/consumos"
+          parametros={parametros}
+          nombre={["consumo", "consumos"]}
+        />
       )}
     </>
   );
