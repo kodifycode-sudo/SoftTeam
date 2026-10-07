@@ -1,14 +1,8 @@
-import { BadgeCheck, Calculator, FolderKanban, Newspaper, Smartphone } from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 import Link from "next/link";
 import { LogoSofteam, MarcaStlic } from "@/components/marca";
 import { SelectorTema } from "@/components/tema";
-
-const PRODUCTOS = [
-  { icono: FolderKanban, nombre: "Prodigal", detalle: "Gestión de cartera" },
-  { icono: Calculator, nombre: "CotiWeb", detalle: "Multicotización y emisión" },
-  { icono: Smartphone, nombre: "BienSeguro", detalle: "Portal y app para asegurados" },
-  { icono: Newspaper, nombre: "Boletín C@", detalle: "Comunicación con tus clientes" },
-];
+import { PRODUCTOS_PRINCIPALES } from "@/lib/productos";
 
 export default function LayoutAcceso({ children }: LayoutProps<"/">) {
   return (
@@ -41,7 +35,7 @@ export default function LayoutAcceso({ children }: LayoutProps<"/">) {
             </p>
           </div>
           <ul className="grid grid-cols-2 gap-3">
-            {PRODUCTOS.map(({ icono: Icono, nombre, detalle }) => (
+            {PRODUCTOS_PRINCIPALES.map(({ icono: Icono, nombre, detalle }) => (
               <li
                 key={nombre}
                 className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm transition-colors hover:bg-white/[0.07]"

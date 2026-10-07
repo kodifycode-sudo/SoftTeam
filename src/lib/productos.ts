@@ -47,3 +47,14 @@ export const PRODUCTOS_UI: Record<string, { nombre: string; icono: LucideIcon; c
 
 export const productoUI = (id: string) =>
   PRODUCTOS_UI[id] ?? { nombre: id, icono: FolderKanban, clase: "bg-muted text-muted-foreground" };
+
+/**
+ * Los productos que se contratan desde el portal, como se presentan en la
+ * portada y en el acceso: una sola lista para que no diverjan.
+ */
+export const PRODUCTOS_PRINCIPALES = [
+  { id: "prodigal", detalle: "Gestión de cartera" },
+  { id: "cotiweb", detalle: "Multicotización y emisión" },
+  { id: "bienseguro", detalle: "Portal y app para asegurados" },
+  { id: "boletin", detalle: "Comunicación con tus clientes" },
+].map((p) => ({ ...p, ...productoUI(p.id) }));
