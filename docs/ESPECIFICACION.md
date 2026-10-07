@@ -579,7 +579,11 @@ Regla de dependencias: `domain` no importa nada del resto.
      el logo en `/api/v1/empresas/{numero}/logo` (con ETag).
    - **Tickets de soporte** ("atención de incidentes"): el cliente abre
      pedidos que consumen un ticket de su licencia (cupo mensual y después
-     saldo, diapositivas 37 y 40); Soporte los atiende desde una bandeja, con
+     saldo, diapositivas 37 y 40). **[Cambio 06/10/2026]** Las consultas sobre
+     la propia cuenta (producto `stlic`: licencias, pagos y facturación) no
+     consumen ticket, así un cliente sin tickets igual puede consultar
+     (`src/domain/soporte/tickets.ts`); el portal suma una página de Ayuda con
+     preguntas frecuentes de uso y acceso directo a esas consultas. Soporte los atiende desde una bandeja, con
      notas internas, asignación y estados; el cliente recibe aviso y mail de
      cada respuesta.
    - **Notas de SOFTeam** por empresa (las líneas que empiezan con "*" no las

@@ -72,6 +72,23 @@ describe("créditos de soporte", () => {
     expect(await db.$count(t.consumos, eq(t.consumos.empresaId, ctx.empresaId))).toBe(0);
   });
 
+  it("una consulta sobre la cuenta se abre sin tickets y no descuenta nada", async () => {
+    const { ctx } = await preparar();
+    const consulta = await abrirIncidente(
+      db,
+      ctx,
+      { ...pedido("¿Dónde veo la factura de octubre?"), producto: "stlic" },
+      HOY,
+    );
+    expect(consulta.ok).toBe(true);
+    const [incidente] = await db
+      .select()
+      .from(t.incidentes)
+      .where(eq(t.incidentes.empresaId, ctx.empresaId));
+    expect(incidente?.consumoId).toBeNull();
+    expect(await db.$count(t.consumos, eq(t.consumos.empresaId, ctx.empresaId))).toBe(0);
+  });
+
   it("usa el cupo del mes y después el saldo", async () => {
     const { empresa, orden, ctx } = await preparar("PRO-INICIAL"); // 2 por mes
     expect((await abrirIncidente(db, ctx, pedido("Uno"), HOY)).ok).toBe(true);

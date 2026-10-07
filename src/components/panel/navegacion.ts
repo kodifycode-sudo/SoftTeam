@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarClock,
   ChartColumn,
+  CircleHelp,
   CreditCard,
   FileUp,
   Gauge,
@@ -139,6 +140,7 @@ const NAVEGACION: Record<VariantePanel, { titulo: string; items: ItemNavegacion[
         { href: "/portal/avisos", etiqueta: "Avisos", icono: Bell },
         { href: "/portal/consumos", etiqueta: "Consumos", icono: Activity },
         { href: "/portal/soporte", etiqueta: "Soporte", icono: LifeBuoy },
+        { href: "/portal/ayuda", etiqueta: "Ayuda", icono: CircleHelp },
         {
           href: "/portal/paquetes",
           etiqueta: "Paquetes disponibles",

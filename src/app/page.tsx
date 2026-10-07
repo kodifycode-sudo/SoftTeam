@@ -52,7 +52,7 @@ const PREGUNTAS = [
   {
     pregunta: "¿Cómo se paga?",
     respuesta:
-      "Al confirmar el carrito se genera una orden que pagás por transferencia bancaria o en línea con Mercado Pago, según los medios habilitados. Los precios del catálogo no incluyen IVA y la factura electrónica queda disponible en el portal.",
+      "Al confirmar el carrito se genera una orden que pagás por transferencia bancaria o en línea con Mercado Pago, según los medios habilitados. Los precios del catálogo no incluyen IVA, y cada orden muestra su comprobante y un recibo imprimible.",
   },
   {
     pregunta: "¿Qué pasa cuando vence un paquete?",
@@ -72,7 +72,7 @@ const PREGUNTAS = [
   {
     pregunta: "¿Cómo pido soporte?",
     respuesta:
-      "Desde el portal: cada pedido usa un ticket de soporte de tu licencia y lo seguís en el mismo lugar, con las respuestas y los adjuntos.",
+      "Desde el portal, y lo seguís en el mismo lugar con las respuestas y los adjuntos. El soporte técnico de los productos usa un ticket de tu licencia; las consultas sobre tu cuenta, licencias y pagos son sin cargo.",
   },
 ];
 

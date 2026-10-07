@@ -46,7 +46,7 @@ export default async function PaginaSoporte({ searchParams }: PageProps<"/portal
     <>
       <EncabezadoPagina
         titulo="Soporte"
-        descripcion="Consultas y problemas con los productos. Cada pedido nuevo usa un ticket de soporte de tu licencia."
+        descripcion="Consultas y problemas con los productos. El soporte técnico usa un ticket de tu licencia; las consultas sobre tu cuenta, licencias y pagos, no."
         acciones={
           <NuevoIncidente productos={PRODUCTOS_SOPORTE} disponibles={creditos.disponibles} />
         }
@@ -79,8 +79,9 @@ export default async function PaginaSoporte({ searchParams }: PageProps<"/portal
       {creditos.disponibles <= 0 && (
         <Card className="mb-6 flex-row flex-wrap items-center justify-between gap-3 border-warning/50 bg-warning/10 p-4">
           <p className="text-sm">
-            No te quedan tickets de soporte. El cupo mensual se renueva el día 1; para seguir ahora,
-            sumá un paquete de soporte.
+            No te quedan tickets de soporte técnico. El cupo mensual se renueva el día 1; para
+            seguir ahora, sumá un paquete de soporte. Las consultas sobre tu cuenta, licencias y
+            pagos no usan tickets.
           </p>
           {puedeComprar(contexto) && (
             <Link

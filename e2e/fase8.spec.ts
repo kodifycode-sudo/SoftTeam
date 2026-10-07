@@ -34,11 +34,23 @@ const PNG = Buffer.from(
 
 test.describe
   .serial("soporte, marca, notas y reportes", () => {
-    test("sin tickets de soporte no se puede abrir un pedido; se compran", async ({ page }) => {
+    test("sin tickets no hay soporte técnico, pero sí consultas sobre la cuenta; se compran", async ({
+      page,
+    }) => {
       await registrarCliente(page, razonSocial, email);
       await page.getByRole("link", { name: "Soporte", exact: true }).click();
-      await expect(page.getByRole("button", { name: "Nuevo pedido" })).toBeDisabled();
-      await expect(page.getByText("No te quedan tickets de soporte.")).toBeVisible();
+      await expect(page.getByText("No te quedan tickets de soporte técnico.")).toBeVisible();
+      await page.getByRole("button", { name: "Nuevo pedido" }).click();
+      const dialogo = page.getByRole("dialog");
+      const enviar = dialogo.getByRole("button", { name: "Enviar a Soporte" });
+      await expect(dialogo.getByText(/No te quedan tickets de soporte técnico/)).toBeVisible();
+      await expect(enviar).toBeDisabled();
+      await dialogo.getByLabel("Sobre qué es").selectOption("stlic");
+      await expect(
+        dialogo.getByText("Las consultas sobre tu cuenta no usan tickets."),
+      ).toBeVisible();
+      await expect(enviar).toBeEnabled();
+      await page.keyboard.press("Escape");
 
       await page.goto("/portal/paquetes?tipo=CONSUMIBLE");
       await page

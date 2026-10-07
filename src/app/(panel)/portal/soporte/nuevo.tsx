@@ -21,25 +21,57 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { usaTicket } from "@/domain/soporte/tickets";
 import { ESTADO_INICIAL } from "@/lib/formulario";
 import { abrirIncidenteAccion } from "./acciones";
 
-function ContenidoNuevo({ productos }: { productos: Record<string, string> }) {
+/** Si el pedido usa un ticket y cuántos quedan; sin tickets, cómo seguir. */
+function AvisoTicket({ producto, disponibles }: { producto: string; disponibles: number }) {
+  if (!usaTicket(producto)) {
+    return <FieldDescription>Las consultas sobre tu cuenta no usan tickets.</FieldDescription>;
+  }
+  if (disponibles > 0) {
+    return (
+      <FieldDescription>
+        Usa 1 de tus {disponibles} ticket{disponibles === 1 ? "" : "s"} de soporte.
+      </FieldDescription>
+    );
+  }
+  return (
+    <FieldDescription className="text-destructive">
+      No te quedan tickets de soporte técnico. Si es una consulta sobre tu cuenta, licencias o
+      pagos, elegí "Mi cuenta, licencias y pagos"; si no, sumá un paquete de soporte.
+    </FieldDescription>
+  );
+}
+
+function ContenidoNuevo({
+  productos,
+  disponibles,
+  productoInicial,
+}: {
+  productos: Record<string, string>;
+  disponibles: number;
+  productoInicial: string;
+}) {
   const [estado, accion] = useActionState(abrirIncidenteAccion, ESTADO_INICIAL);
+  const [producto, setProducto] = useState(estado.valores?.producto ?? productoInicial);
+  const sinTicket = usaTicket(producto) && disponibles <= 0;
   const errorTexto = estado.errores?.texto;
   return (
     <FormularioConservado accion={accion} className="space-y-5" noValidate>
       <MensajeFormulario estado={estado} />
       <FieldGroup>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="producto">Producto</FieldLabel>
+          <Field className="sm:col-span-2">
+            <FieldLabel htmlFor="producto">Sobre qué es</FieldLabel>
             <SelectNativo
               id="producto"
               name="producto"
-              defaultValue={estado.valores?.producto ?? "prodigal"}
+              value={producto}
+              onChange={(e) => setProducto(e.target.value)}
             >
               {Object.entries(productos).map(([valor, nombre]) => (
                 <option key={valor} value={valor}>
@@ -47,6 +79,7 @@ function ContenidoNuevo({ productos }: { productos: Record<string, string> }) {
                 </option>
               ))}
             </SelectNativo>
+            <AvisoTicket producto={producto} disponibles={disponibles} />
           </Field>
           <Field>
             <FieldLabel htmlFor="prioridad">Urgencia</FieldLabel>
@@ -79,7 +112,7 @@ function ContenidoNuevo({ productos }: { productos: Record<string, string> }) {
       </FieldGroup>
       <DialogFooter>
         <DialogClose render={<Button type="button" variant="ghost" />}>Cancelar</DialogClose>
-        <BotonEnviar>Enviar a Soporte</BotonEnviar>
+        <BotonEnviar disabled={sinTicket}>Enviar a Soporte</BotonEnviar>
       </DialogFooter>
     </FormularioConservado>
   );
@@ -88,25 +121,36 @@ function ContenidoNuevo({ productos }: { productos: Record<string, string> }) {
 export function NuevoIncidente({
   productos,
   disponibles,
+  productoInicial = "prodigal",
+  boton = "Nuevo pedido",
+  variante = "default",
 }: {
   productos: Record<string, string>;
   disponibles: number;
+  /** Producto elegido al abrir (la ayuda abre con "Mi cuenta, licencias y pagos"). */
+  productoInicial?: string;
+  boton?: string;
+  variante?: "default" | "outline";
 }) {
   const [abierto, setAbierto] = useState(false);
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
-      <DialogTrigger render={<Button size="lg" disabled={disponibles <= 0} />}>
-        <LifeBuoy data-icon="inline-start" /> Nuevo pedido
+      {/* Siempre disponible: sin tickets igual se puede consultar sobre la cuenta. */}
+      <DialogTrigger render={<Button size="lg" variant={variante} />}>
+        <LifeBuoy data-icon="inline-start" /> {boton}
       </DialogTrigger>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Nuevo pedido de soporte</DialogTitle>
-          <DialogDescription>
-            Usa 1 de tus {disponibles} ticket{disponibles === 1 ? "" : "s"} disponible
-            {disponibles === 1 ? "" : "s"}. Te respondemos por acá y te avisamos por mail.
-          </DialogDescription>
+          <DialogDescription>Te respondemos por acá y te avisamos por mail.</DialogDescription>
         </DialogHeader>
-        {abierto && <ContenidoNuevo productos={productos} />}
+        {abierto && (
+          <ContenidoNuevo
+            productos={productos}
+            disponibles={disponibles}
+            productoInicial={productoInicial}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

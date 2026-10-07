@@ -4,6 +4,7 @@ import { z } from "zod";
 import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { AdjuntoValidado } from "@/domain/soporte/adjuntos";
+import { usaTicket } from "@/domain/soporte/tickets";
 import type { Orden, Pagina } from "@/lib/listados";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import { ordenarPor, paginar, totalFiltrado } from "@/server/db/listados";
@@ -19,7 +20,7 @@ export const PRODUCTOS_SOPORTE = {
   cotiweb: "CotiWeb",
   bienseguro: "BienSeguro",
   boletin: "Boletín C@",
-  stlic: "STLic (licencias y pagos)",
+  stlic: "Mi cuenta, licencias y pagos",
   otro: "Otro",
 } as const;
 
@@ -89,9 +90,10 @@ class SinCreditos extends Error {}
 export type ErrorAbrir = "SIN_CREDITOS" | "EMPRESA_INACTIVA";
 
 /**
- * Abre un pedido de soporte y consume un crédito (primero el cupo del mes,
- * después el saldo), todo en una transacción: sin crédito no hay pedido, y
- * un pedido nunca queda sin su crédito descontado.
+ * Abre un pedido de soporte y, si es soporte técnico, consume un crédito
+ * (primero el cupo del mes, después el saldo), todo en una transacción: sin
+ * crédito no hay pedido, y un pedido nunca queda sin su crédito descontado.
+ * Las consultas sobre la cuenta no usan ticket (`usaTicket`).
  */
 export async function abrirIncidente(
   db: Db,
@@ -110,44 +112,48 @@ export async function abrirIncidente(
   const alcance = contexto.alcance ?? TODA_LA_EMPRESA;
   try {
     return await db.transaction(async (tx) => {
-      // Una oficina consume con su código (CCOOO): primero sus paquetes, después el pozo.
-      const oficina =
-        alcance.tipo === "oficina"
-          ? (
-              await tx
-                .select({ canal: t.canales.codigo, oficina: t.oficinas.codigo })
-                .from(t.oficinas)
-                .innerJoin(t.canales, eq(t.canales.id, t.oficinas.canalId))
-                .where(eq(t.oficinas.id, alcance.oficinaId))
-            )[0]
-          : undefined;
-      const consumo = await consumir(
-        tx,
-        {
-          sistema: "stlic",
-          empresaNumero: contexto.empresaNumero,
-          familia: "soporte",
-          cantidad: 1,
-          modo: "TODO_O_NADA",
-          transaccion: `incidente:${id}`,
-          concepto: entrada.asunto.slice(0, 200),
-          oficina: oficina ? `${oficina.canal}${oficina.oficina}` : undefined,
-        },
-        hoy,
-      );
-      if (!consumo.ok) {
-        if (consumo.error === "EMPRESA_INACTIVA")
-          return { ok: false as const, error: "EMPRESA_INACTIVA" as const };
-        throw new Error(consumo.error);
+      let consumoId: string | null = null;
+      if (usaTicket(entrada.producto)) {
+        // Una oficina consume con su código (CCOOO): primero sus paquetes, después el pozo.
+        const oficina =
+          alcance.tipo === "oficina"
+            ? (
+                await tx
+                  .select({ canal: t.canales.codigo, oficina: t.oficinas.codigo })
+                  .from(t.oficinas)
+                  .innerJoin(t.canales, eq(t.canales.id, t.oficinas.canalId))
+                  .where(eq(t.oficinas.id, alcance.oficinaId))
+              )[0]
+            : undefined;
+        const consumo = await consumir(
+          tx,
+          {
+            sistema: "stlic",
+            empresaNumero: contexto.empresaNumero,
+            familia: "soporte",
+            cantidad: 1,
+            modo: "TODO_O_NADA",
+            transaccion: `incidente:${id}`,
+            concepto: entrada.asunto.slice(0, 200),
+            oficina: oficina ? `${oficina.canal}${oficina.oficina}` : undefined,
+          },
+          hoy,
+        );
+        if (!consumo.ok) {
+          if (consumo.error === "EMPRESA_INACTIVA")
+            return { ok: false as const, error: "EMPRESA_INACTIVA" as const };
+          throw new Error(consumo.error);
+        }
+        if (!consumo.valor.completo) throw new SinCreditos();
+        const registro = await tx.query.consumos.findFirst({
+          columns: { id: true },
+          where: and(
+            eq(t.consumos.sistema, "stlic"),
+            eq(t.consumos.transaccionExterna, `incidente:${id}`),
+          ),
+        });
+        consumoId = registro?.id ?? null;
       }
-      if (!consumo.valor.completo) throw new SinCreditos();
-      const registro = await tx.query.consumos.findFirst({
-        columns: { id: true },
-        where: and(
-          eq(t.consumos.sistema, "stlic"),
-          eq(t.consumos.transaccionExterna, `incidente:${id}`),
-        ),
-      });
 
       const [incidente] = await tx
         .insert(t.incidentes)
@@ -160,7 +166,7 @@ export async function abrirIncidente(
           producto: entrada.producto,
           asunto: entrada.asunto,
           prioridad: entrada.prioridad,
-          consumoId: registro?.id ?? null,
+          consumoId,
         })
         .returning({ numero: t.incidentes.numero });
       const [mensaje] = await tx

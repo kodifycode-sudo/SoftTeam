@@ -70,7 +70,8 @@ export default function Terminos() {
           </li>
           <li>
             Los pagos en línea los procesa Mercado Pago: STLic no recibe ni guarda los datos de tu
-            tarjeta. Las facturas se emiten electrónicamente y quedan disponibles en el portal.
+            tarjeta. Las facturas se emiten electrónicamente; cada orden del portal muestra su
+            número de comprobante y un recibo imprimible.
           </li>
         </Lista>
       </Apartado>
@@ -96,9 +97,10 @@ export default function Terminos() {
 
       <Apartado id="soporte" numero={n("soporte")} titulo="Soporte">
         <p>
-          Los pedidos de soporte se hacen desde el portal y cada pedido nuevo usa un ticket de
-          soporte de tu licencia. El cupo mensual se renueva el día 1; también se pueden sumar
-          tickets con un paquete de soporte. Las respuestas se dan por el mismo pedido.
+          Los pedidos de soporte se hacen desde el portal. Cada pedido de soporte técnico de los
+          productos usa un ticket de tu licencia; el cupo mensual se renueva el día 1 y también se
+          pueden sumar tickets con un paquete de soporte. Las consultas sobre tu cuenta, licencias,
+          pagos y facturación no usan tickets. Las respuestas se dan por el mismo pedido.
         </p>
       </Apartado>
 
