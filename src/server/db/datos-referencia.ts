@@ -8,102 +8,105 @@ export const MONEDAS = [
   { codigo: "USD", nombre: "Dólar estadounidense", simbolo: "US$", cotizacion: null },
 ];
 
-/** Provincias de Argentina con su código ISO 3166-2 (sin el "AR-"). */
+/**
+ * Provincias de Argentina con el código que genera el sistema a partir del
+ * nombre (`codigoProvincia`); la migración 0022 pasó a estos los códigos ISO.
+ */
 export const PROVINCIAS_ARGENTINA = [
   {
-    codigo: "B",
+    codigo: "BA",
     nombre: "Buenos Aires",
   },
   {
-    codigo: "C",
+    codigo: "CABA",
     nombre: "Ciudad Autónoma de Buenos Aires",
   },
   {
-    codigo: "K",
+    codigo: "CAT",
     nombre: "Catamarca",
   },
   {
-    codigo: "H",
+    codigo: "CHA",
     nombre: "Chaco",
   },
   {
-    codigo: "U",
+    codigo: "CHU",
     nombre: "Chubut",
   },
   {
-    codigo: "X",
+    codigo: "CRD",
     nombre: "Córdoba",
   },
   {
-    codigo: "W",
+    codigo: "COR",
     nombre: "Corrientes",
   },
   {
-    codigo: "E",
+    codigo: "ER",
     nombre: "Entre Ríos",
   },
   {
-    codigo: "P",
+    codigo: "FOR",
     nombre: "Formosa",
   },
   {
-    codigo: "Y",
+    codigo: "JUJ",
     nombre: "Jujuy",
   },
   {
-    codigo: "L",
+    codigo: "LP",
     nombre: "La Pampa",
   },
   {
-    codigo: "F",
+    codigo: "LR",
     nombre: "La Rioja",
   },
   {
-    codigo: "M",
+    codigo: "MEN",
     nombre: "Mendoza",
   },
   {
-    codigo: "N",
+    codigo: "MIS",
     nombre: "Misiones",
   },
   {
-    codigo: "Q",
+    codigo: "NEU",
     nombre: "Neuquén",
   },
   {
-    codigo: "R",
+    codigo: "RN",
     nombre: "Río Negro",
   },
   {
-    codigo: "A",
+    codigo: "SAL",
     nombre: "Salta",
   },
   {
-    codigo: "J",
+    codigo: "SJ",
     nombre: "San Juan",
   },
   {
-    codigo: "D",
+    codigo: "SL",
     nombre: "San Luis",
   },
   {
-    codigo: "Z",
+    codigo: "SC",
     nombre: "Santa Cruz",
   },
   {
-    codigo: "S",
+    codigo: "SF",
     nombre: "Santa Fe",
   },
   {
-    codigo: "G",
+    codigo: "SE",
     nombre: "Santiago del Estero",
   },
   {
-    codigo: "V",
+    codigo: "TF",
     nombre: "Tierra del Fuego",
   },
   {
-    codigo: "T",
+    codigo: "TUC",
     nombre: "Tucumán",
   },
 ];

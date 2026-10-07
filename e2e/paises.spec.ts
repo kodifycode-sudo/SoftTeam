@@ -51,11 +51,13 @@ test("Administración configura una moneda, un país y sus provincias", async ({
   await expect(page.getByText(`Provincias de País ${codigoPais}`, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Nueva provincia" }).click();
   dialogo = page.getByRole("dialog");
-  await dialogo.getByLabel("Código").fill("MO");
+  await expect(dialogo.getByText("El código se genera solo")).toBeVisible();
   await dialogo.getByLabel("Nombre").fill("Montevideo");
   await dialogo.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByText("Guardamos Montevideo.")).toBeVisible();
   await expect(page.getByRole("cell", { name: "Montevideo", exact: true })).toBeVisible();
+  // Código generado del nombre.
+  await expect(page.getByRole("cell", { name: "MON", exact: true })).toBeVisible();
   await capturar(page, "admin-paises");
 
   // Se deja inactivo para no ofrecerlo en otros recorridos.

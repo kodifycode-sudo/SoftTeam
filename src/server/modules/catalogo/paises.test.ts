@@ -124,4 +124,38 @@ describe("países, monedas y provincias", () => {
     await guardarProvincia(db, { ...montevideo, id: fila!.id, activa: false }, "admin");
     expect(await provinciaValida(db, "UY", "Montevideo")).toBe(false);
   });
+
+  it("provincias: sin código, lo genera del nombre y lo conserva al renombrarla", async () => {
+    const nueva = (nombre: string) =>
+      esquemaProvincia.parse({ paisId: "UY", nombre, activa: true });
+    expect(await guardarProvincia(db, nueva("Canelones"), "admin")).toEqual({ ok: true });
+    expect(await guardarProvincia(db, nueva("Cerro Largo"), "admin")).toEqual({ ok: true });
+    // "CAN" ya es de Canelones: Colonia recibe otra opción, no un error.
+    expect(await guardarProvincia(db, nueva("Colonia"), "admin")).toEqual({ ok: true });
+    const codigos = async () =>
+      Object.fromEntries(
+        (
+          await db
+            .select({ nombre: t.provincias.nombre, codigo: t.provincias.codigo })
+            .from(t.provincias)
+            .where(eq(t.provincias.paisId, "UY"))
+        ).map((p) => [p.nombre, p.codigo]),
+      );
+    expect(await codigos()).toMatchObject({
+      Canelones: "CAN",
+      "Cerro Largo": "CL",
+      Colonia: "COL",
+    });
+
+    const [canelones] = await db
+      .select()
+      .from(t.provincias)
+      .where(eq(t.provincias.nombre, "Canelones"));
+    await guardarProvincia(
+      db,
+      { ...nueva("Canelones (departamento)"), id: canelones!.id },
+      "admin",
+    );
+    expect(await codigos()).toMatchObject({ "Canelones (departamento)": "CAN" });
+  });
 });

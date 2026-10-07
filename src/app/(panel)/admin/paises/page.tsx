@@ -1,7 +1,9 @@
+import { MapPin } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -145,7 +147,14 @@ export default async function PaginaPaises({ searchParams }: PageProps<"/admin/p
               </TableHeader>
               <TableBody>
                 {paises.map((p) => (
-                  <TableRow key={p.id} className={cn(!p.activo && "opacity-60")}>
+                  <TableRow
+                    key={p.id}
+                    aria-current={p.id === pais?.id ? "true" : undefined}
+                    className={cn(
+                      !p.activo && "opacity-60",
+                      p.id === pais?.id && "bg-primary/5 hover:bg-primary/10",
+                    )}
+                  >
                     <TableCell className="pl-4">
                       <span className="font-mono">{p.id}</span> · {p.nombre}
                       <span className="text-muted-foreground"> · +{p.prefijoTelefonico}</span>
@@ -160,12 +169,19 @@ export default async function PaginaPaises({ searchParams }: PageProps<"/admin/p
                       {porcentajeTexto(p.alicuotaIvaGeneral)}
                     </TableCell>
                     <TableCell className="text-center">
+                      {/* Lleva a la tarjeta de provincias de este país, más abajo. */}
                       <Link
-                        href={`/admin/paises?pais=${p.id}`}
-                        className="tabular-nums text-primary underline-offset-4 hover:underline"
+                        href={`/admin/paises?pais=${p.id}#provincias`}
                         aria-label={`Provincias de ${p.nombre}: ${p.provincias}`}
+                        aria-current={p.id === pais?.id ? "page" : undefined}
+                        className={buttonVariants({
+                          variant: p.id === pais?.id ? "secondary" : "outline",
+                          size: "sm",
+                          className: "tabular-nums",
+                        })}
                       >
-                        {p.provincias}
+                        <MapPin data-icon="inline-start" />
+                        {p.provincias === 0 ? "Cargar" : p.provincias}
                       </Link>
                     </TableCell>
                     <TableCell className="text-center tabular-nums">{p.empresas}</TableCell>
@@ -199,16 +215,37 @@ export default async function PaginaPaises({ searchParams }: PageProps<"/admin/p
         </Card>
 
         {pais && (
-          <Card className="overflow-hidden pb-0">
+          <Card id="provincias" className="scroll-mt-20 overflow-hidden pb-0">
             <Encabezado
               titulo={`Provincias de ${pais.nombre}`}
-              descripcion="Las que se ofrecen en los domicilios y se aceptan al importar."
-              accion={edita && <DialogoProvincia paisId={pais.id} />}
+              descripcion="Las que se ofrecen en los domicilios y se aceptan al importar. Cada provincia es de un solo país."
+              accion={edita && <DialogoProvincia paisId={pais.id} paisNombre={pais.nombre} />}
             />
+            {paises.length > 1 && (
+              <nav aria-label="Elegir país" className="flex flex-wrap gap-2 px-4 pb-4">
+                {paises.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/admin/paises?pais=${p.id}#provincias`}
+                    scroll={false}
+                    aria-current={p.id === pais.id ? "page" : undefined}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-sm transition-colors",
+                      p.id === pais.id
+                        ? "border-primary bg-primary/10 font-medium text-primary"
+                        : "bg-card text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {p.nombre} <span className="tabular-nums opacity-70">({p.provincias})</span>
+                  </Link>
+                ))}
+              </nav>
+            )}
             <CardContent className="overflow-x-auto p-0">
               {provincias.length === 0 ? (
                 <p className="px-4 pb-6 text-sm text-muted-foreground">
-                  Todavía no hay provincias cargadas.
+                  Todavía no hay provincias de {pais.nombre}.
+                  {edita && " Cargá la primera con «Nueva provincia»: el código se genera solo."}
                 </p>
               ) : (
                 <Table>
@@ -235,6 +272,7 @@ export default async function PaginaPaises({ searchParams }: PageProps<"/admin/p
                           <TableCell>
                             <DialogoProvincia
                               paisId={pais.id}
+                              paisNombre={pais.nombre}
                               provincia={{
                                 id: p.id,
                                 codigo: p.codigo,

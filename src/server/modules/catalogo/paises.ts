@@ -1,5 +1,6 @@
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
+import { codigoProvincia } from "@/domain/catalogo/provincias";
 import { porcentaje } from "@/domain/dinero";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
@@ -249,11 +250,13 @@ export async function guardarPais(
 export const esquemaProvincia = z.object({
   id: z.uuid().optional(),
   paisId: z.string().length(2),
+  /** Opcional: si falta, una provincia nueva lo recibe del nombre y una existente conserva el suyo. */
   codigo: z
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z0-9]{1,5}$/, { error: "Hasta 5 letras o números." }),
+    .regex(/^[A-Z0-9]{1,5}$/, { error: "Hasta 5 letras o números." })
+    .optional(),
   nombre: z.string().trim().min(2, { error: "Ingresá el nombre." }).max(60),
   activa: z.boolean(),
 });
@@ -278,16 +281,28 @@ export async function guardarProvincia(
         })
       : undefined;
     if (entrada.id && !antes) return { ok: false, error: "NO_EXISTE" };
+    const delPais = await tx
+      .select({ id: t.provincias.id, codigo: t.provincias.codigo })
+      .from(t.provincias)
+      .where(eq(t.provincias.paisId, entrada.paisId));
+    // El código se genera del nombre al crearla y no cambia al renombrarla.
+    const codigo =
+      entrada.codigo ??
+      antes?.codigo ??
+      codigoProvincia(
+        entrada.nombre,
+        delPais.map((p) => p.codigo),
+      );
     const repetida = await tx.query.provincias.findFirst({
       columns: { id: true },
       where: and(
         eq(t.provincias.paisId, entrada.paisId),
-        sql`(upper(${t.provincias.codigo}) = ${entrada.codigo} or lower(${t.provincias.nombre}) = lower(${entrada.nombre}))`,
+        sql`(upper(${t.provincias.codigo}) = ${codigo} or lower(${t.provincias.nombre}) = lower(${entrada.nombre}))`,
         antes ? ne(t.provincias.id, antes.id) : undefined,
       ),
     });
     if (repetida) return { ok: false, error: "REPETIDA" };
-    const valores = { codigo: entrada.codigo, nombre: entrada.nombre, activa: entrada.activa };
+    const valores = { codigo, nombre: entrada.nombre, activa: entrada.activa };
     let id = antes?.id;
     if (antes) {
       await tx.update(t.provincias).set(valores).where(eq(t.provincias.id, antes.id));
@@ -298,7 +313,7 @@ export async function guardarProvincia(
     await auditar(tx, {
       actorId,
       entidad: "provincia",
-      entidadId: id ?? entrada.codigo,
+      entidadId: id ?? codigo,
       accion: antes ? "modificacion" : "alta",
       antes: antes ? { codigo: antes.codigo, nombre: antes.nombre, activa: antes.activa } : null,
       despues: { paisId: entrada.paisId, ...valores },

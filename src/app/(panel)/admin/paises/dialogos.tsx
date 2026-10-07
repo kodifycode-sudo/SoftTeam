@@ -244,15 +244,23 @@ export interface DatosProvincia {
 
 export function DialogoProvincia({
   paisId,
+  paisNombre,
   provincia,
 }: {
   paisId: string;
+  paisNombre: string;
   provincia?: DatosProvincia;
 }) {
   return (
     <Dialogo
-      titulo={provincia ? provincia.nombre : "Nueva provincia"}
-      descripcion="Los domicilios guardan el nombre: una inactiva deja de ofrecerse, pero los domicilios que ya la usan la conservan."
+      titulo={
+        provincia ? `${provincia.nombre} (${paisNombre})` : `Nueva provincia en ${paisNombre}`
+      }
+      descripcion={
+        provincia
+          ? `Código ${provincia.codigo}: se asignó al crearla y no cambia aunque la renombres. Los domicilios guardan el nombre; una inactiva deja de ofrecerse, pero los domicilios que ya la usan la conservan.`
+          : "El código se genera solo a partir del nombre. Los domicilios guardan el nombre."
+      }
       editar={provincia?.nombre}
       etiquetaNuevo="Nueva provincia"
       accion={guardarProvinciaAccion}
@@ -260,21 +268,12 @@ export function DialogoProvincia({
         <>
           <input type="hidden" name="paisId" value={paisId} />
           {provincia && <input type="hidden" name="id" value={provincia.id} />}
-          <div className="grid gap-4 sm:grid-cols-[7rem_1fr]">
-            <Campo
-              nombre="codigo"
-              etiqueta="Código"
-              maxLength={5}
-              defaultValue={provincia?.codigo}
-              estado={estado}
-            />
-            <Campo
-              nombre="nombre"
-              etiqueta="Nombre"
-              defaultValue={provincia?.nombre}
-              estado={estado}
-            />
-          </div>
+          <Campo
+            nombre="nombre"
+            etiqueta="Nombre"
+            defaultValue={provincia?.nombre}
+            estado={estado}
+          />
           <Casilla
             id={`provincia-activa-${provincia?.id ?? "nueva"}`}
             nombre="activa"

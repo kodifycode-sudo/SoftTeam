@@ -155,6 +155,13 @@
       "when": 1791330739045,
       "tag": "0021_paquetes_destacados",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791340149493,
+      "tag": "0022_recodificar_provincias",
+      "breakpoints": true
     }
   ]
 }
