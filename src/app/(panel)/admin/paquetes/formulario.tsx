@@ -51,6 +51,7 @@ export interface PaqueteFormulario {
   descripcion: string;
   tipo: "TEMPORAL" | "CONSUMIBLE";
   privado: boolean;
+  destacado: boolean;
   activo: boolean;
   ventaDesde: string;
   ventaHasta: string;
@@ -234,6 +235,15 @@ export function FormularioPaquete({
                   <span>Privado</span>
                   <FieldDescription>
                     Solo SOFTeam lo ve y lo asigna (acuerdos especiales).
+                  </FieldDescription>
+                </FieldLabel>
+              </Field>
+              <Field orientation="horizontal">
+                <Switch id="destacado" name="destacado" defaultChecked={inicial.destacado} />
+                <FieldLabel htmlFor="destacado" className="flex-col items-start gap-0">
+                  <span>Recomendado</span>
+                  <FieldDescription>
+                    El catálogo del cliente lo muestra primero y resaltado.
                   </FieldDescription>
                 </FieldLabel>
               </Field>

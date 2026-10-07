@@ -51,6 +51,7 @@ export async function guardarPaqueteAccion(
     descripcion: formData.get("descripcion") || undefined,
     tipo: formData.get("tipo"),
     privado: formData.get("privado") === "on",
+    destacado: formData.get("destacado") === "on",
     activo: formData.get("activo") === "on",
     ventaDesde: formData.get("ventaDesde"),
     ventaHasta: formData.get("ventaHasta") || undefined,

@@ -1,8 +1,9 @@
-import { Check, Infinity as Infinito, Lock } from "lucide-react";
+import { Check, Infinity as Infinito, Lock, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { numero, pesosRedondo } from "@/lib/formato";
+import { compararConMensual } from "@/domain/catalogo/comparacion";
+import { numero, pesosRedondo, porcentajeTexto } from "@/lib/formato";
 import { productoUI } from "@/lib/productos";
 import { cn } from "@/lib/utils";
 import type { PaqueteListado } from "@/server/modules/catalogo/paquetes";
@@ -16,44 +17,73 @@ function duracion(meses: number | null): string {
   return `cada ${meses} meses`;
 }
 
-/** Tarjeta de un paquete del catálogo: productos, límites y alternativas de precio. */
+/**
+ * Tarjeta de un paquete del catálogo: productos, límites y alternativas de
+ * precio. En la vista del cliente no van el código ni el tipo internos, y el
+ * recomendado se resalta.
+ */
 export function TarjetaPaquete({
   paquete,
   acciones,
   accionAlternativa,
   mostrarEstado = false,
+  vista = "admin",
 }: {
   paquete: PaqueteListado;
   acciones?: ReactNode;
   /** Control por alternativa (por ejemplo, agregar al carrito en el portal). */
   accionAlternativa?: (alternativa: { id: string; nombre: string }) => ReactNode;
   mostrarEstado?: boolean;
+  vista?: "admin" | "cliente";
 }) {
   const alternativas = paquete.alternativas.filter((a) => a.activa);
+  const comparacion = compararConMensual(alternativas);
   const limites = paquete.recursos.slice(0, MAX_LIMITES);
   const inactivo = mostrarEstado && !paquete.vendible;
+  const cliente = vista === "cliente";
+  const resaltado = cliente && paquete.destacado;
 
   return (
     <Card
-      className={cn("h-full gap-5 transition-shadow hover:shadow-lg", inactivo && "opacity-60")}
+      className={cn(
+        "relative h-full gap-5 transition-shadow hover:shadow-lg",
+        inactivo && "opacity-60",
+        resaltado && "overflow-visible ring-2 ring-primary",
+      )}
     >
+      {resaltado && (
+        <span className="absolute -top-3 left-5 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground shadow-sm">
+          <Sparkles className="size-3" /> Recomendado
+        </span>
+      )}
       <CardHeader className="gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-semibold leading-snug">{paquete.nombre}</h3>
-            <p className="font-mono text-xs text-muted-foreground">{paquete.codigo}</p>
+            <h3 className={cn("font-semibold leading-snug", cliente && "text-lg")}>
+              {paquete.nombre}
+            </h3>
+            {!cliente && (
+              <p className="font-mono text-xs text-muted-foreground">{paquete.codigo}</p>
+            )}
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
-            <Badge
-              variant="outline"
-              className={
-                paquete.tipo === "TEMPORAL"
-                  ? "border-primary/30 bg-primary/5 text-primary"
-                  : "border-brand/50 bg-brand/15 text-[oklch(0.45_0.12_75)] dark:text-brand"
-              }
-            >
-              {paquete.tipo === "TEMPORAL" ? "Temporal" : "Consumible"}
-            </Badge>
+            {!cliente && (
+              <Badge
+                variant="outline"
+                className={
+                  paquete.tipo === "TEMPORAL"
+                    ? "border-primary/30 bg-primary/5 text-primary"
+                    : "border-brand/50 bg-brand/15 text-[oklch(0.45_0.12_75)] dark:text-brand"
+                }
+              >
+                {paquete.tipo === "TEMPORAL" ? "Temporal" : "Consumible"}
+              </Badge>
+            )}
+            {!cliente && paquete.destacado && (
+              <Badge variant="outline" className="gap-1 border-primary/30 text-primary">
+                <Sparkles className="size-3" /> Recomendado
+              </Badge>
+            )}
             {mostrarEstado && (
               <Badge variant={paquete.vendible ? "secondary" : "outline"}>
                 {paquete.vendible ? "A la venta" : "Inactivo"}
@@ -116,28 +146,42 @@ export function TarjetaPaquete({
         </ul>
 
         <div className="space-y-2">
-          {alternativas.map((a) => (
-            <div key={a.id} className="space-y-2.5 rounded-xl border bg-muted/30 px-3 py-2.5">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm font-medium">{a.nombre}</span>
-                <span className="text-right">
-                  <span className="text-base font-semibold tabular-nums">
-                    {pesosRedondo(a.precioCompra)}
-                  </span>{" "}
-                  <span className="text-xs text-muted-foreground">
-                    {a.meses === null ? <Infinito className="inline size-3" /> : null}{" "}
-                    {duracion(a.meses)}
-                  </span>
-                  {a.precioRenovacion !== a.precioCompra && (
-                    <span className="block text-xs text-muted-foreground">
-                      Renovación {pesosRedondo(a.precioRenovacion)}
+          {alternativas.map((a) => {
+            const frente = comparacion.get(a.id);
+            return (
+              <div key={a.id} className="space-y-2.5 rounded-xl border bg-muted/30 px-3 py-2.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm font-medium">{a.nombre}</span>
+                  <span className="text-right">
+                    <span className="text-base font-semibold tabular-nums">
+                      {pesosRedondo(a.precioCompra)}
+                    </span>{" "}
+                    <span className="text-xs text-muted-foreground">
+                      {a.meses === null ? <Infinito className="inline size-3" /> : null}{" "}
+                      {duracion(a.meses)}
                     </span>
-                  )}
-                </span>
+                    {a.precioRenovacion !== a.precioCompra && (
+                      <span className="block text-xs text-muted-foreground">
+                        Renovación {pesosRedondo(a.precioRenovacion)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                {frente && (
+                  <p className="text-xs text-muted-foreground">
+                    Equivale a {pesosRedondo(frente.porMes)} por mes
+                    {frente.ahorro !== null && (
+                      <span className="font-medium text-success">
+                        {" "}
+                        · ahorrás {porcentajeTexto(frente.ahorro)}
+                      </span>
+                    )}
+                  </p>
+                )}
+                {accionAlternativa?.({ id: a.id, nombre: a.nombre })}
               </div>
-              {accionAlternativa?.({ id: a.id, nombre: a.nombre })}
-            </div>
-          ))}
+            );
+          })}
           <p className="text-[0.7rem] text-muted-foreground">Los precios no incluyen IVA.</p>
         </div>
       </CardContent>

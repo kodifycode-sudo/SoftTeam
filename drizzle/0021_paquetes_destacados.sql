@@ -1,0 +1,1 @@
+ALTER TABLE "paquetes" ADD COLUMN "destacado" boolean DEFAULT false NOT NULL;

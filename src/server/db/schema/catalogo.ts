@@ -53,6 +53,8 @@ export const paquetes = pgTable(
     tipo: tipoPaquete().notNull(),
     /** Solo visible y vendible para roles SOFTeam. */
     privado: boolean().notNull().default(false),
+    /** Recomendado: el catálogo del cliente lo muestra primero y resaltado. */
+    destacado: boolean().notNull().default(false),
     activo: boolean().notNull().default(true),
     ventaDesde: fechaCol().notNull(),
     ventaHasta: fechaCol(),

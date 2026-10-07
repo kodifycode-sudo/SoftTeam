@@ -20,6 +20,7 @@ const base = (parcial: Partial<EntradaPaquete> = {}): EntradaPaquete & { paisId:
   nombre: "Paquete de prueba",
   tipo: "TEMPORAL",
   privado: false,
+  destacado: false,
   activo: true,
   ventaDesde: fecha("2026-01-01"),
   ventaHasta: null,
@@ -86,6 +87,13 @@ describe("guardarPaquete", () => {
       actorId,
     );
     expect(r).toEqual({ ok: false, error: "RECURSO_INCOMPATIBLE" });
+  });
+
+  it("guarda si el paquete es recomendado y el listado lo informa", async () => {
+    const r = await guardarPaquete(db, base({ codigo: "DEST-1", destacado: true }), actorId);
+    if (!r.ok) throw new Error(r.error);
+    const listado = await listarPaquetes(db, { hoy: fecha("2026-06-01"), soloPublicos: true });
+    expect(listado.find((p) => p.id === r.id)?.destacado).toBe(true);
   });
 
   it("al quitar una alternativa la desactiva en lugar de borrarla", async () => {

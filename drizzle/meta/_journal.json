@@ -148,6 +148,13 @@
       "when": 1790722375609,
       "tag": "0020_desactivar_debito_automatico",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791330739045,
+      "tag": "0021_paquetes_destacados",
+      "breakpoints": true
     }
   ]
 }

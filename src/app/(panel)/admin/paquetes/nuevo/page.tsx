@@ -27,6 +27,7 @@ export default async function NuevoPaquete() {
           descripcion: "",
           tipo: "TEMPORAL",
           privado: false,
+          destacado: false,
           activo: true,
           ventaDesde: hoy(),
           ventaHasta: "",

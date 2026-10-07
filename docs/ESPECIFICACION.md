@@ -348,6 +348,12 @@ Cualquier cambio de medio de pago, ticket o bonificación mientras está
   facturación corporativa".
 - **Paquetes privados:** solo visibles y vendibles para roles SOFTeam. El filtro
   se aplica en el servidor y en la API, no solo en la pantalla.
+- **Paquetes recomendados** (`destacado`): Administración los marca en el
+  paquete; el catálogo del cliente los muestra primero y resaltados. El cliente
+  no ve el código interno ni el tipo (la pestaña ya lo dice) y puede filtrar
+  por producto. Cada alternativa de varios meses muestra su precio mensual
+  equivalente y, si el paquete también se vende por mes, el ahorro redondeado
+  a puntos enteros (`src/domain/catalogo/comparacion.ts`).
 
 ---
 

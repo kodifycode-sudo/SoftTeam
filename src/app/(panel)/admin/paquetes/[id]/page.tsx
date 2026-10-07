@@ -34,6 +34,7 @@ export default async function EditarPaquete({ params }: PageProps<"/admin/paquet
           descripcion: paquete.descripcion ?? "",
           tipo: paquete.tipo,
           privado: paquete.privado,
+          destacado: paquete.destacado,
           activo: paquete.activo,
           ventaDesde: paquete.ventaDesde,
           ventaHasta: paquete.ventaHasta ?? "",

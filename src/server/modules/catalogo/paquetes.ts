@@ -37,6 +37,7 @@ export async function listarPaquetes(db: Ejecutor, filtros: FiltrosPaquetes) {
       descripcion: t.paquetes.descripcion,
       tipo: t.paquetes.tipo,
       privado: t.paquetes.privado,
+      destacado: t.paquetes.destacado,
       activo: t.paquetes.activo,
       ventaDesde: t.paquetes.ventaDesde,
       ventaHasta: t.paquetes.ventaHasta,
@@ -181,6 +182,7 @@ export const esquemaPaquete = z
     descripcion: z.string().trim().max(500).optional(),
     tipo: z.enum(["TEMPORAL", "CONSUMIBLE"]),
     privado: z.boolean(),
+    destacado: z.boolean().default(false),
     activo: z.boolean(),
     ventaDesde: z.string().transform((v, ctx) => {
       try {
@@ -282,6 +284,7 @@ export async function guardarPaquete(
       descripcion: entrada.descripcion || null,
       tipo: entrada.tipo,
       privado: entrada.privado,
+      destacado: entrada.destacado,
       activo: entrada.activo,
       ventaDesde: entrada.ventaDesde,
       ventaHasta: entrada.ventaHasta,
