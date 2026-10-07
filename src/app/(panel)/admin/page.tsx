@@ -1,6 +1,6 @@
 import {
   ArrowRight,
-  Building2,
+  Banknote,
   CreditCard,
   FileClock,
   Package,
@@ -11,7 +11,7 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
-import { Indicador } from "@/components/panel/indicador";
+import { Indicador, type VariacionIndicador } from "@/components/panel/indicador";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -29,12 +29,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { hoy } from "@/domain/fecha";
-import { fechaCorta, numero, pesos } from "@/lib/formato";
+import { type Fecha, hoy, sumarDias } from "@/domain/fecha";
+import { periodosComparables, variacion } from "@/domain/reportes/periodos";
+import { fechaCorta, numero, pesos, porcentajeTexto } from "@/lib/formato";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { indicadoresTablero } from "@/server/modules/cuentas/consultas";
 import { tieneDosFactores } from "@/server/modules/cuentas/dos-factores";
+import { tendenciasTablero } from "@/server/modules/reportes/reportes";
 
 export const metadata: Metadata = { title: "Tablero" };
 
@@ -65,13 +67,60 @@ const ACCESOS = [
   },
 ];
 
+const MES_CORTO = new Intl.DateTimeFormat("es-AR", { month: "short", timeZone: "UTC" });
+const mesCorto = (mes: string) =>
+  MES_CORTO.format(new Date(`${mes}-15T12:00:00Z`)).replace(".", "");
+
+/** "vs. 1–6 sept": el mismo tramo del mes anterior, con nombre. */
+function etiquetaPeriodo(fechaHoy: Fecha): string {
+  const { anterior } = periodosComparables(fechaHoy);
+  const ultimo = sumarDias(anterior.hasta, -1);
+  return `vs. 1–${Number(ultimo.slice(8))} ${mesCorto(ultimo.slice(0, 7))}`;
+}
+
+/** Variación para conteos: la diferencia absoluta, que con números chicos dice más que el porcentaje. */
+function variacionConteo(
+  { actual, anterior }: { actual: number; anterior: number },
+  [singular, plural]: [string, string],
+  periodo: string,
+): VariacionIndicador {
+  const v = variacion(BigInt(actual), BigInt(anterior));
+  const cantidad = Math.abs(actual - anterior);
+  return {
+    sentido: v.sentido,
+    texto:
+      v.sentido === "igual"
+        ? "Sin cambios"
+        : `${v.sentido === "sube" ? "+" : "−"}${numero(cantidad)} ${cantidad === 1 ? singular : plural}`,
+    periodo,
+  };
+}
+
+/** Variación para importes: el porcentaje, o "Nuevo" si antes no había. */
+function variacionImporte(actual: bigint, anterior: bigint, periodo: string): VariacionIndicador {
+  const v = variacion(actual, anterior);
+  const texto =
+    v.sentido === "igual"
+      ? "Sin cambios"
+      : v.porcentaje === null
+        ? "Nuevo"
+        : `${v.porcentaje > 0n ? "+" : "−"}${porcentajeTexto(v.porcentaje < 0n ? -v.porcentaje : v.porcentaje)}`;
+  return { sentido: v.sentido, texto, periodo };
+}
+
 export default async function Tablero() {
   const { user } = await requerirSofteam();
   const db = await obtenerDb();
-  const [datos, dosFactores] = await Promise.all([
-    indicadoresTablero(db, hoy()),
+  const fechaHoy = hoy();
+  const [datos, dosFactores, tendencias] = await Promise.all([
+    indicadoresTablero(db, fechaHoy),
     tieneDosFactores(db, user.id),
+    tendenciasTablero(db, fechaHoy),
   ]);
+  const periodo = etiquetaPeriodo(fechaHoy);
+  const { comparacion } = tendencias;
+  const etiquetas = (valores: string[]) =>
+    tendencias.meses.map((m, i) => `${mesCorto(m)}: ${valores[i]}`);
   const nombre = user.name.split(/[\s,]+/)[0];
 
   return (
@@ -105,19 +154,49 @@ export default async function Tablero() {
         <Indicador
           titulo="Clientes activos"
           valor={numero(datos.clientesActivos)}
+          detalle={`${numero(datos.empresasActivas)} empresas activas`}
           icono={UsersRound}
-        />
-        <Indicador
-          titulo="Empresas activas"
-          valor={numero(datos.empresasActivas)}
-          icono={Building2}
-          tono="marca"
+          variacion={variacionConteo(comparacion.altasClientes, ["alta", "altas"], periodo)}
+          tendencia={{
+            valores: tendencias.altasClientes,
+            etiquetas: etiquetas(tendencias.altasClientes.map((n) => `${numero(n)} altas`)),
+            descripcion: "Altas de clientes por mes en los últimos 12 meses",
+          }}
         />
         <Indicador
           titulo="Contratos vigentes"
           valor={numero(datos.contratosVigentes)}
           icono={ShieldCheck}
           tono="exito"
+          variacion={variacionConteo(
+            comparacion.contratosActivados,
+            ["activado", "activados"],
+            periodo,
+          )}
+          tendencia={{
+            valores: tendencias.contratosActivados,
+            etiquetas: etiquetas(
+              tendencias.contratosActivados.map((n) => `${numero(n)} activados`),
+            ),
+            descripcion: "Contratos activados por mes en los últimos 12 meses",
+          }}
+        />
+        <Indicador
+          titulo="Cobrado en el mes"
+          valor={pesos(comparacion.cobrado.actual)}
+          icono={Banknote}
+          tono="marca"
+          variacion={variacionImporte(
+            comparacion.cobrado.actual,
+            comparacion.cobrado.anterior,
+            periodo,
+          )}
+          tendencia={{
+            // Solo para la altura de las columnas: los importes se muestran con `pesos`.
+            valores: tendencias.cobrado.map((c) => Number(c / 100n)),
+            etiquetas: etiquetas(tendencias.cobrado.map((c) => pesos(c))),
+            descripcion: "Cobranza por mes en los últimos 12 meses",
+          }}
         />
         <Indicador
           titulo="Órdenes pendientes de pago"

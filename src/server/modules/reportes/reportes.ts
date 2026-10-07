@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from "
 import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { centavos } from "@/domain/dinero";
 import { diasEntre, type Fecha, inicioDeMes, sumarDias, sumarMeses } from "@/domain/fecha";
+import { periodosComparables } from "@/domain/reportes/periodos";
 import type { Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { oficinaEnAlcance } from "../cuentas/alcance";
@@ -77,6 +78,89 @@ export async function cobranzaPorMes(
       pendiente: centavos(e?.pendiente ?? "0"),
     };
   });
+}
+
+// ─── Tendencias del tablero ──────────────────────────────────────────────────
+
+export interface TendenciasTablero {
+  /** Últimos 12 meses "AAAA-MM", el actual al final. */
+  meses: string[];
+  altasClientes: number[];
+  contratosActivados: number[];
+  cobrado: bigint[];
+  /** Mes en curso (del 1 a hoy) contra el mismo tramo del mes anterior. */
+  comparacion: {
+    altasClientes: { actual: number; anterior: number };
+    contratosActivados: { actual: number; anterior: number };
+    cobrado: { actual: bigint; anterior: bigint };
+  };
+}
+
+/** Series de 12 meses y comparación del mes en curso, para los indicadores del tablero. */
+export async function tendenciasTablero(db: Ejecutor, hoy: Fecha): Promise<TendenciasTablero> {
+  const meses = mesesHasta(hoy, 12);
+  const desde = inicioArgentina(`${meses[0]}-01` as Fecha);
+  const { actual, anterior } = periodosComparables(hoy);
+  const tramos = (columna: unknown) => ({
+    actual: sql`${columna} >= ${inicioArgentina(actual.desde)} and ${columna} < ${inicioArgentina(actual.hasta)}`,
+    anterior: sql`${columna} >= ${inicioArgentina(anterior.desde)} and ${columna} < ${inicioArgentina(anterior.hasta)}`,
+  });
+  const altas = tramos(t.clientes.creadoEn);
+  const activados = tramos(t.contratos.activadoEn);
+
+  const [altasPorMes, activadosPorMes, cobranza, [totalAltas], [totalActivados], [totalCobrado]] =
+    await Promise.all([
+      db
+        .select({ mes: mesArgentina(t.clientes.creadoEn), total: sql<number>`count(*)::int` })
+        .from(t.clientes)
+        .where(gte(t.clientes.creadoEn, desde))
+        .groupBy(mesArgentina(t.clientes.creadoEn)),
+      db
+        .select({ mes: mesArgentina(t.contratos.activadoEn), total: sql<number>`count(*)::int` })
+        .from(t.contratos)
+        .where(gte(t.contratos.activadoEn, desde))
+        .groupBy(mesArgentina(t.contratos.activadoEn)),
+      cobranzaPorMes(db, hoy, 12),
+      db
+        .select({
+          actual: sql<number>`count(*) filter (where ${altas.actual})::int`,
+          anterior: sql<number>`count(*) filter (where ${altas.anterior})::int`,
+        })
+        .from(t.clientes),
+      db
+        .select({
+          actual: sql<number>`count(*) filter (where ${activados.actual})::int`,
+          anterior: sql<number>`count(*) filter (where ${activados.anterior})::int`,
+        })
+        .from(t.contratos),
+      db
+        .select({
+          actual: sql<string>`coalesce(sum(${t.ordenes.total}) filter (where ${tramos(t.ordenes.pagadaEn).actual}), 0)::text`,
+          anterior: sql<string>`coalesce(sum(${t.ordenes.total}) filter (where ${tramos(t.ordenes.pagadaEn).anterior}), 0)::text`,
+        })
+        .from(t.ordenes)
+        .where(eq(t.ordenes.estado, "PAGADA")),
+    ]);
+
+  const serie = (filas: { mes: string; total: number }[]) =>
+    meses.map((mes) => filas.find((f) => f.mes === mes)?.total ?? 0);
+  return {
+    meses,
+    altasClientes: serie(altasPorMes),
+    contratosActivados: serie(activadosPorMes),
+    cobrado: cobranza.map((c) => c.cobrado),
+    comparacion: {
+      altasClientes: { actual: totalAltas?.actual ?? 0, anterior: totalAltas?.anterior ?? 0 },
+      contratosActivados: {
+        actual: totalActivados?.actual ?? 0,
+        anterior: totalActivados?.anterior ?? 0,
+      },
+      cobrado: {
+        actual: centavos(totalCobrado?.actual ?? "0"),
+        anterior: centavos(totalCobrado?.anterior ?? "0"),
+      },
+    },
+  };
 }
 
 export interface OrdenPendiente {
