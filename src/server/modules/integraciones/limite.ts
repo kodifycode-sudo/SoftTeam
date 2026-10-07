@@ -1,4 +1,4 @@
-import { lt, sql } from "drizzle-orm";
+import { gte, lt, sql } from "drizzle-orm";
 import type { Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 
@@ -59,7 +59,8 @@ export async function usoUltimaHora(db: Ejecutor, ahora: Date = new Date()) {
       pico: sql<number>`max(${t.apiUso.pedidos})::int`,
     })
     .from(t.apiUso)
-    .where(sql`${t.apiUso.ventana} >= ${new Date(ahora.getTime() - 60 * 60_000)}`)
+    // Con `gte` la fecha pasa por la columna: un `Date` suelto en `sql` falla con postgres-js.
+    .where(gte(t.apiUso.ventana, new Date(ahora.getTime() - 60 * 60_000)))
     .groupBy(t.apiUso.apiClienteId);
   return new Map(filas.map((f) => [f.apiClienteId, { pedidos: f.pedidos, pico: f.pico }]));
 }

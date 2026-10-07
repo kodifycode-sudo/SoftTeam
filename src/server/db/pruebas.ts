@@ -1,3 +1,4 @@
+import type { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { porcentaje } from "@/domain/dinero";
 import type { Fecha } from "@/domain/fecha";
@@ -7,9 +8,38 @@ import { crearDbPglite, type Db } from "./cliente";
 import * as t from "./schema";
 import { sembrarDatosBase } from "./semilla";
 
+/**
+ * Producción usa postgres-js, y Drizzle le desactiva la conversión de fechas:
+ * un `Date` suelto como parámetro (por ejemplo, dentro de `sql`...``) falla
+ * ahí, aunque PGlite lo acepte. Los tests lo rechazan igual que producción.
+ */
+function rechazarFechasSueltas(cliente: PGlite) {
+  const revisar = (params?: unknown[]) => {
+    if (params?.some((p) => p instanceof Date)) {
+      throw new Error(
+        "Parámetro Date suelto en una consulta: falla con postgres-js en producción. Compará con gte/lt de la columna.",
+      );
+    }
+  };
+  type Consulta = PGlite["query"];
+  const envolver = (query: Consulta): Consulta =>
+    ((sql: string, params?: unknown[], opciones?: unknown) => {
+      revisar(params);
+      return (query as (...a: unknown[]) => ReturnType<Consulta>)(sql, params, opciones);
+    }) as Consulta;
+  cliente.query = envolver(cliente.query.bind(cliente));
+  const transaccion = cliente.transaction.bind(cliente);
+  cliente.transaction = ((callback: Parameters<PGlite["transaction"]>[0]) =>
+    transaccion((tx) => {
+      tx.query = envolver(tx.query.bind(tx));
+      return callback(tx);
+    })) as PGlite["transaction"];
+}
+
 /** Base en memoria, migrada y con el catálogo de demo. Solo para tests. */
 export async function crearDbDePrueba(): Promise<Db> {
   const db = await crearDbPglite();
+  rechazarFechasSueltas(db.$client);
   await sembrarDatosBase(db, { demo: true });
   return db;
 }

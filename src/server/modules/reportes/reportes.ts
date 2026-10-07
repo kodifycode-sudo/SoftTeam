@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { centavos } from "@/domain/dinero";
 import { diasEntre, type Fecha, inicioDeMes, sumarDias, sumarMeses } from "@/domain/fecha";
-import { periodosComparables } from "@/domain/reportes/periodos";
+import { periodosComparables, type Rango } from "@/domain/reportes/periodos";
 import type { Pagina } from "@/lib/listados";
 import type { Ejecutor } from "@/server/db/cliente";
 import { paginar, totalFiltrado } from "@/server/db/listados";
@@ -98,14 +99,24 @@ export interface TendenciasTablero {
   };
 }
 
+/**
+ * `columna` dentro de un rango de fechas de Argentina (`hasta` exclusivo). Las
+ * fechas pasan por `gte`/`lt` de la columna, que las convierte a texto: el
+ * driver de Postgres de producción (postgres-js con Drizzle) no acepta un
+ * `Date` suelto dentro de `sql`, aunque PGlite sí.
+ */
+export function enRango(columna: AnyPgColumn, rango: Rango) {
+  return and(gte(columna, inicioArgentina(rango.desde)), lt(columna, inicioArgentina(rango.hasta)));
+}
+
 /** Series de 12 meses y comparación del mes en curso, para los indicadores del tablero. */
 export async function tendenciasTablero(db: Ejecutor, hoy: Fecha): Promise<TendenciasTablero> {
   const meses = mesesHasta(hoy, 12);
   const desde = inicioArgentina(`${meses[0]}-01` as Fecha);
   const { actual, anterior } = periodosComparables(hoy);
-  const tramos = (columna: unknown) => ({
-    actual: sql`${columna} >= ${inicioArgentina(actual.desde)} and ${columna} < ${inicioArgentina(actual.hasta)}`,
-    anterior: sql`${columna} >= ${inicioArgentina(anterior.desde)} and ${columna} < ${inicioArgentina(anterior.hasta)}`,
+  const tramos = (columna: AnyPgColumn) => ({
+    actual: enRango(columna, actual),
+    anterior: enRango(columna, anterior),
   });
   const altas = tramos(t.clientes.creadoEn);
   const activados = tramos(t.contratos.activadoEn);
