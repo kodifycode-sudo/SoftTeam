@@ -1,7 +1,7 @@
 import type { Fecha } from "@/domain/fecha";
 import { esDiaDeRecordatorio, ventanasDeRenovacion } from "@/domain/procesos/calendario";
-import type { Facturador } from "@/server/cobros/facturador";
 import type { Db } from "@/server/db/cliente";
+import type { FuenteFacturador } from "../cobros/facturacion";
 import { facturarPendientes } from "../cobros/facturacion";
 import { leerParametroDe } from "../parametros";
 import { type EnviarAlerta, enviarAlertasPendientes } from "./alertas";
@@ -34,7 +34,7 @@ export async function correrProcesos(
   db: Db,
   hoy: Fecha,
   enviar: EnviarAlerta,
-  opciones: { forzar?: boolean; facturador?: Facturador | null } = {},
+  opciones: { forzar?: boolean; facturador?: FuenteFacturador | null } = {},
 ): Promise<ResumenProcesos> {
   const diasCorte = await leerParametroDe(db, "renovacion.dias_corte");
   const diasRecordatorio = await leerParametroDe(db, "cobranza.recordatorios_dias");

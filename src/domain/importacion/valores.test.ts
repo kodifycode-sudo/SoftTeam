@@ -4,28 +4,45 @@ import {
   leerCondicionIva,
   leerCuit,
   leerEntero,
+  leerModoFacturacion,
   leerProvincia,
-  leerTipoCliente,
   leerTipoInstalacion,
   leerTipoPersona,
 } from "./valores";
 
 describe("valores de importación", () => {
-  it("condición de IVA por texto, abreviatura o código AFIP", () => {
-    expect(leerCondicionIva("Responsable Inscripto")).toBe("RESPONSABLE_INSCRIPTO");
-    expect(leerCondicionIva("RI")).toBe("RESPONSABLE_INSCRIPTO");
-    expect(leerCondicionIva("1")).toBe("RESPONSABLE_INSCRIPTO");
-    expect(leerCondicionIva("monotributo")).toBe("MONOTRIBUTO");
-    expect(leerCondicionIva("6")).toBe("MONOTRIBUTO");
-    expect(leerCondicionIva("Consumidor Final")).toBe("CONSUMIDOR_FINAL");
-    expect(leerCondicionIva("otra")).toBeUndefined();
+  it("condición de IVA por código de la KB, abreviatura o condición configurada", () => {
+    const activas = [
+      { codigo: "RESPONSABLE_INSCRIPTO", nombre: "IVA Responsable Inscripto" },
+      { codigo: "CONSUMIDOR_FINAL", nombre: "Consumidor Final" },
+      { codigo: "MONOTRIBUTO", nombre: "Monotributo (Factura B)" },
+      { codigo: "GRAN_CONTRIBUYENTE", nombre: "Gran Contribuyente" },
+      { codigo: "MONOTRIBUTO_SOCIAL", nombre: "Monotributo social" },
+    ];
+    const leer = (v: string) => leerCondicionIva(v, activas);
+    expect(leer("Responsable Inscripto")).toBe("RESPONSABLE_INSCRIPTO");
+    expect(leer("RI")).toBe("RESPONSABLE_INSCRIPTO");
+    expect(leer("1")).toBe("RESPONSABLE_INSCRIPTO");
+    expect(leer("2")).toBe("CONSUMIDOR_FINAL");
+    expect(leer("3")).toBe("MONOTRIBUTO");
+    // En la KB el 5 es Gran Contribuyente (no el código de ARCA de consumidor final).
+    expect(leer("5")).toBe("GRAN_CONTRIBUYENTE");
+    expect(leer("Monotributo social")).toBe("MONOTRIBUTO_SOCIAL");
+    // Una condición que no está activa no se acepta.
+    expect(leer("Exento")).toBeUndefined();
+    expect(leer("otra")).toBeUndefined();
   });
 
   it("tipo de persona, de cliente e instalación", () => {
     expect(leerTipoPersona("J")).toBe("JURIDICA");
     expect(leerTipoPersona("Persona humana")).toBe("FISICA");
-    expect(leerTipoCliente("Corporativo")).toBe("CORPORATIVO");
-    expect(leerTipoCliente("")).toBe("DIRECTO");
+    expect(leerModoFacturacion("")).toBe(0);
+    expect(leerModoFacturacion("1")).toBe(1);
+    expect(leerModoFacturacion("Factura agrupada")).toBe(3);
+    // Tipo de cliente de archivos viejos.
+    expect(leerModoFacturacion("Corporativo")).toBe(3);
+    expect(leerModoFacturacion("Directo")).toBe(0);
+    expect(leerModoFacturacion("7")).toBeUndefined();
     expect(leerTipoInstalacion("On-premise")).toBe("ON_PREMISE");
     expect(leerTipoInstalacion("nube")).toBe("SAAS");
   });

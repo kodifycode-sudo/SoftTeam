@@ -1,6 +1,7 @@
 import { decodificar, leerTabla, normalizarTitulo } from "@/domain/importacion/csv";
 import type { Db } from "@/server/db/cliente";
 import { auditar } from "../auditoria";
+import { opcionesCondicionesIva } from "../catalogo/condiciones-iva";
 import { nombresDeProvincias } from "../catalogo/paises";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import {
@@ -120,6 +121,7 @@ export async function importar(
   const contexto: Contexto = {
     paisId: "AR",
     provincias: await nombresDeProvincias(db, "AR"),
+    condicionesIva: await opcionesCondicionesIva(db, "AR"),
     invitaciones: [],
     empresasTocadas: new Set(),
   };

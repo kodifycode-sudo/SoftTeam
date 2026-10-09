@@ -76,7 +76,13 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
   });
   const db = await obtenerDb();
   const [ordenes, umbrales] = await Promise.all([
-    listarOrdenes(db, { estado: estado || undefined, busqueda, pagina, orden }),
+    listarOrdenes(db, {
+      estado: estado || undefined,
+      conErrorDePago: sp.error === "1",
+      busqueda,
+      pagina,
+      orden,
+    }),
     leerParametroDe(db, "cobranza.semaforo_dias"),
   ]);
   if (ordenes.length === 0 && pagina.numero > 1) {

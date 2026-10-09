@@ -13,6 +13,7 @@ import { obtenerAuth } from "@/server/auth";
 import { codigoDeError, esErrorDeAuth, esLimiteDeIntentos } from "@/server/auth/errores";
 import { intentoPermitido } from "@/server/auth/limites";
 import { obtenerDb } from "@/server/db";
+import { condicionIvaValida } from "@/server/modules/catalogo/condiciones-iva";
 import { provinciaValida } from "@/server/modules/catalogo/paises";
 import {
   confirmarAlta,
@@ -201,6 +202,12 @@ export async function registrarse(
   const db = await obtenerDb();
   if (!(await provinciaValida(db, "AR", alta.provincia))) {
     return { errores: { provincia: ["Elegí la provincia de la lista."] }, valores: recordar };
+  }
+  if (!(await condicionIvaValida(db, "AR", alta.condicionIva))) {
+    return {
+      errores: { condicionIva: ["Elegí una condición frente al IVA de la lista."] },
+      valores: recordar,
+    };
   }
   if (await existeClienteConCuit(db, alta.cuit)) {
     return {

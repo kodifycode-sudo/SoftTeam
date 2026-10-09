@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import {
   Building2,
   CircleCheck,
@@ -6,6 +7,7 @@ import {
   Pencil,
   Phone,
   Receipt,
+  TriangleAlert,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -26,12 +28,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatearCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
+import { type Centavos, formatearMoneda } from "@/domain/dinero";
+import { type ModoFacturacion, NOMBRE_MODO } from "@/domain/facturacion/modo";
+import { hoy } from "@/domain/fecha";
+import { estaProrrogado } from "@/domain/licencias/contrato";
 import { fechaCorta } from "@/lib/formato";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import type { Contacto, Domicilio } from "@/server/db/schema";
+import * as t from "@/server/db/schema";
+import { historialFacturado } from "@/server/modules/cobros/facturacion";
 import { listarTiposComunicacion } from "@/server/modules/configuracion/comunicaciones";
 import { actividadDeEmpresa, notasDeEmpresa } from "@/server/modules/cuentas/actividad";
 import { obtenerCliente } from "@/server/modules/cuentas/consultas";
@@ -103,16 +118,32 @@ export default async function PaginaCliente({
   const cliente = await obtenerCliente(db, id);
   if (!cliente) notFound();
   const ids = cliente.empresas.map((e) => e.id);
-  const [abiertos, notas, actividad, licencias, oficinas, pedidos, comunicaciones] =
-    await Promise.all([
-      abiertosPorEmpresa(db, ids),
-      Promise.all(ids.map((e) => notasDeEmpresa(db, e, true))),
-      Promise.all(ids.map((e) => actividadDeEmpresa(db, e, { esSofteam: true, limite: 8 }))),
-      Promise.all(ids.map((e) => licenciaDeEmpresa(db, e))),
-      facturacionDeOficinas(db, ids),
-      pedidosPendientes(db, ids),
-      Promise.all(ids.map((e) => listarTiposComunicacion(db, e))),
-    ]);
+  const [
+    abiertos,
+    notas,
+    actividad,
+    licencias,
+    oficinas,
+    pedidos,
+    comunicaciones,
+    facturado,
+    emisor,
+  ] = await Promise.all([
+    abiertosPorEmpresa(db, ids),
+    Promise.all(ids.map((e) => notasDeEmpresa(db, e, true))),
+    Promise.all(ids.map((e) => actividadDeEmpresa(db, e, { esSofteam: true, limite: 8 }))),
+    Promise.all(ids.map((e) => licenciaDeEmpresa(db, e))),
+    facturacionDeOficinas(db, ids),
+    pedidosPendientes(db, ids),
+    Promise.all(ids.map((e) => listarTiposComunicacion(db, e))),
+    historialFacturado(db, cliente.id),
+    cliente.emisorId
+      ? db.query.emisores.findFirst({
+          columns: { razonSocial: true },
+          where: eq(t.emisores.id, cliente.emisorId),
+        })
+      : undefined,
+  ]);
   const editaFacturacion = rol === "ADMINISTRACION" || rol === "COMERCIAL";
   const edita = editaFacturacion;
 
@@ -149,6 +180,16 @@ export default async function PaginaCliente({
           </AlertDescription>
         </Alert>
       )}
+      {aviso === "emisor" && (
+        <Alert className="mb-6 border-warning/50 bg-warning/10">
+          <TriangleAlert />
+          <AlertDescription>
+            Guardamos los datos y el nuevo emisor rige para las órdenes nuevas. Dá de alta al
+            cliente en la cuenta de Xubio y de Mercado Pago del nuevo emisor, y actualizá su código
+            de Xubio.
+          </AlertDescription>
+        </Alert>
+      )}
       {aviso === "guardado" && (
         <Alert className="mb-6 border-success/30 bg-success/5 text-success">
           <CircleCheck />
@@ -169,7 +210,11 @@ export default async function PaginaCliente({
             <dl className="grid gap-4 sm:grid-cols-2">
               <Dato etiqueta="Razón social / titular">{cliente.nombreFactura}</Dato>
               <Dato etiqueta="CUIT">{formatearCuit(cliente.cuit)}</Dato>
-              <Dato etiqueta="Condición IVA">{CONDICIONES_IVA_ETIQUETA[cliente.condicionIva]}</Dato>
+              <Dato etiqueta="Condición IVA">{cliente.condicionIvaNombre}</Dato>
+              <Dato etiqueta="Emisor">{emisor?.razonSocial ?? "El preferido del país"}</Dato>
+              <Dato etiqueta="Modo de facturación">
+                {NOMBRE_MODO[cliente.modoFacturacion as ModoFacturacion] ?? cliente.modoFacturacion}
+              </Dato>
               <Dato etiqueta="Tipo">
                 {cliente.tipoPersona === "JURIDICA"
                   ? `Persona jurídica ${cliente.tipoSociedad ?? ""}`
@@ -232,7 +277,6 @@ export default async function PaginaCliente({
                       version: e.actualizadoEn.toISOString(),
                       nombre: e.nombre,
                       nombreCorto: e.nombreCorto,
-                      tipoCliente: e.tipoCliente,
                       tipoInstalacion: e.tipoInstalacion,
                       activa: e.activa,
                     }}
@@ -242,9 +286,6 @@ export default async function PaginaCliente({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-1.5">
-                <Badge variant={e.tipoCliente === "CORPORATIVO" ? "default" : "secondary"}>
-                  {e.tipoCliente === "CORPORATIVO" ? "Corporativo" : "Directo"}
-                </Badge>
                 <Badge variant="outline">
                   {e.tipoInstalacion === "SAAS" ? "SaaS" : "On-premise"}
                 </Badge>
@@ -289,7 +330,13 @@ export default async function PaginaCliente({
                   cantidad: c.cantidad,
                   estado: c.estado,
                   hasta: c.hasta,
-                  vigencia: c.hasta ? `Hasta el ${fechaCorta(c.hasta)}` : "Hasta agotar el saldo",
+                  prorrogaHasta: c.prorrogaHasta,
+                  pendPagoActivoHasta: c.pendPagoActivoHasta,
+                  vigencia: !c.hasta
+                    ? "Hasta agotar el saldo"
+                    : estaProrrogado({ ...c, hasta: c.hasta }, hoy())
+                      ? `Venció el ${fechaCorta(c.hasta)}: prorrogado hasta el ${fechaCorta(c.prorrogaHasta ?? c.hasta)} mientras se paga la renovación`
+                      : `Hasta el ${fechaCorta(c.hasta)}`,
                 }))}
               />
               <div className="space-y-2 border-t pt-4">
@@ -320,6 +367,58 @@ export default async function PaginaCliente({
           </Card>
         ))}
       </div>
+      <Card className="mt-6 overflow-hidden pb-0">
+        <CardHeader>
+          <CardTitle>Historial facturado</CardTitle>
+          <CardDescription>
+            Las órdenes facturadas a este cliente, con el emisor que facturó cada una.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          {facturado.length === 0 ? (
+            <p className="px-4 pb-6 text-sm text-muted-foreground">Todavía no tiene facturas.</p>
+          ) : (
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead className="pl-4">Fecha</TableHead>
+                  <TableHead>Comprobante</TableHead>
+                  <TableHead>Emisor</TableHead>
+                  <TableHead>Orden</TableHead>
+                  <TableHead className="pr-4 text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {facturado.map((o) => (
+                  <TableRow key={o.id}>
+                    <TableCell className="pl-4">{fechaCorta(o.facturadaEn)}</TableCell>
+                    <TableCell className="tabular-nums">{o.facturaNumero}</TableCell>
+                    <TableCell>
+                      {o.emisorRazonSocial ?? "—"}
+                      {o.emisorCuit && (
+                        <span className="block text-xs text-muted-foreground">
+                          CUIT {formatearCuit(o.emisorCuit)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/admin/ordenes/${o.id}`}
+                        className="text-primary hover:underline"
+                      >
+                        #{o.numero}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="pr-4 text-right tabular-nums">
+                      {formatearMoneda(o.total as Centavos)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 }

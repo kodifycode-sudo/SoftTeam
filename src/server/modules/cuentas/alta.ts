@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { esCuitValido, normalizarCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
 import { TIPOS_SOCIEDAD } from "@/lib/argentina";
 import type { Db } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
@@ -30,7 +29,11 @@ export const esquemaDatosAlta = z
       .string()
       .transform(normalizarCuit)
       .refine(esCuitValido, { error: "El CUIT/CUIL no es válido" }),
-    condicionIva: z.enum(CONDICIONES_IVA, { error: "Elegí la condición frente al IVA" }),
+    condicionIva: z
+      .string({ error: "Elegí la condición frente al IVA" })
+      .trim()
+      .min(1, { error: "Elegí la condición frente al IVA" })
+      .max(30),
     telefono,
     email: z.email({ error: "Ingresá un mail válido" }).trim().toLowerCase(),
     calle: texto(3, 120, "Ingresá la dirección"),

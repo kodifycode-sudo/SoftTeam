@@ -37,17 +37,19 @@ export async function listarClientes(db: Ejecutor, filtros: FiltrosClientes = {}
       nombre: t.clientes.nombre,
       cuit: t.clientes.cuit,
       condicionIva: t.clientes.condicionIva,
+      condicionIvaNombre: t.condicionesIva.nombre,
       activo: t.clientes.activo,
       creadoEn: t.clientes.creadoEn,
       grupo: t.gruposEconomicos.nombreCorto,
       administrador: sql<string>`${t.clientes.contactoAdministrador}->>'nombre'`,
       email: sql<string>`${t.clientes.contactoAdministrador}->>'email'`,
       empresas,
-      corporativo: sql<boolean>`exists (select 1 from ${t.empresas} e where e.cliente_id = ${t.clientes.id} and e.tipo_cliente = 'CORPORATIVO')`,
+      modoFacturacion: t.clientes.modoFacturacion,
       totalFilas: totalFiltrado(),
     })
     .from(t.clientes)
     .leftJoin(t.gruposEconomicos, eq(t.gruposEconomicos.id, t.clientes.grupoId))
+    .innerJoin(t.condicionesIva, eq(t.condicionesIva.codigo, t.clientes.condicionIva))
     .where(
       and(
         filtros.inactivos ? undefined : eq(t.clientes.activo, true),
@@ -76,7 +78,7 @@ export async function obtenerCliente(db: Ejecutor, clienteId: string) {
   const cliente = await db.query.clientes.findFirst({ where: eq(t.clientes.id, clienteId) });
   if (!cliente) return undefined;
 
-  const [grupo, empresas] = await Promise.all([
+  const [grupo, empresas, condicion] = await Promise.all([
     cliente.grupoId
       ? db.query.gruposEconomicos.findFirst({ where: eq(t.gruposEconomicos.id, cliente.grupoId) })
       : undefined,
@@ -85,6 +87,10 @@ export async function obtenerCliente(db: Ejecutor, clienteId: string) {
       .from(t.empresas)
       .where(eq(t.empresas.clienteId, clienteId))
       .orderBy(asc(t.empresas.numero)),
+    db.query.condicionesIva.findFirst({
+      columns: { nombre: true },
+      where: eq(t.condicionesIva.codigo, cliente.condicionIva),
+    }),
   ]);
 
   const idsEmpresas = empresas.map((e) => e.id);
@@ -110,6 +116,7 @@ export async function obtenerCliente(db: Ejecutor, clienteId: string) {
 
   return {
     ...cliente,
+    condicionIvaNombre: condicion?.nombre ?? cliente.condicionIva,
     grupo,
     empresas: empresas.map((e) => ({
       ...e,

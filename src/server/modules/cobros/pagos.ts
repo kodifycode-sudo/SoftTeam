@@ -12,6 +12,12 @@ const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export type ErrorLink = "NO_EXISTE" | "NO_PENDIENTE" | "MEDIO_SIN_LINK" | "SIN_PASARELA";
 
+/** Una pasarela fija, o la del emisor de cada orden (Mejora v2.1, 5.11). */
+export type FuentePasarela =
+  | Pasarela
+  | null
+  | ((emisorId: string | null) => Promise<Pasarela | null>);
+
 /**
  * Link de pago de una orden pendiente. Se crea una vez y se reutiliza: los
  * importes de la orden están congelados, así que el link sigue siendo válido
@@ -19,7 +25,7 @@ export type ErrorLink = "NO_EXISTE" | "NO_PENDIENTE" | "MEDIO_SIN_LINK" | "SIN_P
  */
 export async function obtenerLinkDePago(
   db: Ejecutor,
-  pasarela: Pasarela | null,
+  fuente: FuentePasarela,
   ordenId: string,
   opciones: { urlBase: string; alcance?: AlcanceOrden },
 ): Promise<{ ok: true; url: string } | { ok: false; error: ErrorLink }> {
@@ -32,6 +38,7 @@ export async function obtenerLinkDePago(
       total: t.ordenes.total,
       moneda: t.ordenes.moneda,
       linkPagoUrl: t.ordenes.linkPagoUrl,
+      emisorId: t.ordenes.emisorId,
       generaLink: t.mediosPago.generaLink,
     })
     .from(t.ordenes)
@@ -41,6 +48,7 @@ export async function obtenerLinkDePago(
   if (fila.estado !== "PEND_PAGO") return { ok: false, error: "NO_PENDIENTE" };
   if (!fila.generaLink) return { ok: false, error: "MEDIO_SIN_LINK" };
   if (fila.linkPagoUrl) return { ok: true, url: fila.linkPagoUrl };
+  const pasarela = typeof fuente === "function" ? await fuente(fila.emisorId) : fuente;
   if (!pasarela) return { ok: false, error: "SIN_PASARELA" };
 
   const link = await pasarela.crearLink({
@@ -50,7 +58,8 @@ export async function obtenerLinkDePago(
     total: fila.total,
     moneda: fila.moneda,
     urlRetorno: `${opciones.urlBase}/portal/ordenes/${fila.id}`,
-    urlAviso: `${opciones.urlBase}/api/pagos/aviso`,
+    // El aviso indica el emisor: su notificación se valida con su clave.
+    urlAviso: `${opciones.urlBase}/api/pagos/aviso${fila.emisorId ? `?emisor=${fila.emisorId}` : ""}`,
   });
   // Si dos pedidos crearon el link a la vez, queda el primero.
   const [guardada] = await db
@@ -72,7 +81,7 @@ export async function obtenerLinkDePago(
  */
 export async function reenviarLinkDePago(
   db: Db,
-  pasarela: Pasarela | null,
+  pasarela: FuentePasarela,
   ordenId: string,
   actorId: string,
   urlBase: string,

@@ -134,6 +134,12 @@ export function VistaOrden({
                   CUIT {formatearCuit(facturacion.cuit)}
                 </span>
               )}
+              {orden.emisorRazonSocial && (
+                <span className="block text-xs font-normal text-muted-foreground">
+                  Emite {orden.emisorRazonSocial}
+                  {orden.emisorCuit && ` · CUIT ${formatearCuit(orden.emisorCuit)}`}
+                </span>
+              )}
               {orden.facturaNumero ? (
                 <span className="mt-1 block text-xs font-medium text-success">
                   Comprobante{" "}

@@ -12,6 +12,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { hoy } from "@/domain/fecha";
+import { TRIMESTRAL_INICIAL } from "@/domain/licencias/periodo";
 import { productoUI } from "@/lib/productos";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarPaquetes } from "@/server/modules/catalogo/paquetes";
+import { soloTrimestralInicial } from "@/server/modules/ventas/checkout";
 import { AgregarAlCarrito } from "../compra/agregar";
 import { SelectorOficinaCompra } from "../compra/selector-oficina";
 
@@ -33,7 +35,23 @@ export default async function PaquetesDisponibles({ searchParams }: PageProps<"/
   const tipoElegido = tipo === "CONSUMIBLE" ? "CONSUMIBLE" : "TEMPORAL";
   const db = await obtenerDb();
   // Solo paquetes públicos y a la venta hoy: el filtro va en el servidor, no en la pantalla.
-  const catalogo = await listarPaquetes(db, { hoy: hoy(), tipo: tipoElegido, soloPublicos: true });
+  const [completo, soloTrimestral] = await Promise.all([
+    listarPaquetes(db, { hoy: hoy(), tipo: tipoElegido, soloPublicos: true }),
+    soloTrimestralInicial(db, contexto.empresaId),
+  ]);
+  // El trimestral es solo para el primer alta; después, mensual o anual (8.18).
+  const catalogo = completo
+    .map((p) =>
+      p.tipo === "TEMPORAL"
+        ? {
+            ...p,
+            alternativas: p.alternativas.filter(
+              (a) => (a.meses === TRIMESTRAL_INICIAL) === soloTrimestral,
+            ),
+          }
+        : p,
+    )
+    .filter((p) => p.alternativas.length > 0);
   // Los productos que aparecen en esta pestaña, para filtrar por el que interesa.
   const productos = [...new Set(catalogo.flatMap((p) => p.productos))];
   const productoElegido =

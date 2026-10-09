@@ -17,8 +17,9 @@ import { fechaCorta, porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { listarCondicionesIva } from "@/server/modules/catalogo/condiciones-iva";
 import { listarMonedas, listarPaises, listarProvincias } from "@/server/modules/catalogo/paises";
-import { DialogoMoneda, DialogoPais, DialogoProvincia } from "./dialogos";
+import { DialogoCondicionIva, DialogoMoneda, DialogoPais, DialogoProvincia } from "./dialogos";
 
 export const metadata: Metadata = { title: "Países y monedas" };
 
@@ -58,14 +59,18 @@ export default async function PaginaPaises({ searchParams }: PageProps<"/admin/p
   const { pais: elegido } = await searchParams;
   const pais =
     paises.find((p) => p.id === elegido) ?? paises.find((p) => p.id === "AR") ?? paises[0];
-  const provincias = pais ? await listarProvincias(db, pais.id) : [];
+  const [provincias, condicionesIva] = pais
+    ? await Promise.all([listarProvincias(db, pais.id), listarCondicionesIva(db, pais.id)])
+    : [[], []];
+  /** 2100n → "21"; 1050n → "10,5" (para editar). */
+  const porcentajeCampo = (valor: bigint) => (Number(valor) / 100).toString().replace(".", ",");
   const monedasActivas = monedas.filter((m) => m.activa).map((m) => m.codigo);
 
   return (
     <>
       <EncabezadoPagina
         titulo="Países y monedas"
-        descripcion="Dónde se vende: cada país con su moneda, su IVA y sus provincias. Los cambios quedan en la auditoría."
+        descripcion="Dónde se vende: cada país con su moneda, sus provincias y sus condiciones frente al IVA. Los cambios quedan en la auditoría."
       />
       <div className="grid gap-6">
         <Card className="overflow-hidden pb-0">
@@ -278,6 +283,89 @@ export default async function PaginaPaises({ searchParams }: PageProps<"/admin/p
                                 codigo: p.codigo,
                                 nombre: p.nombre,
                                 activa: p.activa,
+                              }}
+                            />
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {pais && (
+          <Card id="condiciones-iva" className="scroll-mt-20 overflow-hidden pb-0">
+            <Encabezado
+              titulo={`Condiciones frente al IVA de ${pais.nombre}`}
+              descripcion="Cada cliente tiene una: define el IVA de sus órdenes y si la factura es A o B. Un cambio rige para las órdenes nuevas."
+              accion={
+                edita && (
+                  <DialogoCondicionIva
+                    paisId={pais.id}
+                    paisNombre={pais.nombre}
+                    alicuotaGeneral={porcentajeCampo(pais.alicuotaIvaGeneral)}
+                  />
+                )
+              }
+            />
+            <CardContent className="overflow-x-auto p-0">
+              {condicionesIva.length === 0 ? (
+                <p className="px-4 pb-6 text-sm text-muted-foreground">
+                  Todavía no hay condiciones de {pais.nombre}: sin una no se puede dar de alta un
+                  cliente ni facturarle.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead className="pl-4">Condición</TableHead>
+                      <TableHead>Comprobante</TableHead>
+                      <TableHead className="text-right">IVA</TableHead>
+                      <TableHead className="text-right">Código ARCA</TableHead>
+                      <TableHead className="text-right">Clientes</TableHead>
+                      {edita && <TableHead className="w-24" />}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {condicionesIva.map((c) => (
+                      <TableRow key={c.codigo} className={cn(!c.activa && "opacity-60")}>
+                        <TableCell className="pl-4">
+                          {c.nombre}
+                          {!c.activa && (
+                            <Badge variant="outline" className="ml-2">
+                              Inactiva
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {c.comprobante === "A"
+                            ? "A (discrimina IVA)"
+                            : c.comprobante === "B"
+                              ? "B (IVA incluido)"
+                              : "E (exterior)"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {porcentajeTexto(c.alicuota)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{c.codigoArca}</TableCell>
+                        <TableCell className="text-right tabular-nums">{c.clientes}</TableCell>
+                        {edita && (
+                          <TableCell>
+                            <DialogoCondicionIva
+                              paisId={pais.id}
+                              paisNombre={pais.nombre}
+                              alicuotaGeneral={porcentajeCampo(pais.alicuotaIvaGeneral)}
+                              condicion={{
+                                codigo: c.codigo,
+                                nombre: c.nombre,
+                                codigoArca: c.codigoArca,
+                                alicuota: porcentajeCampo(c.alicuota),
+                                comprobante: c.comprobante,
+                                activa: c.activa,
+                                orden: c.orden,
                               }}
                             />
                           </TableCell>

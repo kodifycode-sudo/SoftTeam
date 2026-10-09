@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatearCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
+import { type ModoFacturacion, NOMBRE_MODO } from "@/domain/facturacion/modo";
 import { fechaCorta } from "@/lib/formato";
 import { hrefListado, leerListado } from "@/lib/listados";
 import { requerirSofteam } from "@/server/auth/sesion";
@@ -140,7 +140,11 @@ export default async function PaginaClientes({ searchParams }: PageProps<"/admin
                       {c.empresas === 1 ? "" : "s"}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {c.corporativo && <Badge variant="secondary">Corporativo</Badge>}
+                      {c.modoFacturacion !== 0 && (
+                        <Badge variant="secondary">
+                          {NOMBRE_MODO[c.modoFacturacion as ModoFacturacion]}
+                        </Badge>
+                      )}
                       {c.grupo && <Badge variant="outline">{c.grupo}</Badge>}
                       {!c.activo && <Badge variant="destructive">Inactivo</Badge>}
                     </div>
@@ -187,15 +191,17 @@ export default async function PaginaClientes({ searchParams }: PageProps<"/admin
                       </Link>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                         {c.email}
-                        {c.corporativo && <Badge variant="secondary">Corporativo</Badge>}
+                        {c.modoFacturacion !== 0 && (
+                          <Badge variant="secondary">
+                            {NOMBRE_MODO[c.modoFacturacion as ModoFacturacion]}
+                          </Badge>
+                        )}
                         {c.grupo && <Badge variant="outline">{c.grupo}</Badge>}
                         {!c.activo && <Badge variant="destructive">Inactivo</Badge>}
                       </div>
                     </TableCell>
                     <TableCell className="tabular-nums">{formatearCuit(c.cuit)}</TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {CONDICIONES_IVA_ETIQUETA[c.condicionIva]}
-                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">{c.condicionIvaNombre}</TableCell>
                     <TableCell className="text-center tabular-nums">{c.empresas}</TableCell>
                     <TableCell className="hidden text-muted-foreground xl:table-cell">
                       {fechaCorta(c.creadoEn)}

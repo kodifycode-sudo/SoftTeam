@@ -9,6 +9,8 @@ export interface EstadoRenovacion {
   noRenovar: boolean;
   /** Número de la orden de renovación, si ya se generó. */
   ordenRenovacion: number | null;
+  /** Trimestre inicial (sin día de vencimiento): no se renueva solo, se negocia. */
+  aNegociar: boolean;
 }
 
 /** Renovación automática y orden de renovación generada, por contrato. */
@@ -20,7 +22,11 @@ export async function estadoDeRenovacion(
   if (contratoIds.length === 0) return new Map();
   const [contratos, renovaciones] = await Promise.all([
     db
-      .select({ id: t.contratos.id, noRenovar: t.contratos.noRenovar })
+      .select({
+        id: t.contratos.id,
+        noRenovar: t.contratos.noRenovar,
+        diaVenc: t.contratos.diaVenc,
+      })
       .from(t.contratos)
       .where(and(eq(t.contratos.empresaId, empresaId), inArray(t.contratos.id, contratoIds))),
     db
@@ -38,7 +44,11 @@ export async function estadoDeRenovacion(
   return new Map(
     contratos.map((c) => [
       c.id,
-      { noRenovar: c.noRenovar, ordenRenovacion: ordenDe.get(c.id) ?? null },
+      {
+        noRenovar: c.noRenovar,
+        ordenRenovacion: ordenDe.get(c.id) ?? null,
+        aNegociar: c.diaVenc === null,
+      },
     ]),
   );
 }

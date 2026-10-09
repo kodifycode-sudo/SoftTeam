@@ -78,12 +78,12 @@ describe("tickets y renovaciones", () => {
       },
     );
 
-    await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-09-15")).at(-1)!);
+    await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-10-11")).at(-1)!);
     const nuevo = await db.query.contratos.findFirst({
       where: eq(t.contratos.contratoAnteriorId, contrato.id),
     });
     const renovacion = await db.query.ordenes.findFirst({
-      where: eq(t.ordenes.id, nuevo!.ordenId),
+      where: eq(t.ordenes.id, nuevo!.ordenId!),
     });
     expect(renovacion).toMatchObject({
       ticketId: null,

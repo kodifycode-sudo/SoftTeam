@@ -40,7 +40,12 @@ const solicitud = (cambios: Partial<SolicitudFactura> = {}): SolicitudFactura =>
   numeroOrden: 10025,
   tipoComprobante: "A",
   fecha: "2026-09-29",
-  cliente: { cuit: "30711111110", nombre: "Broker Sur SA", condicionIva: "RESPONSABLE_INSCRIPTO" },
+  cliente: {
+    cuit: "30711111110",
+    nombre: "Broker Sur SA",
+    condicionIva: "RESPONSABLE_INSCRIPTO",
+    codigoArca: 1,
+  },
   lineas: [
     {
       descripcion: "Prodigal Inicial · Mensual ×2",

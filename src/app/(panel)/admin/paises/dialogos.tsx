@@ -23,7 +23,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ESTADO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
-import { guardarMonedaAccion, guardarPaisAccion, guardarProvinciaAccion } from "./acciones";
+import {
+  guardarCondicionIvaAccion,
+  guardarMonedaAccion,
+  guardarPaisAccion,
+  guardarProvinciaAccion,
+} from "./acciones";
 
 type Accion = (estado: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>;
 
@@ -279,6 +284,98 @@ export function DialogoProvincia({
             nombre="activa"
             etiqueta="Activa"
             marcada={provincia?.activa ?? true}
+          />
+        </>
+      )}
+    />
+  );
+}
+
+export interface DatosCondicionIva {
+  codigo: string;
+  nombre: string;
+  codigoArca: number;
+  /** Para editar: "21" o "10,5". */
+  alicuota: string;
+  comprobante: "A" | "B" | "E";
+  activa: boolean;
+  orden: number;
+}
+
+export function DialogoCondicionIva({
+  paisId,
+  paisNombre,
+  condicion,
+  alicuotaGeneral,
+}: {
+  paisId: string;
+  paisNombre: string;
+  condicion?: DatosCondicionIva;
+  /** Alícuota que se propone para una condición nueva (la general del país). */
+  alicuotaGeneral: string;
+}) {
+  return (
+    <Dialogo
+      titulo={
+        condicion
+          ? `${condicion.nombre} (${paisNombre})`
+          : `Nueva condición frente al IVA en ${paisNombre}`
+      }
+      descripcion="Define el IVA y el comprobante de los clientes que la tienen. Un cambio rige para las órdenes que se confirmen desde ahora: las ya emitidas no cambian."
+      editar={condicion?.nombre}
+      etiquetaNuevo="Nueva condición"
+      accion={guardarCondicionIvaAccion}
+      campos={(estado) => (
+        <>
+          <input type="hidden" name="paisId" value={paisId} />
+          {condicion && <input type="hidden" name="codigo" value={condicion.codigo} />}
+          <Campo
+            nombre="nombre"
+            etiqueta="Nombre"
+            placeholder="Monotributo social"
+            defaultValue={condicion?.nombre}
+            estado={estado}
+          />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Campo
+              nombre="alicuota"
+              etiqueta="IVA (%)"
+              inputMode="decimal"
+              defaultValue={condicion?.alicuota ?? alicuotaGeneral}
+              ayuda="0 si no se cobra IVA."
+              estado={estado}
+            />
+            <Selector
+              nombre="comprobante"
+              etiqueta="Comprobante"
+              estado={estado}
+              valorInicial={condicion?.comprobante ?? "B"}
+            >
+              <option value="A">A (discrimina el IVA)</option>
+              <option value="B">B (IVA incluido)</option>
+              <option value="E">E (exterior, todavía no se emite)</option>
+            </Selector>
+            <Campo
+              nombre="codigoArca"
+              etiqueta="Código ARCA"
+              inputMode="numeric"
+              defaultValue={condicion?.codigoArca?.toString()}
+              ayuda="Condición del receptor que se informa al facturar."
+              estado={estado}
+            />
+          </div>
+          <Campo
+            nombre="orden"
+            etiqueta="Orden en la lista"
+            inputMode="numeric"
+            defaultValue={condicion?.orden?.toString() ?? "0"}
+            estado={estado}
+          />
+          <Casilla
+            id={`condicion-activa-${condicion?.codigo ?? "nueva"}`}
+            nombre="activa"
+            etiqueta="Activa (se puede elegir y facturar)"
+            marcada={condicion?.activa ?? true}
           />
         </>
       )}

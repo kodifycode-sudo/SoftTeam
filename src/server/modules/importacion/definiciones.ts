@@ -5,8 +5,8 @@ import {
   leerCondicionIva,
   leerCuit,
   leerEntero,
+  leerModoFacturacion,
   leerProvincia,
-  leerTipoCliente,
   leerTipoInstalacion,
   leerTipoPersona,
 } from "@/domain/importacion/valores";
@@ -31,6 +31,8 @@ export interface Contexto {
   paisId: string;
   /** Provincias activas del país. */
   provincias: readonly string[];
+  /** Condiciones frente al IVA activas del país. */
+  condicionesIva: readonly { codigo: string; nombre: string }[];
   /** Administradores con acceso nuevo (para enviarles el mail al final, si se pide). */
   invitaciones: UsuarioLogin[];
   /** Empresas con cambios (para avisar a los productos). */
@@ -214,7 +216,8 @@ JOIN STLicEmpresas e ON e.STLicEmpresaCod = ce.STLicEmpresaCod`,
     col("nombreFactura", "Nombre en la factura", ["STLicClienteFacNombre"]),
     col("condicionIva", "Condición de IVA", ["STLicClienteFacIVACod", "iva"], {
       requerida: true,
-      ayuda: "RI, Monotributo, Exento, Consumidor final (o código AFIP 1, 6, 4, 5).",
+      ayuda:
+        "Código de la KB (1 Inscripto, 2 Consumidor final, 3 Monotributo, 4 Exento, 5 Gran contribuyente, 6 Monotributo con Factura A), abreviatura (RI, CF, MT, EX, GC) o el nombre de una condición configurada.",
     }),
     col("calle", "Domicilio fiscal", ["STLicClienteFacDomi", "domicilio", "direccion"], {
       requerida: true,
@@ -243,9 +246,15 @@ JOIN STLicEmpresas e ON e.STLicEmpresaCod = ce.STLicEmpresaCod`,
     }),
     col("empresaNombre", "Nombre de la empresa", ["STLicEmpresaNom", "STLicClienteEmpresaNom"]),
     col("empresaNombreCorto", "Nombre corto", ["STLicEmpresaNomCto"]),
-    col("tipoCliente", "Tipo de cliente", ["StLicEmpresasTipCliente"], {
-      ayuda: "Directo o Corporativo.",
-    }),
+    col(
+      "modoFacturacion",
+      "Modo de facturación",
+      ["STLicClienteFacModo", "modo", "StLicEmpresasTipCliente"],
+      {
+        ayuda:
+          "0 pago directo, 1 factura adelantada, 2 suscripción de Mercado Pago, 3 factura agrupada. Por defecto, 0. Del tipo de cliente viejo: Directo es 0 y Corporativo, 3.",
+      },
+    ),
     col("instalacion", "Instalación", ["STLicEmpresaInstalacionTipo"], {
       ayuda: "SaaS u On-premise.",
     }),
@@ -280,6 +289,13 @@ JOIN STLicEmpresas e ON e.STLicEmpresaCod = ce.STLicEmpresaCod`,
             }
           : null;
       cliente = await crearCliente(tx, {
+        modoFacturacion: interpretar(
+          fila,
+          "modoFacturacion",
+          "Modo de facturación",
+          leerModoFacturacion,
+          0,
+        ),
         tipoPersona: interpretar(
           fila,
           "tipoPersona",
@@ -294,7 +310,9 @@ JOIN STLicEmpresas e ON e.STLicEmpresaCod = ce.STLicEmpresaCod`,
           ) ?? null,
         nombreFactura: texto(fila, "nombreFactura", 120) ?? nombre.slice(0, 120),
         cuit,
-        condicionIva: interpretar(fila, "condicionIva", "Condición de IVA", leerCondicionIva),
+        condicionIva: interpretar(fila, "condicionIva", "Condición de IVA", (v) =>
+          leerCondicionIva(v, ctx.condicionesIva),
+        ),
         domicilioFiscal: {
           calle: requerido(fila, "calle", "el domicilio fiscal").slice(0, 120),
           ciudad: requerido(fila, "ciudad", "la localidad").slice(0, 60),
@@ -336,7 +354,6 @@ JOIN STLicEmpresas e ON e.STLicEmpresaCod = ce.STLicEmpresaCod`,
       clienteId: cliente.id,
       nombre: (texto(fila, "empresaNombre", 120) ?? nombre).slice(0, 120),
       nombreCorto: texto(fila, "empresaNombreCorto", 20) ?? undefined,
-      tipoCliente: interpretar(fila, "tipoCliente", "Tipo de cliente", leerTipoCliente, "DIRECTO"),
       tipoInstalacion: interpretar(fila, "instalacion", "Instalación", leerTipoInstalacion, "SAAS"),
       activa: !siNo(fila, "empresaBaja"),
       paisId: ctx.paisId,
@@ -618,7 +635,9 @@ const productores: Definicion = {
         : null,
       cuit,
       condicionIva: fila.condicionIva?.trim()
-        ? interpretar(fila, "condicionIva", "Condición de IVA", leerCondicionIva)
+        ? interpretar(fila, "condicionIva", "Condición de IVA", (v) =>
+            leerCondicionIva(v, ctx.condicionesIva),
+          )
         : null,
       email: email(fila, "email"),
       telefono: texto(fila, "telefono", 30),

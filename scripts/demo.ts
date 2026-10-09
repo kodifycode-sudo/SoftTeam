@@ -359,7 +359,8 @@ async function principal() {
         email: "ana@brokerdelsur.demo",
         telefono: "011 4555-1000",
       },
-      empresa: { nombre: "Broker del Sur", tipoCliente: "DIRECTO", tipoInstalacion: "SAAS" },
+      modoFacturacion: 0,
+      empresa: { nombre: "Broker del Sur", tipoInstalacion: "SAAS" },
     },
     adminId,
   );
@@ -368,13 +369,13 @@ async function principal() {
     sur.empresaId,
     sur.adminUsuarioId,
     [
-      ["PRO-FULL", "Anual", 1],
-      ["CW-PRO", "Mensual", 1],
-      ["BS-BASE", "Mensual", 1],
+      ["PRO-FULL", "Trimestral inicial", 1],
+      ["CW-PRO", "Trimestral inicial", 1],
+      ["BS-BASE", "Trimestral inicial", 1],
       ["NOTI-10K", "Pago único", 2],
       ["SOPORTE-10", "Pago único", 1],
     ],
-    { medio: "TRANSF", pagar: { actorId: adminId }, dias: 20 },
+    { medio: "LINK_MP", pagar: { actorId: adminId }, dias: 20 },
   );
   // Oficinas: Casa central ya existe (01-001); se suman Palermo y el canal Interior.
   const [central] = await listarOficinas(db, sur.empresaId);
@@ -688,7 +689,8 @@ async function principal() {
         email: "jorge@andino.demo",
         telefono: "0261 420-5000",
       },
-      empresa: { nombre: "Andino Mendoza", tipoCliente: "DIRECTO", tipoInstalacion: "SAAS" },
+      modoFacturacion: 0,
+      empresa: { nombre: "Andino Mendoza", tipoInstalacion: "SAAS" },
     },
     adminId,
   );
@@ -697,7 +699,7 @@ async function principal() {
     andino.empresaId,
     andino.adminUsuarioId,
     [
-      ["PRO-INICIAL", "Mensual", 2],
+      ["PRO-INICIAL", "Trimestral inicial", 2],
       ["NOTI-10K", "Pago único", 1],
     ],
     { medio: "LINK_MP", pagar: { actorId: adminId }, dias: 25 },
@@ -721,7 +723,7 @@ async function principal() {
     accesoProdigal: true,
   });
 
-  // Segunda empresa del mismo cliente: corporativa, habilitada sin pagar.
+  // Segunda empresa del mismo cliente.
   const [otraEmpresa] = await db
     .insert(t.empresas)
     .values({
@@ -729,7 +731,6 @@ async function principal() {
       nombre: "Andino San Juan",
       nombreCorto: "ANDINO SJ",
       paisId: "AR",
-      tipoCliente: "CORPORATIVO",
       tipoInstalacion: "ON_PREMISE",
     })
     .returning();
@@ -754,10 +755,16 @@ async function principal() {
       adminComercial: true,
       adminOperativo: true,
     });
-    await comprar(db, otraEmpresa.id, andino.adminUsuarioId, [["PRO-FULL", "Mensual", 1]], {
-      medio: "TRANSF",
-      pagar: false,
-    });
+    await comprar(
+      db,
+      otraEmpresa.id,
+      andino.adminUsuarioId,
+      [["PRO-FULL", "Trimestral inicial", 1]],
+      {
+        medio: "LINK_MP",
+        pagar: false,
+      },
+    );
   }
 
   // ─── 3. Productor independiente: persona física, orden pendiente ─────────
@@ -779,14 +786,21 @@ async function principal() {
         email: "martin@productor.demo",
         telefono: "0343 431-2000",
       },
-      empresa: { nombre: "Martínez Seguros", tipoCliente: "DIRECTO", tipoInstalacion: "SAAS" },
+      modoFacturacion: 0,
+      empresa: { nombre: "Martínez Seguros", tipoInstalacion: "SAAS" },
     },
     adminId,
   );
-  await comprar(db, martin.empresaId, martin.adminUsuarioId, [["PRO-INICIAL", "Mensual", 1]], {
-    medio: "LINK_MP",
-    pagar: false,
-  });
+  await comprar(
+    db,
+    martin.empresaId,
+    martin.adminUsuarioId,
+    [["PRO-INICIAL", "Trimestral inicial", 1]],
+    {
+      medio: "LINK_MP",
+      pagar: false,
+    },
+  );
 
   // ─── 4. Grupo Patagonia: dos clientes, facturación al principal ─────────
   const patagonia = await nuevoCliente(
@@ -808,7 +822,8 @@ async function principal() {
         email: "gabriela@patagonia.demo",
         telefono: "0299 442-1000",
       },
-      empresa: { nombre: "Patagonia Brokers", tipoCliente: "DIRECTO", tipoInstalacion: "SAAS" },
+      modoFacturacion: 1,
+      empresa: { nombre: "Patagonia Brokers", tipoInstalacion: "SAAS" },
     },
     adminId,
   );
@@ -817,8 +832,8 @@ async function principal() {
     patagonia.empresaId,
     patagonia.adminUsuarioId,
     [
-      ["PRO-FULL", "Mensual", 1],
-      ["BS-BASE", "Mensual", 1],
+      ["PRO-FULL", "Trimestral inicial", 1],
+      ["BS-BASE", "Trimestral inicial", 1],
     ],
     { medio: "TRANSF", pagar: { actorId: adminId }, dias: 10 },
   );
@@ -842,15 +857,22 @@ async function principal() {
         email: "hernan@austral.demo",
         telefono: "0294 442-3000",
       },
-      empresa: { nombre: "Austral Productores", tipoCliente: "DIRECTO", tipoInstalacion: "SAAS" },
+      modoFacturacion: 1,
+      empresa: { nombre: "Austral Productores", tipoInstalacion: "SAAS" },
     },
     adminId,
   );
-  await comprar(db, austral.empresaId, austral.adminUsuarioId, [["PRO-INICIAL", "Mensual", 1]], {
-    medio: "TRANSF",
-    pagar: { actorId: adminId },
-    dias: 5,
-  });
+  await comprar(
+    db,
+    austral.empresaId,
+    austral.adminUsuarioId,
+    [["PRO-INICIAL", "Trimestral inicial", 1]],
+    {
+      medio: "TRANSF",
+      pagar: { actorId: adminId },
+      dias: 5,
+    },
+  );
   const grupo = exigir(
     await guardarGrupo(
       db,
@@ -886,15 +908,22 @@ async function principal() {
         email: "irene@litoral.demo",
         telefono: "0342 455-6000",
       },
-      empresa: { nombre: "Litoral Asesores", tipoCliente: "DIRECTO", tipoInstalacion: "SAAS" },
+      modoFacturacion: 1,
+      empresa: { nombre: "Litoral Asesores", tipoInstalacion: "SAAS" },
     },
     adminId,
   );
-  await comprar(db, litoral.empresaId, litoral.adminUsuarioId, [["PRO-INICIAL", "Mensual", 1]], {
-    medio: "TRANSF",
-    pagar: { actorId: adminId },
-    dias: 45,
-  });
+  await comprar(
+    db,
+    litoral.empresaId,
+    litoral.adminUsuarioId,
+    [["PRO-INICIAL", "Trimestral inicial", 1]],
+    {
+      medio: "TRANSF",
+      pagar: { actorId: adminId },
+      dias: 45,
+    },
+  );
 
   // Avisos del día (vencimientos, saldos, licencias).
   await procesoDiario(db, HOY);

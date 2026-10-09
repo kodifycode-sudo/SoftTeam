@@ -66,14 +66,40 @@ const MEDIOS_ENVIO = [
 const PARAMETROS: { clave: string; valor: unknown; descripcion: string }[] = [
   {
     clave: "renovacion.dias_corte",
-    valor: [5, 15],
+    valor: [2, 11],
     descripcion:
-      "Días del mes en que corre la renovación. El primero renueva vencimientos del 1 al 15; el segundo, del 16 a fin de mes.",
+      "Días del mes en que corre la renovación. El primero renueva los vencimientos hasta el día siguiente al segundo corte; el segundo, hasta el primer corte del mes siguiente.",
+  },
+  {
+    clave: "renovacion.dias_vencimiento",
+    valor: [10, 20],
+    descripcion: "Días del mes a los que se alinean los vencimientos de los paquetes temporales.",
+  },
+  {
+    clave: "renovacion.dia_vencimiento_grupo",
+    valor: 10,
+    descripcion: "Día de vencimiento fijo de los clientes agrupados.",
+  },
+  {
+    clave: "renovacion.minimo_dias_tramo",
+    valor: 10,
+    descripcion: "Tramo mínimo de una renovación: si da menos, se alinea al mes siguiente.",
+  },
+  {
+    clave: "tablero.dias_semaforo",
+    valor: 7,
+    descripcion: "Renovaciones a negociar: amarillo si vencen dentro de estos días.",
   },
   {
     clave: "cobranza.semaforo_dias",
     valor: [10, 21],
     descripcion: "Antigüedad en días de una orden impaga para pasar a amarillo y a rojo.",
+  },
+  {
+    clave: "facturacion.tolerancia_dias",
+    valor: [7, 30, 30, 90],
+    descripcion:
+      "Tolerancia de pago en días por modo de facturación (pago directo, factura adelantada, suscripción, factura agrupada).",
   },
   {
     clave: "cobranza.recordatorios_dias",
@@ -98,6 +124,28 @@ const PARAMETROS: { clave: string; valor: unknown; descripcion: string }[] = [
   },
 ];
 
+/** Carga inicial de Argentina (Mejora v2.1, 2.9). Después la edita Administración. */
+const CONDICIONES_IVA_ARGENTINA = (
+  [
+    ["RESPONSABLE_INSCRIPTO", "IVA Responsable Inscripto", 1, "A", true],
+    ["CONSUMIDOR_FINAL", "Consumidor Final", 5, "B", true],
+    ["MONOTRIBUTO", "Monotributo (Factura B)", 6, "B", true],
+    ["MONOTRIBUTO_A", "Monotributo (Factura A)", 6, "A", true],
+    ["EXENTO", "IVA Sujeto Exento", 4, "B", true],
+    ["GRAN_CONTRIBUYENTE", "Gran Contribuyente", 1, "A", true],
+    ["EXTERIOR", "Cliente del Exterior", 9, "E", false],
+  ] as const
+).map(([codigo, nombre, codigoArca, comprobante, activa], i) => ({
+  codigo,
+  paisId: "AR",
+  nombre,
+  codigoArca,
+  alicuota: porcentaje(comprobante === "E" ? "0" : "21"),
+  comprobante,
+  activa,
+  orden: i + 1,
+}));
+
 export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }): Promise<void> {
   await db.insert(t.monedas).values(MONEDAS).onConflictDoNothing();
   await db
@@ -115,6 +163,7 @@ export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }
     .insert(t.provincias)
     .values(PROVINCIAS_ARGENTINA.map((p) => ({ paisId: "AR", ...p })))
     .onConflictDoNothing();
+  await db.insert(t.condicionesIva).values(CONDICIONES_IVA_ARGENTINA).onConflictDoNothing();
 
   await db
     .insert(t.productos)
@@ -146,16 +195,25 @@ export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }
         codigo: "TRANSF",
         nombre: "Transferencia bancaria",
         tipo: "TRANSFERENCIA",
+        modosFacturacion: [1],
         orden: 1,
         instrucciones:
           "Transferí el total indicado y enviá el comprobante a administracion@softeam.com.ar.",
       },
-      { codigo: "LINK_MP", nombre: "Link de pago", tipo: "LINK_MP", generaLink: true, orden: 2 },
+      {
+        codigo: "LINK_MP",
+        nombre: "Link de pago",
+        tipo: "LINK_MP",
+        generaLink: true,
+        modosFacturacion: [0, 2],
+        orden: 2,
+      },
       {
         codigo: "SUSC_MP",
         nombre: "Débito automático (Mercado Pago)",
         tipo: "SUSCRIPCION_MP",
         generaLink: true,
+        modosFacturacion: [2],
         // Queda para más adelante: falta definir cómo encaja con las renovaciones quincenales.
         activo: false,
         habilitadoAlta: false,
@@ -167,6 +225,7 @@ export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }
         nombre: "Planilla FP",
         tipo: "PLANILLA",
         planilla: true,
+        modosFacturacion: [3],
         habilitadoAlta: false,
         orden: 4,
       },
@@ -175,6 +234,7 @@ export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }
         nombre: "Planilla Victoria",
         tipo: "PLANILLA",
         planilla: true,
+        modosFacturacion: [3],
         habilitadoAlta: false,
         orden: 5,
       },
@@ -237,6 +297,7 @@ const PAQUETES_DEMO: PaqueteDemo[] = [
       "soporte.mes": 2,
     },
     alternativas: [
+      { nombre: "Trimestral inicial", meses: 3, compra: "114000", renovacion: "114000" },
       { nombre: "Mensual", meses: 1, compra: "38000", renovacion: "35000" },
       { nombre: "Anual", meses: 12, compra: "399000", renovacion: "378000" },
     ],
@@ -256,6 +317,7 @@ const PAQUETES_DEMO: PaqueteDemo[] = [
       "soporte.mes": 10,
     },
     alternativas: [
+      { nombre: "Trimestral inicial", meses: 3, compra: "300000", renovacion: "300000" },
       { nombre: "Mensual", meses: 1, compra: "100000", renovacion: "95000" },
       { nombre: "Anual", meses: 12, compra: "1080000", renovacion: "1020000" },
     ],
@@ -273,7 +335,10 @@ const PAQUETES_DEMO: PaqueteDemo[] = [
       "cotiweb.motos": 1,
       "cotiweb.ecommerce": 1,
     },
-    alternativas: [{ nombre: "Mensual", meses: 1, compra: "65000", renovacion: "62000" }],
+    alternativas: [
+      { nombre: "Trimestral inicial", meses: 3, compra: "195000", renovacion: "195000" },
+      { nombre: "Mensual", meses: 1, compra: "65000", renovacion: "62000" },
+    ],
   },
   {
     codigo: "BS-BASE",
@@ -286,7 +351,10 @@ const PAQUETES_DEMO: PaqueteDemo[] = [
       "bienseguro.app": 1,
       "notificaciones.mes": 1000,
     },
-    alternativas: [{ nombre: "Mensual", meses: 1, compra: "50000", renovacion: "48000" }],
+    alternativas: [
+      { nombre: "Trimestral inicial", meses: 3, compra: "150000", renovacion: "150000" },
+      { nombre: "Mensual", meses: 1, compra: "50000", renovacion: "48000" },
+    ],
   },
   {
     codigo: "NOTI-10K",
@@ -308,6 +376,22 @@ const PAQUETES_DEMO: PaqueteDemo[] = [
 
 /** Catálogo de ejemplo para desarrollo. */
 async function sembrarDemo(db: Ejecutor) {
+  // Emisor de prueba: con Xubio y Mercado Pago "conectados" usa las
+  // credenciales del entorno o, sin ellas, los simuladores.
+  await db
+    .insert(t.emisores)
+    .values({
+      razonSocial: "SOFTeam (demo)",
+      cuit: "30711111110",
+      condicionIva: "RESPONSABLE_INSCRIPTO",
+      domicilioFiscal: "Av. Corrientes 1234, Ciudad de Buenos Aires",
+      paisId: "AR",
+      puntoVenta: 1,
+      preferido: true,
+      xubio: true,
+      mercadoPago: true,
+    })
+    .onConflictDoNothing();
   for (const [orden, p] of PAQUETES_DEMO.entries()) {
     const existe = await db.query.paquetes.findFirst({ where: eq(t.paquetes.codigo, p.codigo) });
     if (existe) continue;

@@ -62,8 +62,12 @@ describe("confirmarAlta", () => {
     expect(empresa).toMatchObject({
       nombre: "Broker del Sur SRL",
       nombreCorto: "BROKER",
-      tipoCliente: "DIRECTO",
     });
+    // El alta web nace con pago directo (Mejora v2.1, 11.8).
+    const cliente = await db.query.clientes.findFirst({
+      where: eq(t.clientes.id, empresa!.clienteId),
+    });
+    expect(cliente?.modoFacturacion).toBe(0);
     const oficinas = await db.select().from(t.oficinas).where(eq(t.oficinas.empresaId, empresaId));
     expect(oficinas.map((o) => o.codigo)).toEqual(["001"]);
     const [admin] = await db

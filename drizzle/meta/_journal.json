@@ -169,6 +169,41 @@
       "when": 1791550685352,
       "tag": "0023_saldo_acumulado",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791553391619,
+      "tag": "0024_condiciones_iva",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791555571473,
+      "tag": "0025_modo_facturacion",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791555830059,
+      "tag": "0026_alerta_tolerancia_pago",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791565141938,
+      "tag": "0027_emisores",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791568259445,
+      "tag": "0028_ciclo_alineado",
+      "breakpoints": true
     }
   ]
 }

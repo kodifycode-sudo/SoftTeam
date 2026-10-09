@@ -17,7 +17,6 @@ import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatearCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
 import { requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { actividadDeEmpresa, notasDeEmpresa } from "@/server/modules/cuentas/actividad";
@@ -89,7 +88,7 @@ export default async function MiEmpresa() {
             <dl className="grid gap-4 sm:grid-cols-2">
               <Dato etiqueta="Razón social / titular">{cliente.nombreFactura}</Dato>
               <Dato etiqueta="CUIT">{formatearCuit(cliente.cuit)}</Dato>
-              <Dato etiqueta="Condición IVA">{CONDICIONES_IVA_ETIQUETA[cliente.condicionIva]}</Dato>
+              <Dato etiqueta="Condición IVA">{cliente.condicionIvaNombre}</Dato>
               <Dato etiqueta="Cliente">#{cliente.numero}</Dato>
               <div className="sm:col-span-2">
                 <Dato

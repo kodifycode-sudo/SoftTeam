@@ -1,7 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import type { Columna } from "@/domain/exportacion/csv";
-import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
 import type { Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { oficinaEnAlcance } from "../cuentas/alcance";
@@ -78,7 +77,7 @@ export async function productoresParaExportar(
       matricula: t.productores.matricula,
       tipoPersona: t.productores.tipoPersona,
       cuit: t.productores.cuit,
-      condicionIva: t.productores.condicionIva,
+      condicionIva: t.condicionesIva.nombre,
       email: t.productores.email,
       telefono: t.productores.telefono,
       celular: t.productores.celular,
@@ -91,6 +90,7 @@ export async function productoresParaExportar(
       activo: t.productores.activo,
     })
     .from(t.productores)
+    .leftJoin(t.condicionesIva, eq(t.condicionesIva.codigo, t.productores.condicionIva))
     .where(
       and(
         eq(t.productores.empresaId, empresaId),
@@ -114,7 +114,7 @@ export const columnasProductores = (
   { titulo: "CUIT", valor: (f) => f.cuit },
   {
     titulo: "Condición de IVA",
-    valor: (f) => (f.condicionIva ? CONDICIONES_IVA_ETIQUETA[f.condicionIva] : null),
+    valor: (f) => f.condicionIva,
   },
   { titulo: "Mail", valor: (f) => f.email },
   { titulo: "Teléfono", valor: (f) => f.telefono },

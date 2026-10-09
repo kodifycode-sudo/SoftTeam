@@ -7,48 +7,52 @@ import {
   ventanasDeRenovacion,
 } from "./calendario";
 
-describe("ventanasDeRenovacion", () => {
+describe("ventanasDeRenovacion (Mejora v2.1, 8.2)", () => {
   it("antes del primer corte solo quedan las del mes anterior", () => {
-    const ventanas = ventanasDeRenovacion(fecha("2026-10-04"));
-    expect(ventanas.map((v) => v.clave)).toEqual(["2026-10-Q1", "2026-10-Q2"]);
+    const ventanas = ventanasDeRenovacion(fecha("2026-10-01"));
+    expect(ventanas.map((v) => v.clave)).toEqual(["2026-09-C1", "2026-09-C2"]);
   });
 
-  it("el día 5 renueva los vencimientos del 1 al 15 del mes siguiente", () => {
-    const ventanas = ventanasDeRenovacion(fecha("2026-10-05"));
-    expect(ventanas.at(-1)).toEqual({
-      clave: "2026-11-Q1",
-      desde: "2026-11-01",
-      hasta: "2026-11-15",
-      corte: "2026-10-05",
+  it("el día 2 renueva los vencimientos del 3 al 12 (los alineados al 10)", () => {
+    expect(ventanasDeRenovacion(fecha("2026-10-02")).at(-1)).toEqual({
+      clave: "2026-10-C1",
+      desde: "2026-10-03",
+      hasta: "2026-10-12",
+      corte: "2026-10-02",
     });
   });
 
-  it("el día 15 renueva del 16 a fin del mes siguiente", () => {
-    const ventanas = ventanasDeRenovacion(fecha("2026-10-15"));
+  it("el día 11 renueva del 13 al 2 del mes siguiente (los alineados al 20)", () => {
+    const ventanas = ventanasDeRenovacion(fecha("2026-10-11"));
     expect(ventanas.at(-1)).toEqual({
-      clave: "2026-11-Q2",
-      desde: "2026-11-16",
-      hasta: "2026-11-30",
-      corte: "2026-10-15",
+      clave: "2026-10-C2",
+      desde: "2026-10-13",
+      hasta: "2026-11-02",
+      corte: "2026-10-11",
     });
     expect(ventanas).toHaveLength(4);
   });
 
   it("maneja fin de año y febrero", () => {
     expect(ventanasDeRenovacion(fecha("2026-12-20")).at(-1)).toMatchObject({
-      clave: "2027-01-Q2",
-      hasta: "2027-01-31",
+      clave: "2026-12-C2",
+      desde: "2026-12-13",
+      hasta: "2027-01-02",
     });
-    expect(ventanasDeRenovacion(fecha("2027-01-15")).at(-1)).toMatchObject({
-      clave: "2027-02-Q2",
-      desde: "2027-02-16",
-      hasta: "2027-02-28",
+    expect(ventanasDeRenovacion(fecha("2027-02-11")).at(-1)).toMatchObject({
+      desde: "2027-02-13",
+      hasta: "2027-03-02",
     });
   });
 
   it("respeta días de corte configurados", () => {
     const ventanas = ventanasDeRenovacion(fecha("2026-10-08"), [8, 22]);
-    expect(ventanas.at(-1)).toMatchObject({ clave: "2026-11-Q1", corte: "2026-10-08" });
+    expect(ventanas.at(-1)).toMatchObject({
+      clave: "2026-10-C1",
+      desde: "2026-10-09",
+      hasta: "2026-10-23",
+      corte: "2026-10-08",
+    });
   });
 });
 

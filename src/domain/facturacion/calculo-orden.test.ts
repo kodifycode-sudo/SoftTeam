@@ -115,3 +115,37 @@ describe("calcularOrden — reglas", () => {
     if (!r.ok) expect(r.error).toBe(codigo);
   });
 });
+
+describe("calcularOrden — tramo prorrateado (Mejora v2.1, 8.10)", () => {
+  it("una renovación cobra tramo más período; la bonificación alcanza al tramo", () => {
+    const r = calcular(
+      base({
+        items: [
+          item({
+            clave: "a",
+            tipoAccion: "RENOVACION",
+            precioRenovacion: centavos("30000"),
+            prorrata: centavos("19000"),
+            bonifPorcentaje: porcentaje("10"),
+          }),
+        ],
+        alicuotaIva: 0n,
+      }),
+    );
+    expect(r.items[0]).toMatchObject({
+      precioLista: centavos("49000"),
+      bonificacion: centavos("4900"),
+      precioFinal: centavos("44100"),
+    });
+  });
+
+  it("un alta de adicional cobra solo el tramo", () => {
+    const r = calcular(
+      base({
+        items: [item({ clave: "a", prorrata: centavos("17000"), incluyePeriodo: false })],
+        alicuotaIva: 0n,
+      }),
+    );
+    expect(r.subtotal).toBe(centavos("17000"));
+  });
+});

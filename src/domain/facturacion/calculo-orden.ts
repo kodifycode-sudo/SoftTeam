@@ -23,6 +23,15 @@ export interface ItemEntrada {
   readonly precioRenovacion: Centavos;
   readonly bonifPorcentaje: Porcentaje;
   readonly moneda: string;
+  /** Tramo prorrateado hasta el día de vencimiento, ya por la cantidad (Mejora v2.1, 8.10). */
+  readonly prorrata?: Centavos;
+  /** `false`: el ítem cobra solo el tramo (altas de adicionales y de grupo). */
+  readonly incluyePeriodo?: boolean;
+  /**
+   * Precio de lista ya grabado en el contrato (cantidad y tramo incluidos):
+   * al recalcular una orden existente se toma tal cual.
+   */
+  readonly precioListaResuelto?: Centavos;
 }
 
 export interface EntradaCalculo {
@@ -92,7 +101,11 @@ export function calcularOrden(entrada: EntradaCalculo): Resultado<CalculoOrden, 
 
   const lineas = entrada.items.map((item) => {
     const unitario = item.tipoAccion === "ALTA" ? item.precioCompra : item.precioRenovacion;
-    const precioLista = unitario * BigInt(item.cantidad);
+    // La bonificación alcanza también al tramo.
+    const precioLista =
+      item.precioListaResuelto ??
+      (item.incluyePeriodo === false ? 0n : unitario * BigInt(item.cantidad)) +
+        (item.prorrata ?? 0n);
     const bonificacion = aplicarPorcentaje(precioLista, item.bonifPorcentaje);
     return {
       clave: item.clave,

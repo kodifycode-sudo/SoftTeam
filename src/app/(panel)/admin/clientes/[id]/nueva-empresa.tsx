@@ -43,15 +43,6 @@ function Contenido({
       <Campo nombre="empresa.nombre" etiqueta="Nombre de la empresa" estado={estado} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Selector
-          nombre="empresa.tipoCliente"
-          etiqueta="Tipo de cliente"
-          estado={estado}
-          valorInicial="DIRECTO"
-        >
-          <option value="DIRECTO">Directo</option>
-          <option value="CORPORATIVO">Corporativo</option>
-        </Selector>
-        <Selector
           nombre="empresa.tipoInstalacion"
           etiqueta="Instalación"
           estado={estado}

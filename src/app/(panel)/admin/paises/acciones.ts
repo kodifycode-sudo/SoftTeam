@@ -5,6 +5,11 @@ import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formula
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import {
+  type ErrorCondicionIva,
+  esquemaCondicionIva,
+  guardarCondicionIva,
+} from "@/server/modules/catalogo/condiciones-iva";
+import {
   type ErrorMoneda,
   type ErrorPais,
   type ErrorProvincia,
@@ -30,6 +35,16 @@ const MENSAJES_PROVINCIA: Record<ErrorProvincia, EstadoFormulario> = {
   NO_EXISTE: { mensaje: "La provincia ya no existe." },
   PAIS_INEXISTENTE: { mensaje: "El país no existe." },
   REPETIDA: { mensaje: "Ya hay una provincia con ese código o nombre en el país." },
+};
+
+const MENSAJES_CONDICION: Record<ErrorCondicionIva, EstadoFormulario> = {
+  NO_EXISTE: { mensaje: "La condición ya no existe." },
+  PAIS_INEXISTENTE: { mensaje: "El país no existe." },
+  REPETIDA: { errores: { nombre: ["Ya hay una condición con ese nombre en el país."] } },
+  EN_USO: {
+    mensaje:
+      "Hay clientes con esta condición: cambiales la condición antes de darla de baja (sin una condición activa no se les puede facturar).",
+  },
 };
 
 /** Alta o edición de una moneda (solo Administración). */
@@ -87,4 +102,23 @@ export async function guardarProvinciaAccion(
   if (!r.ok) return { ...MENSAJES_PROVINCIA[r.error], valores };
   revalidatePath("/admin/paises");
   return { ok: true, mensaje: `Guardamos ${datos.data.nombre}.` };
+}
+
+/** Alta o edición de una condición frente al IVA (solo Administración). */
+export async function guardarCondicionIvaAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION"]);
+  const valores = valoresDe(formData);
+  const datos = esquemaCondicionIva.safeParse({
+    ...valores,
+    codigo: valores.codigo || undefined,
+    activa: valores.activa === "on",
+  });
+  if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  const r = await guardarCondicionIva(await obtenerDb(), datos.data, user.id);
+  if (!r.ok) return { ...MENSAJES_CONDICION[r.error], valores };
+  revalidatePath("/admin/paises");
+  return { ok: true, mensaje: `Guardamos ${datos.data.nombre}: rige para las órdenes nuevas.` };
 }

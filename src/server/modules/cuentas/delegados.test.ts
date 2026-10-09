@@ -265,7 +265,7 @@ describe("administradores delegados", () => {
   it("compra delegada: carrito propio, contratos asignados a la oficina y órdenes visibles solo para ella", async () => {
     const { empresa, cliente, centro, alcances } = await estructura();
     const usuarioId = (await db.query.usuarios.findFirst())!.id;
-    const alt = await alternativa("PRO-INICIAL", "Mensual");
+    const alt = await alternativa("PRO-INICIAL", "Trimestral inicial");
     // La empresa arma su propio carrito; la oficina, el suyo.
     await agregarAlCarrito(
       db,
@@ -322,7 +322,7 @@ describe("administradores delegados", () => {
   it("avisos: el delegado ve los de sus oficinas y solo marca esos como leídos", async () => {
     const { empresa, centro, rosario, alcances } = await estructura();
     const usuarioId = (await db.query.usuarios.findFirst())!.id;
-    const alt = await alternativa("PRO-INICIAL", "Mensual");
+    const alt = await alternativa("PRO-INICIAL", "Trimestral inicial");
     const contratoDe = async (oficinaId: string | null) => {
       await agregarAlCarrito(
         db,

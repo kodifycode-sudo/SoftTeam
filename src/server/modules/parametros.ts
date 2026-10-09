@@ -37,12 +37,48 @@ export const PARAMETROS = {
     grupo: "Renovación",
     etiqueta: "Días de generación de las renovaciones",
     ayuda:
-      "Dos días del mes (1 a 28). El primero genera las renovaciones de los vencimientos del 1 al 15 del mes siguiente; el segundo, del 16 a fin de mes.",
+      "Dos días del mes (1 a 28). Con 2 y 11: el día 2 renueva los vencimientos del 3 al 12 (los alineados al 10) y el 11, del 13 al 2 del mes siguiente (los alineados al 20).",
     tipo: "lista",
     esquema: z
       .tuple([dia(28), dia(28)], cantidad(2))
       .refine(([a, b]) => a < b, { error: "El primer día tiene que ser anterior al segundo." }),
-    porDefecto: [5, 15] as [number, number],
+    porDefecto: [2, 11] as [number, number],
+  },
+  "renovacion.dias_vencimiento": {
+    grupo: "Renovación",
+    etiqueta: "Días de vencimiento de los paquetes",
+    ayuda:
+      "Dos días del mes (1 a 28) a los que se alinean los vencimientos; el cliente elige uno al comprar o renovar (por ejemplo 10, 20).",
+    tipo: "lista",
+    esquema: z
+      .tuple([dia(28), dia(28)], cantidad(2))
+      .refine(([a, b]) => a < b, { error: "El primer día tiene que ser anterior al segundo." }),
+    porDefecto: [10, 20] as [number, number],
+  },
+  "renovacion.dia_vencimiento_grupo": {
+    grupo: "Renovación",
+    etiqueta: "Día de vencimiento de los clientes agrupados",
+    ayuda: "Día fijo (1 a 28) en que vencen los paquetes de los clientes de un grupo.",
+    tipo: "numero",
+    esquema: dia(28),
+    porDefecto: 10,
+  },
+  "renovacion.minimo_dias_tramo": {
+    grupo: "Renovación",
+    etiqueta: "Tramo mínimo de una renovación (días)",
+    ayuda:
+      "Si el tramo hasta el día de vencimiento da menos, la renovación se alinea al mes siguiente.",
+    tipo: "numero",
+    esquema: z.int(numero).min(1, { error: "Entre 1 y 28." }).max(28, { error: "Entre 1 y 28." }),
+    porDefecto: 10,
+  },
+  "tablero.dias_semaforo": {
+    grupo: "Avisos",
+    etiqueta: "Semáforo de renovaciones a negociar (días)",
+    ayuda: "Amarillo si el paquete vence dentro de estos días; rojo si ya venció.",
+    tipo: "numero",
+    esquema: z.int(numero).min(1, { error: "Entre 1 y 30." }).max(30, { error: "Entre 1 y 30." }),
+    porDefecto: 7,
   },
   "cobranza.semaforo_dias": {
     grupo: "Cobranza",
@@ -53,6 +89,15 @@ export const PARAMETROS = {
       .tuple([dia(365), dia(365)], cantidad(2))
       .refine(([a, b]) => a < b, { error: "Amarillo tiene que ser antes que rojo." }),
     porDefecto: [10, 21] as [number, number],
+  },
+  "facturacion.tolerancia_dias": {
+    grupo: "Cobranza",
+    etiqueta: "Tolerancia de pago por modo de facturación (días)",
+    ayuda:
+      "Cuatro valores, uno por modo: pago directo, factura adelantada, suscripción y factura agrupada (por ejemplo 7, 30, 30, 90). En los modos 0 y 2 es la prórroga del paquete anterior mientras se paga la renovación; en el 1, el plazo del paquete habilitado sin pago; en el 3 no se suspende: se avisa a SOFTeam.",
+    tipo: "lista",
+    esquema: z.tuple([dia(365), dia(365), dia(365), dia(365)], cantidad(4)),
+    porDefecto: [7, 30, 30, 90] as [number, number, number, number],
   },
   "cobranza.recordatorios_dias": {
     grupo: "Cobranza",

@@ -1,5 +1,5 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { porcentaje } from "@/domain/dinero";
 import type { Fecha } from "@/domain/fecha";
 import type { EstadoContrato } from "@/domain/licencias/contrato";
@@ -41,6 +41,9 @@ export async function crearDbDePrueba(): Promise<Db> {
   const db = await crearDbPglite();
   rechazarFechasSueltas(db.$client);
   await sembrarDatosBase(db, { demo: true });
+  // Los tests eligen el medio que necesitan: la restricción por modo de
+  // facturación la prueban los suyos, configurándola.
+  await db.update(t.mediosPago).set({ modosFacturacion: [0, 1, 2, 3] });
   return db;
 }
 
@@ -48,7 +51,7 @@ let secuenciaCuit = 0;
 
 export async function crearEmpresaDePrueba(
   db: Db,
-  opciones: { tipoCliente?: "DIRECTO" | "CORPORATIVO" } = {},
+  opciones: { modoFacturacion?: 0 | 1 | 2 | 3 } = {},
 ) {
   secuenciaCuit += 1;
   const [cliente] = await db
@@ -59,6 +62,7 @@ export async function crearEmpresaDePrueba(
       nombreFactura: `Cliente ${secuenciaCuit}`,
       cuit: String(30_000_000_000 + secuenciaCuit),
       condicionIva: "RESPONSABLE_INSCRIPTO",
+      modoFacturacion: opciones.modoFacturacion ?? 0,
       domicilioFiscal: {
         calle: "Calle 1",
         ciudad: "CABA",
@@ -80,7 +84,6 @@ export async function crearEmpresaDePrueba(
       nombre: `Empresa ${secuenciaCuit}`,
       nombreCorto: `EMP${secuenciaCuit}`,
       paisId: "AR",
-      tipoCliente: opciones.tipoCliente ?? "DIRECTO",
     })
     .returning();
   const [medio] = await db.select().from(t.mediosPago).where(eq(t.mediosPago.codigo, "TRANSF"));
@@ -93,6 +96,7 @@ export async function crearEmpresaDePrueba(
       medioPagoId: medio!.id,
       moneda: "ARS",
       condicionIva: "RESPONSABLE_INSCRIPTO",
+      codigoArca: 1,
       tipoComprobante: "A",
       subtotalLista: 0n,
       bonificacionTotal: 0n,
@@ -123,6 +127,8 @@ export async function crearContratoDePrueba(
     hasta: Fecha | null;
     pendPagoActivoHasta?: Fecha | null;
     cantidad?: number;
+    /** Por defecto, el día de `hasta`: el contrato ya está alineado. */
+    diaVenc?: number | null;
   },
 ) {
   const paquete = await db.query.paquetes.findFirst({
@@ -131,7 +137,8 @@ export async function crearContratoDePrueba(
   const [alternativa] = await db
     .select()
     .from(t.alternativas)
-    .where(eq(t.alternativas.paqueteId, paquete!.id));
+    .where(eq(t.alternativas.paqueteId, paquete!.id))
+    .orderBy(asc(t.alternativas.meses));
   const cantidad = opciones.cantidad ?? 1;
   const [contrato] = await db
     .insert(t.contratos)
@@ -148,6 +155,12 @@ export async function crearContratoDePrueba(
       desde: opciones.desde,
       hasta: opciones.hasta,
       pendPagoActivoHasta: opciones.pendPagoActivoHasta ?? null,
+      diaVenc:
+        opciones.diaVenc !== undefined
+          ? opciones.diaVenc
+          : paquete!.tipo === "TEMPORAL" && opciones.hasta
+            ? Number(opciones.hasta.slice(8, 10))
+            : null,
       precioLista: alternativa!.precioCompra,
       precioFinal: alternativa!.precioCompra,
     })

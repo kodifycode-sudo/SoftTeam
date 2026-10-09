@@ -17,9 +17,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatearCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
 import { requerirConfiguracion } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { opcionesCondicionesIva } from "@/server/modules/catalogo/condiciones-iva";
 import { listarAseguradorasEmpresa } from "@/server/modules/configuracion/aseguradoras";
 import { usoDeLimites } from "@/server/modules/configuracion/limites";
 import { obtenerProductor } from "@/server/modules/configuracion/productores";
@@ -49,13 +49,20 @@ export default async function PaginaProductor({
   const [{ id }, { aviso }] = await Promise.all([params, searchParams]);
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const db = await obtenerDb();
-  const [productor, oficinas, aseguradoras, uso] = await Promise.all([
+  const [productor, oficinas, aseguradoras, uso, condicionesIva] = await Promise.all([
     obtenerProductor(db, contexto.empresaId, id, contexto.alcance),
     listarOficinas(db, contexto.empresaId, contexto.alcance),
     listarAseguradorasEmpresa(db, contexto.empresaId),
     usoDeLimites(db, contexto.empresaId),
+    opcionesCondicionesIva(db, "AR"),
   ]);
   if (!productor) notFound();
+  if (productor.condicionIva && !condicionesIva.some((c) => c.codigo === productor.condicionIva)) {
+    condicionesIva.push({
+      codigo: productor.condicionIva,
+      nombre: `${productor.condicionIvaNombre} (dada de baja)`,
+    });
+  }
 
   const oficina = oficinas.find((o) => o.id === productor.oficinaId);
   const roles = [
@@ -91,6 +98,7 @@ export default async function PaginaProductor({
                 etiqueta: `${o.canalCodigo}-${o.codigo} · ${o.nombre}`,
               }))}
               tieneInstitorio={uso.funciones.has("prodigal.institorio")}
+              condicionesIva={condicionesIva}
               sinOficina={contexto.alcance.tipo === "empresa"}
             />
             <form action={cambiarEstadoProductorAccion}>
@@ -127,10 +135,7 @@ export default async function PaginaProductor({
             <dl className="grid gap-4">
               <Dato etiqueta="Matrícula" valor={productor.matricula} />
               <Dato etiqueta="CUIT" valor={productor.cuit && formatearCuit(productor.cuit)} />
-              <Dato
-                etiqueta="Condición de IVA"
-                valor={productor.condicionIva && CONDICIONES_IVA_ETIQUETA[productor.condicionIva]}
-              />
+              <Dato etiqueta="Condición de IVA" valor={productor.condicionIvaNombre} />
               <Dato etiqueta="Mail" valor={productor.email} />
               <Dato
                 etiqueta="Teléfonos"

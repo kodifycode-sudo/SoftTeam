@@ -2,11 +2,11 @@ import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Alcance, abarcaOficina, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import { esCuitValido, normalizarCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { condicionIvaValida } from "../catalogo/condiciones-iva";
 import { oficinaEnAlcance } from "../cuentas/alcance";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { usoDeLimites } from "./limites";
@@ -54,6 +54,12 @@ export async function obtenerProductor(
     where: and(eq(t.productores.id, id), delAlcance(empresaId, alcance)),
   });
   if (!productor) return undefined;
+  const condicion = productor.condicionIva
+    ? await db.query.condicionesIva.findFirst({
+        columns: { nombre: true },
+        where: eq(t.condicionesIva.codigo, productor.condicionIva),
+      })
+    : undefined;
   const codigos = await db
     .select({
       id: t.productorCodigos.id,
@@ -67,7 +73,7 @@ export async function obtenerProductor(
     .innerJoin(t.aseguradoras, eq(t.aseguradoras.id, t.productorCodigos.aseguradoraId))
     .where(and(eq(t.productorCodigos.productorId, id), eq(t.productorCodigos.activo, true)))
     .orderBy(asc(t.aseguradoras.nombre), asc(t.productorCodigos.codigo));
-  return { ...productor, codigos };
+  return { ...productor, condicionIvaNombre: condicion?.nombre ?? productor.condicionIva, codigos };
 }
 
 const opcional = (max: number) => z.string().trim().max(max).optional();
@@ -84,7 +90,7 @@ export const esquemaProductor = z
       .refine(esCuitValido, { error: "El CUIT no es válido" })
       .transform(normalizarCuit)
       .optional(),
-    condicionIva: z.enum(CONDICIONES_IVA).optional(),
+    condicionIva: z.string().trim().max(30).optional(),
     email: z.email({ error: "Ingresá un mail válido" }).trim().toLowerCase().max(160).optional(),
     telefono: opcional(30),
     celular: opcional(30),
@@ -102,7 +108,12 @@ export const esquemaProductor = z
 
 export type EntradaProductor = z.infer<typeof esquemaProductor>;
 
-export type ErrorProductor = "NO_EXISTE" | "OFICINA_INVALIDA" | "CUIT_DUPLICADO" | "SIN_INSTITORIO";
+export type ErrorProductor =
+  | "NO_EXISTE"
+  | "OFICINA_INVALIDA"
+  | "CUIT_DUPLICADO"
+  | "SIN_INSTITORIO"
+  | "CONDICION_IVA_INVALIDA";
 
 export async function guardarProductor(
   db: Db,
@@ -113,8 +124,8 @@ export async function guardarProductor(
   alcance: Alcance = TODA_LA_EMPRESA,
 ): Promise<{ ok: true; id: string } | { ok: false; error: ErrorProductor }> {
   return db.transaction(async (tx) => {
-    await tx
-      .select({ id: t.empresas.id })
+    const [empresa] = await tx
+      .select({ paisId: t.empresas.paisId })
       .from(t.empresas)
       .where(eq(t.empresas.id, empresaId))
       .for("update");
@@ -124,6 +135,13 @@ export async function guardarProductor(
         })
       : undefined;
     if (entrada.id && !antes) return { ok: false, error: "NO_EXISTE" };
+    if (
+      entrada.condicionIva &&
+      entrada.condicionIva !== antes?.condicionIva &&
+      !(await condicionIvaValida(tx, empresa?.paisId ?? "AR", entrada.condicionIva))
+    ) {
+      return { ok: false, error: "CONDICION_IVA_INVALIDA" };
+    }
 
     // Un delegado asigna el productor a una de sus oficinas (sin oficina es de toda la empresa).
     const oficina = entrada.oficinaId

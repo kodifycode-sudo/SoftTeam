@@ -390,7 +390,11 @@ export async function empresasPorProducto(db: Ejecutor, hoy: Fecha): Promise<Fil
         eq(t.empresas.activa, true),
         inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
         lte(t.contratos.desde, hoy),
-        or(isNull(t.contratos.hasta), gte(t.contratos.hasta, hoy)),
+        or(
+          isNull(t.contratos.hasta),
+          gte(t.contratos.hasta, hoy),
+          and(eq(t.contratos.estado, "ACTIVO"), gte(t.contratos.prorrogaHasta, hoy)),
+        ),
         sql`${t.contratoRecursos.cantidad} > 0`,
       ),
     )

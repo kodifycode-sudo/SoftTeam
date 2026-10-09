@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requerirComercial } from "@/server/auth/sesion";
-import { obtenerPasarela, urlBase } from "@/server/cobros";
+import { pasarelaDeEmisor, urlBase } from "@/server/cobros";
 import { obtenerDb } from "@/server/db";
 import { obtenerLinkDePago } from "@/server/modules/cobros/pagos";
 
@@ -12,7 +12,8 @@ export async function pagarOrdenAccion(formData: FormData): Promise<void> {
   const contexto = await requerirComercial();
   const id = z.uuid().safeParse(formData.get("ordenId"));
   if (!id.success) redirect("/portal/ordenes");
-  const link = await obtenerLinkDePago(await obtenerDb(), obtenerPasarela(), id.data, {
+  const db = await obtenerDb();
+  const link = await obtenerLinkDePago(db, (e) => pasarelaDeEmisor(db, e), id.data, {
     urlBase,
     alcance: {
       empresaId: contexto.empresaId,

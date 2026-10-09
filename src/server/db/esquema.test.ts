@@ -25,6 +25,14 @@ async function sembrar(db: DbPrueba) {
     moneda: "ARS",
     alicuotaIvaGeneral: porcentaje("21"),
   });
+  await db.insert(t.condicionesIva).values({
+    codigo: "RESPONSABLE_INSCRIPTO",
+    paisId: "AR",
+    nombre: "IVA Responsable Inscripto",
+    codigoArca: 1,
+    alicuota: porcentaje("21"),
+    comprobante: "A",
+  });
   const [cliente] = await db
     .insert(t.clientes)
     .values({
@@ -100,6 +108,7 @@ async function crearOrden() {
       medioPagoId: ids.medioPagoId,
       moneda: "ARS",
       condicionIva: "RESPONSABLE_INSCRIPTO",
+      codigoArca: 1,
       tipoComprobante: "A",
       subtotalLista: 100n,
       bonificacionTotal: 0n,

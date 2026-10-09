@@ -14,6 +14,8 @@ export const ETIQUETA_ALERTA = {
   LICENCIA_POR_BAJAR: "La licencia va a bajar",
   PAGO_RECHAZADO: "Pago rechazado",
   LINK_PAGO_REENVIADO: "Link de pago reenviado",
+  TOLERANCIA_PAGO_VENCIDA: "Factura agrupada sin pagar",
+  RENOVACION_A_NEGOCIAR: "Renovación a negociar",
   RENOVACION_GENERADA: "Renovación generada",
   RECORDATORIO_PAGO: "Recordatorio de pago",
   SOPORTE_RESPUESTA: "Respuesta de soporte",

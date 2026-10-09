@@ -63,10 +63,8 @@ test.describe
         .click();
       const dialogo = page.getByRole("dialog");
       await dialogo.getByLabel("Nombre corto").fill("NUEVO");
-      await dialogo.getByLabel("Tipo de cliente").selectOption("CORPORATIVO");
       await dialogo.getByRole("button", { name: "Guardar" }).click();
       await expect(page.getByText("Empresa actualizada.")).toBeVisible();
-      await expect(page.getByText("Corporativo", { exact: true })).toBeVisible();
       await expect(page.getByText(/· NUEVO/)).toBeVisible();
     });
   });
@@ -88,14 +86,14 @@ test.describe
       await page.locator("#campo-domicilioFiscal\\.provincia").selectOption("Santa Fe");
       await page.getByLabel("Nombre y apellido").fill("Carla Corp");
       await page.getByLabel("Mail", { exact: true }).fill(administrador);
-      await page.getByLabel("Tipo de cliente").selectOption("CORPORATIVO");
+      await page.getByLabel("Modo de facturación").selectOption("3");
       await page.getByRole("button", { name: "Crear cliente" }).click();
 
       await expect(
         page.getByText("Creamos el cliente, su empresa y el administrador."),
       ).toBeVisible();
       await expect(page.getByRole("heading", { name: corporativo })).toBeVisible();
-      await expect(page.getByText("Corporativo", { exact: true })).toBeVisible();
+      await expect(page.getByText("Factura agrupada con transferencia").first()).toBeVisible();
       // El administrador recibió el acceso.
       expect(await enlaceEnviadoA(administrador)).toContain("/recuperar");
     });

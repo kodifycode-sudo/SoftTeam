@@ -39,8 +39,8 @@ por oficina) y **Productos** (clientes de la API).
 | Tema | Documentos | Decisión |
 |---|---|---|
 | Pasarela | Presentación: WooCommerce. v3: WooCommerce descartado | MercadoPago + Xubio. Sin WooCommerce. |
-| Prórroga | v3: estado `PRORROGADO` automático a +7 o +30 días. Mejora v2: la reemplaza | **No hay prórroga automática ni estado `PRORROGADO`.** El margen para pagar lo da la renovación anticipada (la orden se genera antes del vencimiento). La excepción es manual: habilitar sin pago hasta una fecha (`PEND_PAGO_ACTIVO`) o editar la fecha de fin con motivo obligatorio. |
-| Tipo de cliente | DIRECTO / CORPORATIVO / GRUPOS / DISTRIBUIDOR | Tres ejes independientes (Mejora v2 cap. 7): **tipo** DIRECTO o CORPORATIVO (si se suspende por falta de pago), **grupo económico** (organización y reportes) y **facturación consolidada** (grupo con cliente de facturación + medio de pago de planilla). |
+| Prórroga | v3: estado `PRORROGADO` automático a +7 o +30 días. Mejora v2: la elimina. **Mejora v2.1 (7.7): vuelve como tolerancia de pago por modo** | **[Cambio 09/10/2026]** Tolerancia de pago según el modo de facturación (ver 4.6). Prorrogado no es un estado guardado: es un contrato `ACTIVO` vencido que sigue sumando hasta `prorroga_hasta` mientras su renovación espera el pago (la vigencia se sigue calculando por fechas, sin depender del proceso diario). Al pagarse la renovación, deja de estar prorrogado. |
+| Tipo de cliente | DIRECTO / CORPORATIVO / GRUPOS / DISTRIBUIDOR. Mejora v2.1: lo reemplaza el modo de facturación del cliente | **[Cambio 09/10/2026]** Tres ejes independientes (Mejora v2.1 cap. 7): **modo de facturación** del cliente (4.6), **grupo económico** (organización y reportes) y **facturación consolidada** (grupo con cliente de facturación + medio de pago de planilla). El tipo DIRECTO/CORPORATIVO de la empresa se eliminó: DIRECTO equivale al modo 0 y CORPORATIVO, al 3. |
 | Detalle de orden | Atributos: `OrdenDetalle`. v3: sin detalle | **[Cambio]** Hay tabla `orden_item`: cada línea congela precio de lista, bonificación, precio final y el total prorrateado. Lo necesita la factura y la orden agrupada, que mezcla empresas. |
 | Carrito | v3: filas `BORRADOR` en PaquetesxEmpresa. KB: sesión web | **[Cambio]** Tabla `carrito_item` persistente por empresa. Los contratos recién existen al confirmar, así no hay filas borrador mezcladas con contratos reales y el carrito sobrevive entre dispositivos. |
 | Licencia por oficina | Presentación: empresa + oficina. v3: empresa | Ver sección 4.3: la licencia es de la **empresa**. Un contrato puede estar **asignado a una oficina**, solo para consumos y para la oficina que compra por su cuenta. |
@@ -111,7 +111,7 @@ Son dos conceptos separados — **[Cambio]**.
 | Estado | Significado | ¿Suma a la licencia? |
 |---|---|---|
 | `PEND_PAGO` | Orden emitida, sin pagar | No |
-| `PEND_PAGO_ACTIVO` | Habilitado sin pago. Corporativo sin límite, o excepción manual con fecha límite | Sí, si está dentro del período y del plazo |
+| `PEND_PAGO_ACTIVO` | Habilitado sin pago: modo 1 con tolerancia, modo 3 sin límite, o excepción manual con fecha límite | Sí, si está dentro del período y del plazo |
 | `ACTIVO` | Pagado o activado manualmente | Sí, dentro del período |
 | `CANCELADO` | Anulado (siempre manual) | No |
 | `BAJA` | Dado de baja manualmente antes de tiempo | No |
@@ -133,14 +133,62 @@ renovación. Resultado: licencias duplicadas.
 
 | Caso | `desde` | `hasta` |
 |---|---|---|
-| Alta, cliente DIRECTO | Fecha de activación (pago confirmado) | desde + meses − 1 día |
-| Alta, cliente CORPORATIVO | Fecha de confirmación (nace habilitado) | desde + meses − 1 día |
-| Renovación | Día siguiente al `hasta` del contrato anterior | desde + meses − 1 día |
+| Trimestre inicial, modos 0 y 2 | Fecha de activación (pago confirmado) | desde + 3 meses − 1 día |
+| Trimestre inicial, modos 1 y 3 | Fecha de confirmación (nace habilitado) | desde + 3 meses − 1 día |
+| Adicional y alta a grupo | Fecha del alta | Vencimiento de los paquetes que ya tiene (tramo, 4.2.1) |
+| Renovación | Día siguiente al `hasta` del contrato anterior | Día de vencimiento + período (4.2.1) |
 
-- **Alta de un DIRECTO:** mientras no paga, las fechas son provisorias y se
-  recalculan al activar. Así el cliente no pierde los días que tardó en pagar.
+- **Trimestre inicial en los modos 0 y 2:** mientras no paga, las fechas son
+  provisorias y se recalculan al activar. Así el cliente no pierde los días que
+  tardó en pagar.
 - **Renovación:** empalma con el contrato anterior. No se pierden ni se
-  superponen días, aunque se pague tarde, y los cortes quincenales quedan estables.
+  superponen días, aunque se pague tarde.
+
+#### 4.2.1 Ciclo mensual alineado (Mejora v2.1, 8.8 a 8.18) — [Cambio 09/10/2026]
+
+Los paquetes temporales de un cliente vencen el mismo día del mes, 10 o 20
+(`renovacion.dias_vencimiento`); `hasta` es ese día y el período siguiente
+empieza el día después. El ajuste se cobra como **tramo prorrateado**:
+precio × días / divisor (365 si el plan es anual; 30 por mes en otro caso),
+redondeado a centavos, con la cascada completa (bonificación, ticket, ajuste
+del medio e IVA). Cálculo único en `src/domain/licencias/periodo.ts`.
+
+- **Planes (8.18):** mensual (1), anual (12) y **trimestral inicial** (3). El
+  primer alta temporal de un cliente no agrupado es siempre trimestral, se
+  factura completa y nace **sin día de vencimiento**; después, solo mensual o
+  anual. El catálogo del portal ofrece lo que corresponde y la cotización lo
+  valida (`PLAN_NO_PERMITIDO`). Los grupos no tienen trimestre inicial.
+- **Renovación:** desde = vencimiento anterior + 1. Si ya está alineado y se
+  genera antes, no hay tramo. Si no, el tramo llega al primer día de
+  vencimiento posterior a desde + mínimo − 1 (`renovacion.minimo_dias_tramo`,
+  10) y a hoy: un acuerdo tardío cubre todo lo transcurrido. Cobra tramo más
+  período, en una sola orden.
+- **Adicional:** cobra solo el tramo desde hoy hasta el mayor vencimiento de
+  los paquetes de la empresa con ese día (o hasta el fin del trimestre), sin
+  mínimo; así termina junto con lo que ya tiene. La corrida lo renueva con los
+  demás.
+- **Día de vencimiento:** se propone el de los otros paquetes del cliente (o
+  el del contrato que se renueva) y el carrito deja elegir el otro; es único
+  por orden. No se elige en el trimestre inicial (se negocia) ni en los
+  clientes agrupados (fijo, `renovacion.dia_vencimiento_grupo`, 10). Una vez
+  generada la orden automática, solo Administración puede cancelarla y
+  reemitirla con otro día.
+- **Trimestre inicial (8.11):** no se renueva solo ni desde el portal. Lo
+  negocia Administración (medio, mensual o anual y día) y emite la orden con
+  el tramo más el período. Hasta tener la orden manual de SOFTeam (fase F6),
+  queda en el tablero "Para negociar". Si no se acuerda a tiempo, sigue las
+  reglas de vencimiento de su modo.
+- **Altas a grupo (8.12):** el cliente agrupado que paga por planilla no genera
+  una orden al confirmar. El contrato se graba con su tramo, **sin orden**, y
+  la orden colectiva de la próxima corrida lo incorpora junto con las
+  renovaciones del grupo (una orden por factura); como vence ese día, la misma
+  corrida lo renueva y cobra también su primer período. El tramo llega al
+  mayor vencimiento del grupo o, en el primer alta, al primer día 10 cuya
+  corrida todavía no pasó. Hasta entonces, Administración puede anularlo.
+- **Bases existentes:** la migración deja el día 20 a los contratos que ya
+  vencen ese día y el 10 al resto (se alinean con un tramo en la próxima
+  renovación), y agrega el plan trimestral a los paquetes con plan mensual (tres
+  veces el precio mensual, editable).
 - **Edición manual de `hasta`** (consolidación de vencimientos): solo
   Administración SOFTeam, con motivo obligatorio y auditoría. Si hay suscripción
   en MercadoPago, pregunta si regenerarla. Es la única excepción a la
@@ -221,6 +269,40 @@ interfaces de los licenciados, avisa qué vence, cuándo y cómo quedaría, para
 que renueve o elija qué dar de baja a tiempo. Una renovación ya vigente para
 esa fecha evita el aviso.
 
+### 4.6 Modo de facturación y tolerancia de pago (Mejora v2.1, 6.5, 7.6 y 7.7) — [Cambio 09/10/2026]
+
+Cada cliente tiene un modo de facturación; en las órdenes agrupadas rige el del
+cliente de facturación del grupo. El comportamiento de cada modo es fijo; la
+tolerancia (parámetro `facturacion.tolerancia_dias`, por defecto 7, 30, 30 y 90)
+y los medios de pago (cada medio marca con qué modos se usa) los configura
+Administración.
+
+| Modo | Estado inicial | Factura | Tolerancia de pago | Suspende | Tickets | Medios iniciales |
+|---|---|---|---|---|---|---|
+| 0 Pago directo | `PEND_PAGO` | Al cobrar | Prórroga del anterior: vencimiento + 7 días | Sí | Sí | Link de pago |
+| 1 Factura adelantada | `PEND_PAGO_ACTIVO` | Al confirmar | Plazo del nuevo: inicio + 30 días | Sí | Sí | Transferencia |
+| 2 Suscripción MP | `PEND_PAGO` | Al cobrar | Prórroga del anterior: vencimiento + 30 días | Sí | Sí | Suscripción y link |
+| 3 Factura agrupada | `PEND_PAGO_ACTIVO` | Al confirmar | Sin límite; a los 90 días sin pago, aviso a SOFTeam | No | No | Planilla |
+
+- **Factura adelantada (modos 1 y 3):** la factura se emite al confirmar la
+  orden (y en la corrida diaria las renovaciones); la orden queda pendiente
+  hasta que Administración registra la transferencia.
+- **Prórroga:** al generarse la renovación de un contrato (automática o
+  manual), en los modos 0 y 2 el contrato anterior sigue sumando hasta
+  `hasta` + tolerancia. Si la renovación se paga, deja de estar prorrogado;
+  si no, deja de sumar al terminar la prórroga. Mientras está prorrogado no se
+  emite el aviso de licencia vencida.
+- **Plazos editables:** Administración ajusta la prórroga o el plazo de un
+  contrato habilitado sin pago desde la ficha del cliente (*Paquetes vigentes →
+  Plazos*), con motivo y auditoría. La prórroga no puede terminar antes del
+  vencimiento.
+- El alta en línea nace en el modo 0. SOFTeam elige el modo en el alta y en la
+  edición del cliente; los medios preferidos tienen que estar habilitados para
+  ese modo.
+- *Pendiente (fase F4):* la planilla no está habilitada para el alta inicial,
+  así que un cliente nuevo del modo 3 compra su primer paquete como alta a
+  grupo (Mejora v2.1, 8.12).
+
 ---
 
 ## 5. Orden y cálculo
@@ -251,16 +333,27 @@ prorrateo    = total repartido entre los ítems proporcional a su precioFinal
 - **Prorrateo por restos mayores** — **[Cambio]**. Reparte el redondeo entre los
   ítems con mayor resto, en lugar de cargarlo todo al último. La suma da el total
   exacto también con muchos ítems o con ítems en cero.
-- **Alícuota de IVA:** 0 si el cliente de facturación es Exento; si no, la
-  alícuota general del país (parámetro, 21 en Argentina).
-- **Tipo de comprobante:** A si el cliente de facturación es Responsable
-  Inscripto; B en los demás casos. SOFTeam emite como Responsable Inscripto.
+- **Condición frente al IVA (Mejora v2.1, 2.8 a 2.11) — [Cambio 09/10/2026]:**
+  la alícuota, el tipo de comprobante y el código ARCA salen de la condición
+  del cliente de facturación, configurable por Administración en *Países y
+  monedas → Condiciones frente al IVA* (tabla `condiciones_iva`, por país).
+  Carga inicial de Argentina: Responsable Inscripto y Gran Contribuyente (A,
+  ARCA 1), Monotributo con Factura B o con Factura A (ARCA 6), Exento (B, ARCA
+  4), Consumidor Final (B, ARCA 5), todas al 21 %; Cliente del Exterior (E,
+  0 %) dada de baja. **El exento paga IVA:** la exención es de sus ventas, no
+  de lo que compra (la v2.0 decía 0 %). No hay condición por defecto: sin
+  condición activa la orden se rechaza (`IVA_COND_INVALIDA`) y el comprobante
+  E todavía no se emite (`COMP_NO_HABILITADO`). La orden congela condición,
+  código ARCA, comprobante y alícuota: un cambio en la tabla rige para las
+  órdenes que se confirmen después. No se da de baja una condición que tienen
+  clientes.
 
 ### 5.2 Rechazos
 
 `SIN_ITEMS`, `MEDIO_NO_HABILITADO`, `MONEDA_INCONSISTENTE`, `PAQUETE_NO_DISPONIBLE`,
 `ALTERNATIVA_INEXISTENTE`, `TICKET_INVALIDO`, `TICKET_VENCIDO`, `TICKET_AGOTADO`,
-`TICKET_SOBRE_BONIFICADO`, `TICKET_CORPORATIVO`, `TICKET_PAQUETE_NO_HABILITADO`.
+`TICKET_SOBRE_BONIFICADO`, `TICKET_CORPORATIVO`, `TICKET_PAQUETE_NO_HABILITADO`,
+`IVA_COND_INVALIDA`, `COMP_NO_HABILITADO`.
 
 Al cliente se le muestra siempre un mensaje genérico. El código detallado lo ven
 solo los roles SOFTeam.
@@ -284,10 +377,10 @@ de cliente) → vaciar el carrito → registrar el evento de salida.
 **Todo en una transacción**, con una clave de idempotencia para que un doble
 clic no genere dos órdenes.
 
-Estado inicial del contrato:
-- **DIRECTO** → `PEND_PAGO`.
-- **CORPORATIVO** → `PEND_PAGO_ACTIVO` sin fecha límite (el servicio nunca se
-  corta solo).
+Estado inicial del contrato, según el modo de facturación del cliente al que
+se factura (4.6): modos 0 y 2 → `PEND_PAGO`; modo 1 → `PEND_PAGO_ACTIVO` hasta
+hoy + tolerancia; modo 3 → `PEND_PAGO_ACTIVO` sin fecha límite (el servicio
+nunca se corta solo). La orden congela el modo.
 
 ### 5.5 Estados de la orden
 
@@ -298,22 +391,32 @@ cantidad de reenvíos del link.
 Cualquier cambio de medio de pago, ticket o bonificación mientras está
 `PEND_PAGO` recalcula la orden e invalida el link de pago vigente.
 
+**Órdenes sin importe (Mejora v2.1, 5.9):** si el total da cero (paquetes
+bonificados al 100 % o un ticket del 100 %), la orden queda `PAGADA` en el
+acto, sus contratos se activan y no se genera link ni factura. Vale para el
+carrito, la renovación automática y la bonificación de SOFTeam.
+
 ---
 
 ## 6. Renovación, tickets y facturación consolidada
 
-- **Generación quincenal** (idempotente, días de corte configurables: 5 y 15).
-  El día 5 renueva los contratos vigentes que vencen entre el 1 y el 15 **del
-  mes siguiente**; el día 15, los que vencen del 16 a fin de ese mes. Así la
-  orden llega con 2 a 6 semanas para pagar, y todos los contratos que se
-  renuevan siguen vigentes al momento de generarla.
+- **Generación quincenal** (idempotente, días de corte configurables:
+  `renovacion.dias_corte`, 2 y 11 — [Cambio 09/10/2026], Mejora v2.1 8.2).
+  El día 2 renueva los contratos que vencen del 3 al 12 del mes (los alineados
+  al 10); el día 11, los que vencen del 13 al 2 del mes siguiente (los
+  alineados al 20). Los rangos cubren todos los días del mes, porque siguen
+  existiendo vencimientos sueltos. Se excluyen los paquetes sin día de
+  vencimiento (trimestre inicial, 4.2.1).
   - Se evalúa todos los días sobre las ventanas cuyo corte ya pasó (la del mes
     anterior y la del actual): un contrato comprado después del corte también
     se renueva, y un día sin proceso se recupera. No duplica: un contrato
     tiene como máximo una renovación no cancelada, y cada orden tiene una
     clave de idempotencia derivada de sus contratos.
-  - El contrato nuevo empalma con el anterior. DIRECTO: `PEND_PAGO` con las
-    fechas ya fijadas (al pagar se conservan). CORPORATIVO: `PEND_PAGO_ACTIVO`
+  - El contrato nuevo empalma con el anterior y termina en su día de
+    vencimiento, con el tramo si no estaba alineado (4.2.1). Modos 0 y 2: `PEND_PAGO` con las
+    fechas ya fijadas (al pagar se conservan) y el anterior prorrogado durante
+    la tolerancia. Modo 1: `PEND_PAGO_ACTIVO` hasta su inicio + tolerancia.
+    Modo 3: `PEND_PAGO_ACTIVO`
     sin límite.
   - El cliente puede desactivar la renovación automática de cada paquete desde
     el portal hasta que se genere la orden; después, hay que cancelarla.
@@ -325,12 +428,15 @@ Cualquier cambio de medio de pago, ticket o bonificación mientras está
   renovación si el carrito es solo de renovaciones. Las fechas empalman con el
   vencimiento. Si mientras estaba en el carrito se generó la renovación
   automática, la confirmación la rechaza: nunca hay dos renovaciones de un
-  contrato. Un paquete ya vencido no se renueva: se contrata de nuevo.
+  contrato. Un paquete ya vencido no se renueva: se contrata de nuevo. El
+  plan trimestral no se ofrece al renovar, y el trimestre inicial no se renueva
+  desde el portal (se negocia).
   - Propaga la bonificación **solo si es recurrente**, aplicada sobre el precio de
     renovación vigente.
   - Medio de pago: el de renovación del cliente.
-  - Agrupa en una orden por (cliente de facturación, período) si es planilla; si
-    no, una orden por empresa.
+  - Agrupa en una orden por (cliente de facturación, período) si es planilla,
+    con las altas a grupo pendientes de ese cliente de facturación; si no, una
+    orden por empresa.
   - Si hay suscripción de MercadoPago y el monto cambió, lo actualiza **antes**
     de la fecha de cobro.
   - No consolida vencimientos automáticamente. Un contrato marcado **"no
@@ -343,7 +449,7 @@ Cualquier cambio de medio de pago, ticket o bonificación mientras está
     min(subtotal × porcentaje, tope).
   - Un solo ticket por orden.
   - No aplica si algún ítem tiene bonificación (en ninguno de los dos sentidos),
-    ni a clientes corporativos.
+    ni al modo de facturación 3 (factura agrupada).
   - Si el ticket está restringido a paquetes, **todos** los ítems deben ser de
     esos paquetes.
   - El conteo de usos cuenta solo órdenes de generación manual.
@@ -368,10 +474,18 @@ período). Reejecutar un día no duplica nada.
 
 | Proceso | Frecuencia | Qué hace |
 |---|---|---|
-| Diario | 06:00 (después de la renovación) | Vence las excepciones de pago (`PEND_PAGO_ACTIVO` con fecha pasada → `PEND_PAGO`). Genera alertas (vencimiento 15, 7 y 1 día, saldo bajo 20 %, plazo de pago por vencer, licencia vencida, **empresa sin paquete vigente**). No emite alertas de vencimiento si hay renovación automática. |
+| Diario | 06:00 (después de la renovación) | Vence las excepciones de pago (`PEND_PAGO_ACTIVO` con fecha pasada → `PEND_PAGO`). Genera alertas (vencimiento 15, 7 y 1 día, saldo bajo 20 %, plazo de pago por vencer, licencia vencida, **empresa sin paquete vigente**, **renovación a negociar** para SOFTeam, una por trimestre desde el mes de su vencimiento). No emite alertas de vencimiento si hay renovación automática. |
 | Renovación | Días de corte | Sección 6 |
 | Entrega de eventos | Continuo, con reintentos | Envía webhooks desde el outbox, con reintento y backoff |
 | Recordatorios de cobro | Configurable (10, 20 y 28) | Avisos de órdenes impagas y semáforo de antigüedad (10 y 21 días) |
+
+**Tablero de SOFTeam al ingresar (Mejora v2.1, 11.7) — [Cambio 09/10/2026].**
+Cajas con contador que abren la grilla de cada caso: renovaciones a negociar
+(trimestres que vencen hasta fin de mes o ya vencidos, con semáforo: rojo
+vencido, amarillo dentro de `tablero.dias_semaforo` días, verde el resto),
+altas a grupo pendientes (se pueden anular), órdenes pendientes de pago,
+errores de pago y empresas con consumibles agotados en los últimos 7 días.
+Grilla en *Panel SOFTeam → Para negociar*.
 
 **Aviso en el inicio del portal.** Con los mismos parámetros que las alertas
 (`alertas.vencimiento_dias`, primer valor, y `alertas.saldo_bajo_porcentaje`),
@@ -451,7 +565,35 @@ Las barras de uso muestran lo que queda y se pintan con el mismo criterio
 - **Facturación (interfaz propia):** comprobante al cobrarse la orden, al
   cliente de facturación. La emisión se reserva para no facturar dos veces;
   si falla, la reintenta el proceso diario. Adaptador de Xubio pendiente;
-  simulador en desarrollo.
+  simulador en desarrollo. A Xubio se informa la condición congelada en la
+  orden (por su código ARCA), no la actual del cliente. Las órdenes sin
+  importe no se facturan.
+- **Emisores (Mejora v2.1, 5.11) — [Cambio 09/10/2026]:** SOFTeam factura
+  desde más de una sociedad. Administración las carga en *Panel SOFTeam →
+  Emisores*: razón social, CUIT, condición (Responsable Inscripto o Gran
+  Contribuyente), domicilio, país, punto de venta, preferido (uno por país) y
+  sus conexiones. Cada emisor tiene su propia cuenta de Xubio y de Mercado
+  Pago; los secretos se guardan cifrados (AES-256-GCM), no se muestran ni se
+  auditan. Con la conexión marcada y sin credenciales propias se usan las
+  del entorno (o los simuladores fuera de producción).
+  - El cliente nuevo recibe el emisor preferido de su país; solo
+    Administración lo cambia, y se le recuerda darlo de alta en el Xubio y el
+    Mercado Pago del nuevo emisor. Sin emisor asignado rige el preferido; sin
+    ninguno activo no se puede vender (`SIN_EMISOR`).
+  - La orden congela el emisor con su CUIT y su razón social. El link de pago
+    se crea en la cuenta de Mercado Pago del emisor y su aviso llega con el
+    emisor, para validarlo con su clave. La factura se emite en su Xubio.
+  - Sin Mercado Pago no se ofrecen el link ni la suscripción. Sin Xubio, la
+    factura se emite fuera del sistema y Administración registra su número
+    (`A-0001-00001234`) y su fecha en la orden.
+  - Historial facturado en la ficha del cliente: sus órdenes facturadas con el
+    emisor, el comprobante y el importe.
+  - Separación de órdenes (8.19): una orden por cliente de facturación,
+    empresa y medio de pago (la orden agrupada mezcla empresas); se cumple con
+    el carrito de una empresa y un medio y con la agrupación de la
+    renovación. *Pendiente:* cambiar el emisor de una orden ya emitida (hoy se
+    cancela y se vuelve a generar) y el control de suscripciones activas al
+    cambiar el emisor del cliente (todavía no hay suscripciones).
 - **Email:** Resend + React Email (alertas, links de pago, verificación).
 
 ---
@@ -517,8 +659,9 @@ Regla de dependencias: `domain` no importa nada del resto.
    Renovación manual desde los vencimientos del portal (ver sección 6).
    Bonificación de paquetes por SOFTeam (Administración o Comercial): sobre una
    orden pendiente sin ticket, un porcentaje por paquete con motivo; la orden se
-   recalcula con el ajuste del medio y el IVA congelados, el link de pago se
-   invalida y queda auditado. Si es recurrente, la renovación la conserva; 0 %
+   recalcula volviendo a tomar la foto fiscal (Mejora v2.1, 2.5: condición
+   frente al IVA vigente del cliente de facturación y ajuste vigente del medio
+   de pago), el link de pago se invalida y queda auditado. Si es recurrente, la renovación la conserva; 0 %
    la quita.
 4. ✅ **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con
    listado de sincronización, EmpresaFull v1, licencia vigente y consumos

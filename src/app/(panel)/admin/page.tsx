@@ -1,8 +1,12 @@
 import {
   ArrowRight,
   Banknote,
+  BatteryWarning,
+  CalendarClock,
+  CircleAlert,
   CreditCard,
   FileClock,
+  Network,
   Package,
   ShieldAlert,
   ShieldCheck,
@@ -37,6 +41,7 @@ import { obtenerDb } from "@/server/db";
 import { indicadoresTablero } from "@/server/modules/cuentas/consultas";
 import { tieneDosFactores } from "@/server/modules/cuentas/dos-factores";
 import { tendenciasTablero } from "@/server/modules/reportes/reportes";
+import { cajasTablero } from "@/server/modules/ventas/tablero";
 
 export const metadata: Metadata = { title: "Tablero" };
 
@@ -112,11 +117,60 @@ export default async function Tablero() {
   const { user } = await requerirSofteam();
   const db = await obtenerDb();
   const fechaHoy = hoy();
-  const [datos, dosFactores, tendencias] = await Promise.all([
+  const [datos, dosFactores, tendencias, cajas] = await Promise.all([
     indicadoresTablero(db, fechaHoy),
     tieneDosFactores(db, user.id),
     tendenciasTablero(db, fechaHoy),
+    cajasTablero(db, fechaHoy),
   ]);
+  // Casos que piden una acción (Mejora v2.1, 11.7).
+  const atender = [
+    {
+      href: "/admin/pendientes#renovaciones",
+      titulo: "Renovaciones a negociar",
+      cantidad: cajas.negociar.total,
+      detalle:
+        cajas.negociar.vencidos > 0
+          ? `${numero(cajas.negociar.vencidos)} ya vencidas`
+          : cajas.negociar.proximos > 0
+            ? `${numero(cajas.negociar.proximos)} vencen pronto`
+            : "Trimestres que vencen este mes",
+      urgente: cajas.negociar.vencidos > 0,
+      icono: CalendarClock,
+    },
+    {
+      href: "/admin/pendientes#altas-grupo",
+      titulo: "Altas a grupo pendientes",
+      cantidad: cajas.altasAGrupo,
+      detalle: "Entran en la próxima orden colectiva",
+      urgente: false,
+      icono: Network,
+    },
+    {
+      href: "/admin/ordenes?estado=PEND_PAGO",
+      titulo: "Pendientes de pago",
+      cantidad: cajas.pendientesDePago,
+      detalle: "Órdenes por cobrar",
+      urgente: false,
+      icono: FileClock,
+    },
+    {
+      href: "/admin/ordenes?estado=PEND_PAGO&error=1",
+      titulo: "Errores de pago",
+      cantidad: cajas.erroresDePago,
+      detalle: "Pagos rechazados sin resolver",
+      urgente: cajas.erroresDePago > 0,
+      icono: CircleAlert,
+    },
+    {
+      href: "/admin/procesos?tipo=SALDO_AGOTADO",
+      titulo: "Consumibles sin saldo",
+      cantidad: cajas.sinSaldo,
+      detalle: "Empresas en los últimos 7 días",
+      urgente: false,
+      icono: BatteryWarning,
+    },
+  ];
   const periodo = etiquetaPeriodo(fechaHoy);
   const { comparacion } = tendencias;
   const etiquetas = (valores: string[]) =>
@@ -149,6 +203,40 @@ export default async function Tablero() {
           </AlertDescription>
         </Alert>
       )}
+
+      <section aria-labelledby="para-atender" className="mb-8">
+        <h2 id="para-atender" className="mb-3 text-sm font-medium text-muted-foreground">
+          Para atender
+        </h2>
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {atender.map(({ href, titulo, cantidad, detalle, urgente, icono: Icono }) => (
+            <li key={href}>
+              <Link href={href} className="group block h-full">
+                <Card className="h-full gap-2 p-4 transition-all group-hover:-translate-y-0.5 group-hover:shadow-md">
+                  <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                    {titulo}
+                    <Icono
+                      className={
+                        urgente ? "size-4 text-destructive" : "size-4 text-muted-foreground"
+                      }
+                    />
+                  </span>
+                  <span
+                    className={
+                      urgente && cantidad > 0
+                        ? "text-2xl font-semibold tabular-nums text-destructive"
+                        : "text-2xl font-semibold tabular-nums"
+                    }
+                  >
+                    {numero(cantidad)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{detalle}</span>
+                </Card>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Indicador

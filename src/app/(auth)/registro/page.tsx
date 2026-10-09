@@ -2,15 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { obtenerDb } from "@/server/db";
+import { opcionesCondicionesIva } from "@/server/modules/catalogo/condiciones-iva";
 import { nombresDeProvincias } from "@/server/modules/catalogo/paises";
 import { FormularioRegistro } from "./formulario";
 
 export const metadata: Metadata = { title: "Registrá tu empresa" };
 
 export default async function PaginaRegistro() {
-  // Las provincias se leen en cada pedido: SOFTeam las administra.
+  // Provincias y condiciones de IVA se leen en cada pedido: SOFTeam las administra.
   await connection();
-  const provincias = await nombresDeProvincias(await obtenerDb(), "AR");
+  const db = await obtenerDb();
+  const [provincias, condicionesIva] = await Promise.all([
+    nombresDeProvincias(db, "AR"),
+    opcionesCondicionesIva(db, "AR"),
+  ]);
   return (
     <div className="w-full max-w-2xl space-y-8">
       <header className="space-y-2">
@@ -21,7 +26,7 @@ export default async function PaginaRegistro() {
           usuarios y contratar paquetes.
         </p>
       </header>
-      <FormularioRegistro provincias={provincias} />
+      <FormularioRegistro provincias={provincias} condicionesIva={condicionesIva} />
       <p className="text-center text-sm text-muted-foreground">
         ¿Ya tenés cuenta?{" "}
         <Link

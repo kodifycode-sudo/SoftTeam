@@ -18,6 +18,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { MODOS_FACTURACION, NOMBRE_MODO } from "@/domain/facturacion/modo";
 import { ESTADO_INICIAL } from "@/lib/formulario";
 import { guardarMedioPagoAccion } from "./acciones";
 
@@ -28,6 +29,7 @@ export interface MedioEditable {
   habilitadoAlta: boolean;
   habilitadoAdicional: boolean;
   habilitadoRenovacion: boolean;
+  modosFacturacion: number[];
   activo: boolean;
   instrucciones: string;
 }
@@ -67,7 +69,7 @@ export function EditarMedioPago({ medio }: { medio: MedioEditable }) {
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
         <Pencil data-icon="inline-start" /> Editar
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar {medio.nombre}</DialogTitle>
           <DialogDescription>
@@ -113,6 +115,20 @@ export function EditarMedioPago({ medio }: { medio: MedioEditable }) {
               activo={medio.habilitadoRenovacion}
             />
             <Interruptor nombre="activo" etiqueta="Medio activo" activo={medio.activo} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Modos de facturación que lo usan</p>
+            {MODOS_FACTURACION.map((m) => (
+              <Interruptor
+                key={m}
+                nombre={`modo${m}`}
+                etiqueta={NOMBRE_MODO[m]}
+                activo={medio.modosFacturacion.includes(m)}
+              />
+            ))}
+            {estado.errores?.modosFacturacion && (
+              <p className="text-sm text-destructive">{estado.errores.modosFacturacion[0]}</p>
+            )}
           </div>
           <Field>
             <FieldLabel htmlFor={`instr-${medio.id}`}>Instrucciones para el cliente</FieldLabel>

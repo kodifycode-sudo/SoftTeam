@@ -24,6 +24,7 @@ import { formatearCuit } from "@/domain/cuentas/cuit";
 import { cn } from "@/lib/utils";
 import { requerirConfiguracion } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { opcionesCondicionesIva } from "@/server/modules/catalogo/condiciones-iva";
 import { usoDeLimites } from "@/server/modules/configuracion/limites";
 import { listarProductores } from "@/server/modules/configuracion/productores";
 import { listarOficinas } from "@/server/modules/cuentas/oficinas";
@@ -48,10 +49,11 @@ function Roles({ p }: { p: Productor }) {
 export default async function PaginaProductores() {
   const contexto = await requerirConfiguracion();
   const db = await obtenerDb();
-  const [productores, oficinas, uso] = await Promise.all([
+  const [productores, oficinas, uso, condicionesIva] = await Promise.all([
     listarProductores(db, contexto.empresaId, contexto.alcance),
     listarOficinas(db, contexto.empresaId, contexto.alcance),
     usoDeLimites(db, contexto.empresaId),
+    opcionesCondicionesIva(db, "AR"),
   ]);
   const opcionesOficina = oficinas.map((o) => ({
     id: o.id,
@@ -84,6 +86,7 @@ export default async function PaginaProductores() {
             <NuevoProductor
               oficinas={opcionesOficina}
               tieneInstitorio={uso.funciones.has("prodigal.institorio")}
+              condicionesIva={condicionesIva}
               sinOficina={contexto.alcance.tipo === "empresa"}
             />
           </div>

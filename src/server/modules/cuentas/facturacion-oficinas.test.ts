@@ -51,7 +51,9 @@ async function comprar(empresaId: string, oficinaId: string | null) {
     .select({ id: t.alternativas.id })
     .from(t.alternativas)
     .innerJoin(t.paquetes, eq(t.paquetes.id, t.alternativas.paqueteId))
-    .where(and(eq(t.paquetes.codigo, "PRO-INICIAL"), eq(t.alternativas.nombre, "Mensual")));
+    .where(
+      and(eq(t.paquetes.codigo, "PRO-INICIAL"), eq(t.alternativas.nombre, "Trimestral inicial")),
+    );
   await agregarAlCarrito(
     db,
     { empresaId, oficinaId, alternativaId: alt!.id, cantidad: 1, usuarioId },
@@ -140,14 +142,14 @@ describe("facturación de la compra delegada", () => {
       .set({ oficinaId: oficina.id })
       .where(eq(t.contratos.id, contrato.id));
 
-    const resumen = await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-09-15")).at(-1)!);
+    const resumen = await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-10-11")).at(-1)!);
     expect(resumen.errores).toEqual([]);
     const nuevo = await db.query.contratos.findFirst({
       where: eq(t.contratos.contratoAnteriorId, contrato.id),
     });
     expect(nuevo?.oficinaId).toBe(oficina.id);
     const renovacion = await db.query.ordenes.findFirst({
-      where: eq(t.ordenes.id, nuevo!.ordenId),
+      where: eq(t.ordenes.id, nuevo!.ordenId!),
     });
     expect(renovacion).toMatchObject({ clienteFacturacionId: otro.id, tipoComprobante: "B" });
   });

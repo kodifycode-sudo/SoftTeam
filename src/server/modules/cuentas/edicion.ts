@@ -1,13 +1,14 @@
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { esCuitValido, normalizarCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
 import { TIPOS_SOCIEDAD } from "@/lib/argentina";
 import type { Db } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { condicionIvaValida } from "../catalogo/condiciones-iva";
 import { provinciaValida } from "../catalogo/paises";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
+import { campoModoFacturacion } from "./altas-softeam";
 
 const texto = (min: number, max: number, mensaje: string) =>
   z
@@ -59,7 +60,11 @@ export const esquemaEdicionCliente = z
       .string()
       .transform(normalizarCuit)
       .refine(esCuitValido, { error: "El CUIT/CUIL no es válido" }),
-    condicionIva: z.enum(CONDICIONES_IVA, { error: "Elegí la condición frente al IVA" }),
+    condicionIva: z
+      .string({ error: "Elegí la condición frente al IVA" })
+      .trim()
+      .min(1, { error: "Elegí la condición frente al IVA" })
+      .max(30),
     domicilioFiscal: domicilio,
     /** Domicilio comercial: si no se carga, es el fiscal. */
     domicilioComercial: domicilio.partial().optional(),
@@ -73,6 +78,9 @@ export const esquemaEdicionCliente = z
     grupoId: z.uuid().optional(),
     medioPagoAltaId: z.uuid().optional(),
     medioPagoRenovacionId: z.uuid().optional(),
+    modoFacturacion: campoModoFacturacion,
+    /** Sociedad que le factura. Solo Administración la cambia. */
+    emisorId: z.uuid().optional(),
     xubioId: opcional(40),
     observacionFactura: opcional(200),
     observaciones: opcional(2000),
@@ -99,7 +107,9 @@ export type ErrorEdicion =
   | "SIN_PERMISO"
   | "GRUPO_INVALIDO"
   | "MEDIO_INVALIDO"
-  | "PROVINCIA_INVALIDA";
+  | "PROVINCIA_INVALIDA"
+  | "CONDICION_IVA_INVALIDA"
+  | "EMISOR_INVALIDO";
 
 /** Quién edita: el CUIT y dar de baja son solo de Administración. */
 export interface Editor {
@@ -121,7 +131,7 @@ export async function guardarCliente(
   clienteId: string,
   entrada: EntradaEdicionCliente,
   editor: Editor,
-): Promise<{ ok: true } | { ok: false; error: ErrorEdicion }> {
+): Promise<{ ok: true; emisorCambiado: boolean } | { ok: false; error: ErrorEdicion }> {
   return db.transaction(async (tx) => {
     const [antes] = await tx
       .select()
@@ -153,10 +163,13 @@ export async function guardarCliente(
     for (const medio of [entrada.medioPagoAltaId, entrada.medioPagoRenovacionId]) {
       if (!medio) continue;
       const existe = await tx.query.mediosPago.findFirst({
-        columns: { id: true },
+        columns: { id: true, modosFacturacion: true },
         where: eq(t.mediosPago.id, medio),
       });
-      if (!existe) return { ok: false, error: "MEDIO_INVALIDO" };
+      // Solo medios habilitados para el modo de facturación del cliente (Mejora v2.1, 6.5).
+      if (!existe?.modosFacturacion.includes(entrada.modoFacturacion)) {
+        return { ok: false, error: "MEDIO_INVALIDO" };
+      }
     }
 
     const paisId = antes.domicilioFiscal.paisId;
@@ -165,6 +178,22 @@ export async function guardarCliente(
       if (provincia && !(await provinciaValida(tx, paisId, provincia))) {
         return { ok: false, error: "PROVINCIA_INVALIDA" };
       }
+    }
+    // Se puede conservar una condición que se dio de baja, pero no pasar a una.
+    if (
+      entrada.condicionIva !== antes.condicionIva &&
+      !(await condicionIvaValida(tx, paisId, entrada.condicionIva))
+    ) {
+      return { ok: false, error: "CONDICION_IVA_INVALIDA" };
+    }
+    const emisorCambiado = Boolean(entrada.emisorId && entrada.emisorId !== antes.emisorId);
+    if (emisorCambiado) {
+      if (!editor.administracion) return { ok: false, error: "SIN_PERMISO" };
+      const emisor = await tx.query.emisores.findFirst({
+        columns: { activo: true },
+        where: eq(t.emisores.id, entrada.emisorId as string),
+      });
+      if (!emisor?.activo) return { ok: false, error: "EMISOR_INVALIDO" };
     }
     const valores = {
       tipoPersona: entrada.tipoPersona,
@@ -194,6 +223,8 @@ export async function guardarCliente(
       grupoId: entrada.grupoId ?? null,
       medioPagoAltaId: entrada.medioPagoAltaId ?? null,
       medioPagoRenovacionId: entrada.medioPagoRenovacionId ?? null,
+      modoFacturacion: entrada.modoFacturacion,
+      emisorId: entrada.emisorId ?? antes.emisorId,
       xubioId: entrada.xubioId,
       observacionFactura: entrada.observacionFactura,
       observaciones: entrada.observaciones,
@@ -220,7 +251,7 @@ export async function guardarCliente(
       antes: previo,
       despues: valores,
     });
-    return { ok: true };
+    return { ok: true, emisorCambiado };
   });
 }
 
@@ -228,7 +259,6 @@ export const esquemaEdicionEmpresa = z.object({
   version: z.string().min(1),
   nombre: texto(2, 120, "Ingresá el nombre de la empresa"),
   nombreCorto: texto(2, 20, "Ingresá un nombre corto (hasta 20)"),
-  tipoCliente: z.enum(["DIRECTO", "CORPORATIVO"]),
   tipoInstalacion: z.enum(["SAAS", "ON_PREMISE"]),
   activa: z.boolean(),
 });
@@ -236,8 +266,7 @@ export const esquemaEdicionEmpresa = z.object({
 export type EntradaEdicionEmpresa = z.infer<typeof esquemaEdicionEmpresa>;
 
 /**
- * SOFTeam corrige una empresa. El tipo de cliente rige para las órdenes
- * nuevas. Desactivarla (solo Administración) corta el acceso al portal y los
+ * SOFTeam corrige una empresa. Desactivarla (solo Administración) corta el acceso al portal y los
  * consumos de los productos; los productos reciben el cambio.
  */
 export async function guardarEmpresa(
@@ -276,7 +305,6 @@ export async function guardarEmpresa(
       antes: {
         nombre: antes.nombre,
         nombreCorto: antes.nombreCorto,
-        tipoCliente: antes.tipoCliente,
         tipoInstalacion: antes.tipoInstalacion,
         activa: antes.activa,
       },

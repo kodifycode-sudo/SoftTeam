@@ -28,13 +28,8 @@ export interface ConfigXubio {
   centroDeCostoId?: number | undefined;
 }
 
-/** Condición frente al IVA de STLic → categoría fiscal de Xubio. */
-const CATEGORIA_FISCAL: Record<string, string> = {
-  RESPONSABLE_INSCRIPTO: "RI",
-  MONOTRIBUTO: "MT",
-  EXENTO: "EX",
-  CONSUMIDOR_FINAL: "CF",
-};
+/** Condición del receptor según ARCA → categoría fiscal de Xubio. */
+const CATEGORIA_FISCAL: Record<number, string> = { 1: "RI", 4: "EX", 5: "CF", 6: "MT" };
 
 const pesos = (c: Centavos) => Number(c) / 100;
 
@@ -105,7 +100,7 @@ export function crearXubio(config: ConfigXubio, fetchApi: typeof fetch = fetch):
         razonSocial: s.cliente.nombre,
         CUIT: s.cliente.cuit,
         identificacionTributaria: { codigo: "CUIT" },
-        categoriaFiscal: { codigo: CATEGORIA_FISCAL[s.cliente.condicionIva] ?? "CF" },
+        categoriaFiscal: { codigo: CATEGORIA_FISCAL[s.cliente.codigoArca] ?? "CF" },
         email: s.cliente.email ?? undefined,
         esclienteextranjero: 0,
         esProveedor: 0,

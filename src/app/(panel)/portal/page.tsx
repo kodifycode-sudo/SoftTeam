@@ -163,7 +163,7 @@ function EstadoRenovacionPaquete({
 }: {
   contratoId: string;
   paquete: string;
-  estado: { noRenovar: boolean; ordenRenovacion: number | null } | undefined;
+  estado: { noRenovar: boolean; ordenRenovacion: number | null; aNegociar: boolean } | undefined;
   comercial: boolean;
 }) {
   if (!estado) return null;
@@ -171,6 +171,14 @@ function EstadoRenovacionPaquete({
     return (
       <p className="mt-1 text-xs font-medium text-primary">
         Renovación generada · orden #{estado.ordenRenovacion}
+      </p>
+    );
+  }
+  // Trimestre inicial: la continuidad se acuerda con SOFTeam (Mejora v2.1, 8.11).
+  if (estado.aNegociar) {
+    return (
+      <p className="mt-1 text-xs text-muted-foreground">
+        Trimestre inicial: antes del vencimiento acordamos con vos cómo seguir.
       </p>
     );
   }

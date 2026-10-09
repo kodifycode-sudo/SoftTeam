@@ -7,9 +7,14 @@ import { z } from "zod";
 import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
 import { reenvioPermitido } from "@/server/auth/limites";
 import { requerirSofteam } from "@/server/auth/sesion";
-import { obtenerFacturador, obtenerPasarela, urlBase } from "@/server/cobros";
+import { facturadorDeEmisor, pasarelaDeEmisor, urlBase } from "@/server/cobros";
 import { obtenerDb } from "@/server/db";
-import { facturarOrden } from "@/server/modules/cobros/facturacion";
+import {
+  type ErrorFacturaManual,
+  esquemaFacturaManual,
+  facturarOrden,
+  registrarFacturaManual,
+} from "@/server/modules/cobros/facturacion";
 import { reenviarLinkDePago } from "@/server/modules/cobros/pagos";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 import { enviarAlertasPendientes } from "@/server/modules/procesos/alertas";
@@ -44,17 +49,15 @@ export async function registrarPagoAccion(
   if (!resultado.ok) return { mensaje: MENSAJES[resultado.error] };
   programarEntregaDeEventos();
   // La factura se emite al terminar la respuesta; si falla, la reintenta el proceso diario.
-  const facturador = obtenerFacturador();
   const ordenId = id.data;
-  if (facturador) {
-    after(async () => {
-      try {
-        await facturarOrden(await obtenerDb(), facturador, ordenId);
-      } catch (error) {
-        console.error("[ordenes] no se pudo facturar ahora", error);
-      }
-    });
-  }
+  after(async () => {
+    try {
+      const base = await obtenerDb();
+      await facturarOrden(base, (e) => facturadorDeEmisor(base, e), ordenId);
+    } catch (error) {
+      console.error("[ordenes] no se pudo facturar ahora", error);
+    }
+  });
   revalidatePath("/admin/ordenes", "layout");
   redirect(`/admin/ordenes/${id.data}?aviso=pago&activados=${resultado.valor.contratosActivados}`);
 }
@@ -92,7 +95,13 @@ export async function reenviarLinkAccion(
     return { mensaje: "Ya le reenviamos el mail varias veces en la última hora. Probá más tarde." };
   }
   const db = await obtenerDb();
-  const resultado = await reenviarLinkDePago(db, obtenerPasarela(), id.data, user.id, urlBase);
+  const resultado = await reenviarLinkDePago(
+    db,
+    (e) => pasarelaDeEmisor(db, e),
+    id.data,
+    user.id,
+    urlBase,
+  );
   if (!resultado.ok) {
     return {
       mensaje:
@@ -115,10 +124,9 @@ export async function facturarAccion(
   await requerirSofteam(["ADMINISTRACION"]);
   const id = z.uuid().safeParse(formData.get("ordenId"));
   if (!id.success) return { mensaje: "Orden inválida." };
-  const facturador = obtenerFacturador();
-  if (!facturador) return { mensaje: "La facturación electrónica no está configurada." };
   try {
-    const r = await facturarOrden(await obtenerDb(), facturador, id.data);
+    const db = await obtenerDb();
+    const r = await facturarOrden(db, (e) => facturadorDeEmisor(db, e), id.data);
     revalidatePath(`/admin/ordenes/${id.data}`);
     if (r.estado === "EMITIDA") return { ok: true, mensaje: `Comprobante ${r.numero} emitido.` };
     return {
@@ -127,7 +135,11 @@ export async function facturarAccion(
           ? "La emisión ya está en curso."
           : r.estado === "YA_FACTURADA"
             ? "La orden ya estaba facturada."
-            : "Solo se facturan órdenes pagadas.",
+            : r.estado === "SIN_IMPORTE"
+              ? "La orden no tiene importe: no se factura."
+              : r.estado === "MANUAL"
+                ? "El emisor de la orden no tiene Xubio: registrá la factura emitida a mano."
+                : "Solo se facturan órdenes pagadas.",
     };
   } catch (e) {
     return { mensaje: `El facturador respondió con un error: ${(e as Error).message}` };
@@ -147,6 +159,10 @@ const MENSAJES_BONIFICACION: Record<ErrorBonificacion, string> = {
   ORDEN_NO_PENDIENTE: "Solo se bonifica una orden pendiente de pago.",
   CON_TICKET: "La orden tiene un código de descuento: la bonificación no se combina con él.",
   CALCULO: "No se pudo recalcular la orden.",
+  IVA_COND_INVALIDA:
+    "El cliente de facturación no tiene una condición frente al IVA activa: corregila en su ficha antes de recalcular.",
+  COMP_NO_HABILITADO:
+    "La condición frente al IVA del cliente de facturación usa un comprobante que todavía no se emite.",
 };
 
 /** Bonifica un paquete de una orden pendiente (Administración o Comercial). */
@@ -168,5 +184,33 @@ export async function bonificarAccion(
   const resultado = await bonificarContrato(await obtenerDb(), datos.data, user.id);
   if (!resultado.ok) return { mensaje: MENSAJES_BONIFICACION[resultado.error], valores };
   revalidatePath(`/admin/ordenes/${ordenId.data}`);
+  if (resultado.total === 0n) {
+    return {
+      ok: true,
+      mensaje: "La orden quedó sin importe: se dio por pagada y sus paquetes se activaron.",
+    };
+  }
   return { ok: true, mensaje: "Bonificación aplicada: la orden se recalculó." };
+}
+
+const MENSAJES_FACTURA_MANUAL: Record<ErrorFacturaManual, string> = {
+  NO_EXISTE: "La orden ya no existe.",
+  YA_FACTURADA: "La orden ya estaba facturada.",
+  NO_FACTURABLE:
+    "Solo se registra la factura de una orden con importe que esté pagada o tenga factura adelantada.",
+};
+
+/** Registra una factura emitida fuera del sistema (emisor sin Xubio; Administración). */
+export async function registrarFacturaManualAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION"]);
+  const valores = valoresDe(formData);
+  const datos = esquemaFacturaManual.safeParse(valores);
+  if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  const r = await registrarFacturaManual(await obtenerDb(), datos.data, user.id);
+  if (!r.ok) return { mensaje: MENSAJES_FACTURA_MANUAL[r.error], valores };
+  revalidatePath(`/admin/ordenes/${datos.data.ordenId}`);
+  return { ok: true, mensaje: `Factura ${datos.data.numero} registrada.` };
 }

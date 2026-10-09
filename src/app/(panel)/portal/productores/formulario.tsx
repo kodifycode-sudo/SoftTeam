@@ -29,7 +29,6 @@ import {
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field";
-import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
 import { ESTADO_INICIAL } from "@/lib/formulario";
 import { guardarProductorAccion } from "./acciones";
 
@@ -55,12 +54,15 @@ function ContenidoProductor({
   productor,
   oficinas,
   tieneInstitorio,
+  condicionesIva,
   sinOficina = true,
   cerrar,
 }: {
   productor?: DatosProductor;
   oficinas: { id: string; etiqueta: string }[];
   tieneInstitorio: boolean;
+  condicionesIva: readonly { codigo: string; nombre: string }[];
+
   /** Un delegado asigna siempre una de sus oficinas. */
   sinOficina?: boolean;
   cerrar: () => void;
@@ -117,9 +119,9 @@ function ContenidoProductor({
             valorInicial={v("condicionIva")}
           >
             <option value="">Sin indicar</option>
-            {Object.entries(CONDICIONES_IVA_ETIQUETA).map(([valor, etiqueta]) => (
-              <option key={valor} value={valor}>
-                {etiqueta}
+            {condicionesIva.map((c) => (
+              <option key={c.codigo} value={c.codigo}>
+                {c.nombre}
               </option>
             ))}
           </Selector>
@@ -227,6 +229,7 @@ function DialogoProductor({
   productor?: DatosProductor;
   oficinas: { id: string; etiqueta: string }[];
   tieneInstitorio: boolean;
+  condicionesIva: readonly { codigo: string; nombre: string }[];
   sinOficina?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -254,6 +257,7 @@ function DialogoProductor({
 export function NuevoProductor(props: {
   oficinas: { id: string; etiqueta: string }[];
   tieneInstitorio: boolean;
+  condicionesIva: readonly { codigo: string; nombre: string }[];
   sinOficina?: boolean;
 }) {
   return (
@@ -272,6 +276,7 @@ export function EditarProductor(props: {
   productor: DatosProductor;
   oficinas: { id: string; etiqueta: string }[];
   tieneInstitorio: boolean;
+  condicionesIva: readonly { codigo: string; nombre: string }[];
   sinOficina?: boolean;
 }) {
   return (

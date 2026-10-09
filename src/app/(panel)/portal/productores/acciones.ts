@@ -25,6 +25,7 @@ const ERRORES_PRODUCTOR: Record<ErrorProductor, EstadoFormulario["errores"] | st
   SIN_INSTITORIO: {
     agenteInstitorio: ["Tu licencia no incluye agente institorio (lo trae Prodigal Full)."],
   },
+  CONDICION_IVA_INVALIDA: { condicionIva: ["Elegí una condición frente al IVA de la lista."] },
 };
 
 export async function guardarProductorAccion(

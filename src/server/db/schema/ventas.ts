@@ -16,10 +16,9 @@ import {
 } from "drizzle-orm/pg-core";
 import { usuarios } from "./auth";
 import { alternativas, mediosPago, paquetes, recursos, tickets } from "./catalogo";
-import { clientes, empresas, oficinas } from "./cuentas";
+import { clientes, condicionesIva, emisores, empresas, oficinas } from "./cuentas";
 import {
   claseRecurso,
-  condicionIva,
   estadoContrato,
   estadoOrden,
   tipoAccion,
@@ -72,6 +71,12 @@ export const ordenes = pgTable(
     clienteFacturacionId: uuid()
       .notNull()
       .references(() => clientes.id),
+    /** Modo de facturación del cliente de facturación al confirmar (5.10). */
+    modoFacturacion: smallint().notNull().default(0),
+    /** Emisor congelado con su CUIT y su razón social (5.11). */
+    emisorId: uuid().references(() => emisores.id),
+    emisorCuit: char({ length: 11 }),
+    emisorRazonSocial: varchar({ length: 120 }),
     medioPagoId: uuid()
       .notNull()
       .references(() => mediosPago.id),
@@ -83,7 +88,11 @@ export const ordenes = pgTable(
     /** Período de planilla ("2026-10") para órdenes agrupadas. */
     periodo: char({ length: 7 }),
     moneda: char({ length: 3 }).notNull(),
-    condicionIva: condicionIva().notNull(),
+    /** Foto fiscal del cliente de facturación al confirmar: no cambia si después cambia la condición. */
+    condicionIva: varchar({ length: 30 })
+      .notNull()
+      .references(() => condicionesIva.codigo),
+    codigoArca: smallint().notNull(),
     tipoComprobante: tipoComprobante().notNull(),
     // Cascada congelada
     subtotalLista: dinero().notNull(),
@@ -158,9 +167,11 @@ export const contratos = pgTable(
     alternativaId: uuid()
       .notNull()
       .references(() => alternativas.id),
-    ordenId: uuid()
-      .notNull()
-      .references(() => ordenes.id),
+    /**
+     * `null`: alta a un grupo que espera la próxima orden colectiva (Mejora
+     * v2.1, 8.12); la corrida del día de corte la incorpora.
+     */
+    ordenId: uuid().references(() => ordenes.id),
     contratoAnteriorId: uuid().references((): AnyPgColumn => contratos.id),
     tipoAccion: tipoAccion().notNull(),
     tipoPaquete: tipoPaquete().notNull(),
@@ -171,6 +182,17 @@ export const contratos = pgTable(
     hasta: fechaCol(),
     /** Límite de la excepción de pago. `null` con estado PEND_PAGO_ACTIVO = sin límite. */
     pendPagoActivoHasta: fechaCol(),
+    /** Prórroga: sigue sumando después de `hasta` mientras su renovación espera el pago. */
+    prorrogaHasta: fechaCol(),
+    /**
+     * Día de vencimiento (10 o 20, Mejora v2.1 8.9). `null` en un temporal: el
+     * trimestre inicial, cuya continuidad se negocia (no se renueva solo).
+     */
+    diaVenc: smallint(),
+    /** Tramo prorrateado hasta el día de vencimiento (8.10): fin, días e importe. */
+    prorrataHasta: fechaCol(),
+    prorrataDias: smallint().notNull().default(0),
+    prorrataImporte: dinero().notNull().default(sql`0`),
     precioLista: dinero().notNull(),
     bonifPorcentaje: pct().notNull().default(sql`0`),
     bonifRecurrente: boolean().notNull().default(false),

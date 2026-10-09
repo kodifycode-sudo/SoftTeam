@@ -25,11 +25,11 @@ const alertasDe = (empresaId: string) =>
 
 async function empresaConContrato(
   opciones: Partial<Parameters<typeof crearContratoDePrueba>[2]> & {
-    tipoCliente?: "DIRECTO" | "CORPORATIVO";
+    modoFacturacion?: 0 | 1 | 2 | 3;
   } = {},
 ) {
   const { empresa, orden, cliente } = await crearEmpresaDePrueba(db, {
-    tipoCliente: opciones.tipoCliente ?? "DIRECTO",
+    modoFacturacion: opciones.modoFacturacion ?? 0,
   });
   const contrato = await crearContratoDePrueba(
     db,
@@ -102,7 +102,7 @@ describe("proceso diario", () => {
       .set({ noRenovar: true })
       .where(eq(t.contratos.id, noRenovar.contrato.id));
     const renovado = await empresaConContrato();
-    await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-09-15"))[3]!);
+    await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-10-11"))[3]!);
     await procesoDiario(db, fecha("2026-10-25"));
     for (const e of [noRenovar, renovado]) {
       const vencimientos = (await alertasDe(e.empresa.id)).filter((a) =>
@@ -237,9 +237,9 @@ describe("proceso diario", () => {
 });
 
 describe("renovación", () => {
-  // El 15/9 se generan los vencimientos del 16 al 31/10.
+  // El 11/10 se generan los vencimientos del 13/10 al 2/11.
   const ventana = () => {
-    const v = ventanasDeRenovacion(fecha("2026-09-15")).at(-1);
+    const v = ventanasDeRenovacion(fecha("2026-10-11")).at(-1);
     if (!v) throw new Error();
     return v;
   };
@@ -267,7 +267,7 @@ describe("renovación", () => {
       hasta: "2026-11-30",
       bonifRecurrente: true,
     });
-    const orden = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, nuevo!.ordenId) });
+    const orden = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, nuevo!.ordenId!) });
     // Precio de renovación del mensual: 35.000 − 10 % = 31.500, más IVA 21 %.
     expect(orden).toMatchObject({
       tipoGeneracion: "RENOVACION",
@@ -283,7 +283,7 @@ describe("renovación", () => {
     expect(await db.$count(t.contratos, eq(t.contratos.contratoAnteriorId, contrato.id))).toBe(1);
 
     // Al pagar, conserva las fechas empalmadas.
-    await registrarPago(db, nuevo!.ordenId, "actor", fecha("2026-11-05"));
+    await registrarPago(db, nuevo!.ordenId!, "actor", fecha("2026-11-05"));
     expect(
       await db.query.contratos.findFirst({ where: eq(t.contratos.id, nuevo!.id) }),
     ).toMatchObject({ estado: "ACTIVO", desde: "2026-11-01", hasta: "2026-11-30" });
@@ -316,7 +316,7 @@ describe("renovación", () => {
   });
 
   it("un corporativo sigue habilitado sin límite mientras paga", async () => {
-    const { contrato } = await empresaConContrato({ tipoCliente: "CORPORATIVO" });
+    const { contrato } = await empresaConContrato({ modoFacturacion: 3 });
     await procesoRenovacion(db, ventana());
     expect(
       await db.query.contratos.findFirst({
@@ -360,7 +360,7 @@ describe("renovación", () => {
     );
     expect(nuevos[0]?.ordenId).toBe(nuevos[1]?.ordenId);
     const orden = await db.query.ordenes.findFirst({
-      where: eq(t.ordenes.id, nuevos[0]!.ordenId),
+      where: eq(t.ordenes.id, nuevos[0]!.ordenId!),
     });
     expect(orden).toMatchObject({
       agrupada: true,
@@ -448,7 +448,7 @@ describe("correrProcesos", () => {
 });
 
 describe("renovación automática elegida por el cliente", () => {
-  const ventana = () => ventanasDeRenovacion(fecha("2026-09-15")).at(-1)!;
+  const ventana = () => ventanasDeRenovacion(fecha("2026-10-11")).at(-1)!;
 
   it("desactivarla evita la renovación; con la orden ya generada no se puede", async () => {
     const a = await empresaConContrato();

@@ -48,6 +48,7 @@ async function entradaDe(clienteId: string, cambios: Record<string, unknown> = {
     nombreFactura: c.nombreFactura,
     cuit: c.cuit,
     condicionIva: c.condicionIva,
+    modoFacturacion: c.modoFacturacion,
     domicilioFiscal: {
       calle: c.domicilioFiscal.calle,
       ciudad: c.domicilioFiscal.ciudad,
@@ -71,7 +72,10 @@ describe("edición del cliente", () => {
       pagos: { nombre: "Pablo Pagos", email: "PAGOS@test.com" },
       observaciones: "Llamar a la tarde",
     });
-    expect(await guardarCliente(db, cliente.id, entrada, COMERCIAL)).toEqual({ ok: true });
+    expect(await guardarCliente(db, cliente.id, entrada, COMERCIAL)).toEqual({
+      ok: true,
+      emisorCambiado: false,
+    });
 
     const guardado = await db.query.clientes.findFirst({ where: eq(t.clientes.id, cliente.id) });
     expect(guardado).toMatchObject({
@@ -95,7 +99,10 @@ describe("edición del cliente", () => {
   it("rechaza cambios sobre una versión vieja (dos personas editando a la vez)", async () => {
     const { cliente } = await conClienteValido();
     const vieja = await entradaDe(cliente.id, { nombre: "Primero" });
-    expect(await guardarCliente(db, cliente.id, vieja, ADMIN)).toEqual({ ok: true });
+    expect(await guardarCliente(db, cliente.id, vieja, ADMIN)).toEqual({
+      ok: true,
+      emisorCambiado: false,
+    });
     expect(await guardarCliente(db, cliente.id, { ...vieja, nombre: "Segundo" }, ADMIN)).toEqual({
       ok: false,
       error: "CONFLICTO",
@@ -131,7 +138,7 @@ describe("edición del cliente", () => {
         await entradaDe(cliente.id, { cuit: cuitValido() }),
         ADMIN,
       ),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, emisorCambiado: false });
   });
 
   it("el domicilio comercial va completo o vacío", () => {
@@ -168,7 +175,6 @@ describe("edición de la empresa", () => {
     const base = {
       nombre: "Broker Norte",
       nombreCorto: "NORTE",
-      tipoCliente: "CORPORATIVO" as const,
       tipoInstalacion: "SAAS" as const,
       activa: true,
     };
@@ -177,7 +183,7 @@ describe("edición de la empresa", () => {
       await guardarEmpresa(db, empresa.id, { ...base, version: await version() }, COMERCIAL),
     ).toEqual({ ok: true });
     const guardada = await db.query.empresas.findFirst({ where: eq(t.empresas.id, empresa.id) });
-    expect(guardada).toMatchObject({ nombre: "Broker Norte", tipoCliente: "CORPORATIVO" });
+    expect(guardada).toMatchObject({ nombre: "Broker Norte", tipoInstalacion: "SAAS" });
     expect(guardada!.modificadaEn.getTime()).toBeGreaterThanOrEqual(antes.getTime());
 
     expect(

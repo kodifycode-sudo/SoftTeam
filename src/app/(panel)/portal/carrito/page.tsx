@@ -1,6 +1,8 @@
 import {
   Banknote,
+  CalendarClock,
   CircleAlert,
+  CircleCheck,
   Link2,
   Minus,
   PackageSearch,
@@ -30,6 +32,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { aceptaTicket, estadoInicial } from "@/domain/facturacion/modo";
 import { sumarDias } from "@/domain/fecha";
 import { fechaCorta, pesos, porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
@@ -54,10 +57,11 @@ const ICONOS_MEDIO = {
 const texto = (valor: string | string[] | undefined) =>
   typeof valor === "string" ? valor : undefined;
 
-function urlCarrito(medio?: string, ticket?: string) {
+function urlCarrito(medio?: string, ticket?: string, dia?: number | null) {
   const params = new URLSearchParams();
   if (medio) params.set("medio", medio);
   if (ticket) params.set("ticket", ticket);
+  if (dia) params.set("dia", String(dia));
   const q = params.toString();
   return `/portal/carrito${q ? `?${q}` : ""}`;
 }
@@ -90,12 +94,22 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
   const sp = await searchParams;
   const medioElegido = texto(sp.medio);
   const ticketPedido = texto(sp.ticket)?.trim().toUpperCase() || undefined;
+  const diaPedido = Number(texto(sp.dia)) || undefined;
   const db = await obtenerDb();
   const items = await listarCarrito(db, contexto.empresaId, oficinaId);
   if (items.length === 0) {
     return (
       <>
         <EncabezadoPagina titulo="Tu carrito" />
+        {texto(sp.alta) === "grupo" && (
+          <Alert className="mb-6">
+            <CircleCheck />
+            <AlertDescription>
+              Listo: los paquetes quedaron cargados. Se cobran en la próxima factura de tu grupo,
+              junto con los demás paquetes.
+            </AlertDescription>
+          </Alert>
+        )}
         {contexto.oficinaCompra && contexto.oficinasCompra.length > 0 && (
           <SelectorOficinaCompra
             oficinas={contexto.oficinasCompra}
@@ -130,12 +144,21 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
     medioPagoId: medioElegido,
     ticketCodigo: ticketPedido,
     oficinaId,
+    diaVenc: diaPedido,
   });
+  if (!cotizacion.ok && cotizacion.error === "DIA_INVALIDO") {
+    cotizacion = await cotizarCarrito(db, contexto.empresaId, {
+      medioPagoId: medioElegido,
+      ticketCodigo: ticketPedido,
+      oficinaId,
+    });
+  }
   if (!cotizacion.ok && esRechazoDeTicket(cotizacion.error)) {
     errorTicket = mensajeRechazoCompra(cotizacion.error);
     cotizacion = await cotizarCarrito(db, contexto.empresaId, {
       medioPagoId: medioElegido,
       oficinaId,
+      diaVenc: diaPedido,
     });
   }
   if (!cotizacion.ok && cotizacion.error === "MEDIO_NO_HABILITADO" && medioElegido) {
@@ -143,6 +166,7 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
     cotizacion = await cotizarCarrito(db, contexto.empresaId, {
       ticketCodigo: errorTicket ? undefined : ticketPedido,
       oficinaId,
+      diaVenc: diaPedido,
     });
   }
   if (!cotizacion.ok) aviso = mensajeRechazoCompra(cotizacion.error, cotizacion.detalle);
@@ -150,6 +174,8 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
   const c = cotizacion.ok ? cotizacion.valor : null;
   const medioActual = c?.medio.id;
   const ticketActual = c?.ticket?.codigo;
+  const diaActual = c?.diasVenc.length ? c.diaVenc : null;
+  const altaAGrupo = c?.situacion === "GRUPO";
 
   return (
     <>
@@ -210,6 +236,13 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
                           {item.anteriorHasta &&
                             ` · desde el ${fechaCorta(sumarDias(item.anteriorHasta, 1))}`}
                         </p>
+                        {linea?.periodo && linea.periodo.prorrataDias > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            {linea.periodo.incluyePeriodo
+                              ? `Incluye ${linea.periodo.prorrataDias} días proporcionales hasta el ${fechaCorta(linea.periodo.fechaObjetivo ?? linea.periodo.hasta)}; vence el ${fechaCorta(linea.periodo.hasta)}.`
+                              : `${linea.periodo.prorrataDias} días proporcionales: vence el ${fechaCorta(linea.periodo.hasta)}, junto con tus otros paquetes.`}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center justify-between gap-4 sm:justify-end">
                         {item.tipoAccion === "RENOVACION" ? (
@@ -268,7 +301,7 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
                   return (
                     <li key={m.id}>
                       <Link
-                        href={urlCarrito(m.id, ticketActual)}
+                        href={urlCarrito(m.id, ticketActual, diaActual)}
                         aria-current={elegido ? "true" : undefined}
                         scroll={false}
                         className={cn(
@@ -313,7 +346,43 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
             </CardContent>
           </Card>
 
-          {c?.tipoCliente !== "CORPORATIVO" && (
+          {c && c.diasVenc.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarClock className="size-4 text-primary" /> Día de vencimiento
+                </CardTitle>
+                <CardDescription>
+                  Tus paquetes vencen siempre el mismo día del mes. Si hace falta, el primer período
+                  se ajusta con unos días proporcionales.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="flex gap-3" aria-label="Día de vencimiento">
+                  {c.diasVenc.map((dia) => {
+                    const elegido = dia === c.diaVenc;
+                    return (
+                      <li key={dia}>
+                        <Link
+                          href={urlCarrito(medioActual, ticketActual, dia)}
+                          aria-current={elegido ? "true" : undefined}
+                          scroll={false}
+                          className={cn(
+                            "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted/50",
+                            elegido && "border-primary bg-primary/5 ring-1 ring-primary/30",
+                          )}
+                        >
+                          Día {dia}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {c && !altaAGrupo && aceptaTicket(c.modoFacturacion) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -327,7 +396,7 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
                       Código <strong className="font-mono">{ticketActual}</strong> aplicado
                     </span>
                     <Link
-                      href={urlCarrito(medioActual)}
+                      href={urlCarrito(medioActual, undefined, diaActual)}
                       scroll={false}
                       className={buttonVariants({ variant: "ghost", size: "sm" })}
                     >
@@ -337,6 +406,7 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
                 ) : (
                   <form action="/portal/carrito" className="flex gap-2">
                     {medioActual && <input type="hidden" name="medio" value={medioActual} />}
+                    {diaActual && <input type="hidden" name="dia" value={diaActual} />}
                     <Input
                       key={errorTicket ? ticketPedido : "vacio"}
                       name="ticket"
@@ -375,15 +445,22 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
               <>
                 <DesgloseOrden importes={c.calculo} codigoTicket={ticketActual} />
                 <p className="rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
-                  {c.tipoCliente === "CORPORATIVO"
-                    ? "Tus paquetes se habilitan al confirmar. El pago se gestiona según tu convenio."
+                  {altaAGrupo
+                    ? "No se genera una orden ahora: estos paquetes se cobran en la próxima factura de tu grupo, junto con los demás."
+                    : c.situacion === "TRIMESTRE_INICIAL"
+                      ? "Tu primer alta es por un trimestre. Antes de que termine, acordamos con vos cómo seguir: mensual o anual."
+                      : null}{" "}
+                  {estadoInicial(c.modoFacturacion) === "PEND_PAGO_ACTIVO"
+                    ? "Tus paquetes se habilitan al confirmar y te enviamos la factura. Pagala por transferencia: cuando se acredita, la registramos."
                     : "Tus paquetes se activan cuando se acredita el pago. La vigencia empieza ese día: no perdés días."}
                 </p>
                 <ConfirmarOrden
                   medioPagoId={c.medio.id}
                   ticketCodigo={ticketActual ?? null}
+                  diaVenc={diaActual}
                   claveIdempotencia={crypto.randomUUID()}
                   total={pesos(c.calculo.total)}
+                  altaAGrupo={altaAGrupo}
                 />
               </>
             ) : (

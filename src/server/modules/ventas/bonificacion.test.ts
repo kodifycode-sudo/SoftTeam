@@ -27,7 +27,7 @@ async function alternativa(codigo: string, nombre: string) {
   return fila!.id;
 }
 
-/** Orden por transferencia (sin ajuste): Prodigal Inicial mensual ×2 ($76.000) + Notificaciones ($30.000). */
+/** Orden por transferencia (sin ajuste): Prodigal Inicial trimestral ×2 ($228.000) + Notificaciones ($30.000). */
 async function ordenPendiente() {
   const { empresa } = await crearEmpresaDePrueba(db);
   await db.delete(t.ordenes).where(eq(t.ordenes.empresaId, empresa.id));
@@ -35,7 +35,7 @@ async function ordenPendiente() {
     db,
     {
       empresaId: empresa.id,
-      alternativaId: await alternativa("PRO-INICIAL", "Mensual"),
+      alternativaId: await alternativa("PRO-INICIAL", "Trimestral inicial"),
       cantidad: 2,
       usuarioId,
     },
@@ -92,31 +92,31 @@ describe("bonificación de paquetes por SOFTeam", () => {
       .where(eq(t.ordenes.id, ordenId));
 
     const r = await bonificarContrato(db, bonificacion(prodigal.id), "admin");
-    // (76.000 − 10 % + 30.000) × 1,21 = 98.400 × 1,21 = 119.064
-    expect(r).toEqual({ ok: true, total: centavos("119064") });
+    // (228.000 − 10 % + 30.000) × 1,21 = 235.200 × 1,21 = 284.592
+    expect(r).toEqual({ ok: true, total: centavos("284592") });
 
     const orden = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, ordenId) });
     expect(orden).toMatchObject({
-      subtotalLista: centavos("106000"),
-      bonificacionTotal: centavos("7600"),
-      subtotal: centavos("98400"),
-      total: centavos("119064"),
+      subtotalLista: centavos("258000"),
+      bonificacionTotal: centavos("22800"),
+      subtotal: centavos("235200"),
+      total: centavos("284592"),
       linkPagoUrl: null,
     });
     const items = await db.query.ordenItems.findMany({ where: eq(t.ordenItems.ordenId, ordenId) });
-    expect(items.reduce((s, i) => s + i.totalProrrateado, 0n)).toBe(centavos("119064"));
+    expect(items.reduce((s, i) => s + i.totalProrrateado, 0n)).toBe(centavos("284592"));
     const contrato = await db.query.contratos.findFirst({ where: eq(t.contratos.id, prodigal.id) });
     expect(contrato).toMatchObject({
       bonifPorcentaje: porcentaje("10"),
       bonifRecurrente: true,
       bonifMotivo: "Cliente de muchos años",
-      precioFinal: centavos("68400"),
+      precioFinal: centavos("205200"),
     });
 
     // 0 % la quita.
     await bonificarContrato(db, bonificacion(prodigal.id, { porcentaje: 0n }), "admin");
     const sinBonif = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, ordenId) });
-    expect(sinBonif?.total).toBe(centavos("128260"));
+    expect(sinBonif?.total).toBe(centavos("312180"));
     expect(
       (await db.query.contratos.findFirst({ where: eq(t.contratos.id, prodigal.id) }))
         ?.bonifRecurrente,
@@ -149,6 +149,70 @@ describe("bonificación de paquetes por SOFTeam", () => {
     expect(await bonificarContrato(db, bonificacion(conTicket.prodigal.id), "admin")).toEqual({
       ok: false,
       error: "CON_TICKET",
+    });
+  });
+});
+
+describe("bonificación del 100 %", () => {
+  it("si la orden queda sin importe, se da por pagada y activa sus paquetes", async () => {
+    const { ordenId } = await ordenPendiente();
+    const contratos = await db.query.contratos.findMany({
+      where: eq(t.contratos.ordenId, ordenId),
+    });
+    for (const c of contratos) {
+      await bonificarContrato(
+        db,
+        bonificacion(c.id, { porcentaje: porcentaje("100"), recurrente: false }),
+        usuarioId,
+      );
+    }
+    const orden = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, ordenId) });
+    expect(orden).toMatchObject({ estado: "PAGADA", total: 0n });
+    const activos = await db.query.contratos.findMany({ where: eq(t.contratos.ordenId, ordenId) });
+    expect(activos.every((c) => c.estado === "ACTIVO")).toBe(true);
+  });
+});
+
+describe("recálculo con la foto fiscal vigente (Mejora v2.1, 2.5)", () => {
+  it("toma la condición frente al IVA y el ajuste del medio vigentes al bonificar", async () => {
+    const { ordenId, prodigal } = await ordenPendiente();
+    const orden = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, ordenId) });
+    // El cliente pasó a Consumidor Final después de confirmar la orden (era Inscripto).
+    await db
+      .update(t.clientes)
+      .set({ condicionIva: "CONSUMIDOR_FINAL" })
+      .where(eq(t.clientes.id, orden!.clienteFacturacionId));
+    await db
+      .update(t.mediosPago)
+      .set({ ajustePorcentaje: porcentaje("-5") })
+      .where(eq(t.mediosPago.id, orden!.medioPagoId));
+
+    const r = await bonificarContrato(db, bonificacion(prodigal.id), "admin");
+    await db
+      .update(t.mediosPago)
+      .set({ ajustePorcentaje: 0n })
+      .where(eq(t.mediosPago.id, orden!.medioPagoId));
+    // 235.200 − 5 % = 223.440; IVA 21 % = 46.922,40; total 270.362,40
+    expect(r).toEqual({ ok: true, total: centavos("270362.40") });
+    const recalculada = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, ordenId) });
+    expect(recalculada).toMatchObject({
+      condicionIva: "CONSUMIDOR_FINAL",
+      codigoArca: 5,
+      tipoComprobante: "B",
+      ajustePagoPorcentaje: porcentaje("-5"),
+    });
+  });
+
+  it("sin condición activa no se puede recalcular", async () => {
+    const { ordenId, prodigal } = await ordenPendiente();
+    const orden = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, ordenId) });
+    await db
+      .update(t.clientes)
+      .set({ condicionIva: "EXTERIOR" })
+      .where(eq(t.clientes.id, orden!.clienteFacturacionId));
+    expect(await bonificarContrato(db, bonificacion(prodigal.id), "admin")).toEqual({
+      ok: false,
+      error: "IVA_COND_INVALIDA",
     });
   });
 });

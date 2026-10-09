@@ -136,7 +136,7 @@ test.describe
       await ingresar(page, delegado, CONTRASENA);
       await page.goto("/portal/paquetes");
       await page
-        .getByRole("button", { name: "Agregar Prodigal Inicial · Mensual al carrito" })
+        .getByRole("button", { name: "Agregar Prodigal Inicial · Trimestral inicial al carrito" })
         .click();
       await expect(page.getByText("Agregado al carrito.")).toBeVisible();
       await page.goto("/portal/carrito");
@@ -169,7 +169,7 @@ test.describe
         page.getByText(/queda asignado a Oficina 01-002 · Sucursal Rosario/),
       ).toBeVisible();
       await page
-        .getByRole("button", { name: "Agregar Prodigal Inicial · Mensual al carrito" })
+        .getByRole("button", { name: "Agregar Prodigal Inicial · Trimestral inicial al carrito" })
         .click();
       await expect(page.getByText("Agregado al carrito.")).toBeVisible();
 

@@ -32,15 +32,15 @@ async function medio(codigo: string) {
   return (await db.query.mediosPago.findFirst({ where: eq(t.mediosPago.codigo, codigo) }))!;
 }
 
-async function empresaConCarrito(tipoCliente: "DIRECTO" | "CORPORATIVO" = "DIRECTO") {
-  const { empresa } = await crearEmpresaDePrueba(db, { tipoCliente });
+async function empresaConCarrito(modoFacturacion: 0 | 1 | 2 | 3 = 0) {
+  const { empresa } = await crearEmpresaDePrueba(db, { modoFacturacion });
   // La empresa de prueba trae una orden vacía; la borramos para que sea un alta inicial.
   await db.delete(t.ordenes).where(eq(t.ordenes.empresaId, empresa.id));
   await agregarAlCarrito(
     db,
     {
       empresaId: empresa.id,
-      alternativaId: await alternativa("PRO-INICIAL", "Mensual"),
+      alternativaId: await alternativa("PRO-INICIAL", "Trimestral inicial"),
       cantidad: 2,
       usuarioId,
     },
@@ -120,11 +120,12 @@ describe("cotizarCarrito", () => {
 
     const r = await cotizarCarrito(db, empresa.id, { medioPagoId: transferencia.id }, HOY);
     if (!r.ok) throw new Error(r.error);
-    // 2 × 38.000 + 30.000 = 106.000; −10 % = 95.400; IVA 21 % = 20.034
-    expect(r.valor.calculo.subtotal).toBe(centavos("106000"));
-    expect(r.valor.calculo.ajustePago).toBe(centavos("-10600"));
-    expect(r.valor.calculo.iva).toBe(centavos("20034"));
-    expect(r.valor.calculo.total).toBe(centavos("115434"));
+    // Trimestre inicial: 2 × 114.000 + 30.000 = 258.000; −10 % = 232.200; IVA 21 % = 48.762
+    expect(r.valor.calculo.subtotal).toBe(centavos("258000"));
+    expect(r.valor.calculo.ajustePago).toBe(centavos("-25800"));
+    expect(r.valor.calculo.iva).toBe(centavos("48762"));
+    expect(r.valor.calculo.total).toBe(centavos("280962"));
+    expect(r.valor).toMatchObject({ situacion: "TRIMESTRE_INICIAL", diaVenc: null, diasVenc: [] });
     expect(r.valor.instancia).toBe("ALTA_INICIAL");
     expect(r.valor.tipoComprobante).toBe("A");
 
@@ -202,7 +203,7 @@ describe("confirmarOrden y pago", () => {
     expect(temporal).toMatchObject({
       estadoContrato: "ACTIVO",
       desde: "2026-10-02",
-      hasta: "2026-11-01",
+      hasta: "2027-01-01",
     });
 
     const licencia = await licenciaDeEmpresa(db, empresa.id, pagoEl);
@@ -220,7 +221,7 @@ describe("confirmarOrden y pago", () => {
   });
 
   it("cliente corporativo: los paquetes quedan habilitados sin esperar el pago", async () => {
-    const empresa = await empresaConCarrito("CORPORATIVO");
+    const empresa = await empresaConCarrito(3);
     const r = await confirmarOrden(
       db,
       { empresaId: empresa.id, usuarioId, claveIdempotencia: crypto.randomUUID() },
@@ -232,14 +233,14 @@ describe("confirmarOrden y pago", () => {
     expect(orden?.lineas.find((l) => l.tipoPaquete === "TEMPORAL")).toMatchObject({
       estadoContrato: "PEND_PAGO_ACTIVO",
       desde: "2026-09-25",
-      hasta: "2026-10-24",
+      hasta: "2026-12-24",
     });
     const items = (await licenciaDeEmpresa(db, empresa.id, HOY)).productos.flatMap((p) => p.items);
     expect(items.find((i) => i.recursoId === "prodigal.usuarios")?.total).toBe(4);
   });
 
   it("cancelar una orden pendiente cancela sus contratos", async () => {
-    const empresa = await empresaConCarrito("CORPORATIVO");
+    const empresa = await empresaConCarrito(3);
     const r = await confirmarOrden(
       db,
       { empresaId: empresa.id, usuarioId, claveIdempotencia: crypto.randomUUID() },

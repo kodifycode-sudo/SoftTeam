@@ -14,7 +14,10 @@ export async function altaClienteAccion(
 ): Promise<EstadoFormulario> {
   const { user } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
   const valores = valoresDe(formData);
-  const datos = esquemaAltaCliente.safeParse(anidar(valores));
+  const datos = esquemaAltaCliente.safeParse({
+    ...anidar(valores),
+    emisorId: valores.emisorId || undefined,
+  });
   if (!datos.success) {
     return { errores: erroresPorRuta(datos.error), mensaje: "Revisá los datos marcados.", valores };
   }
@@ -31,6 +34,12 @@ export async function altaClienteAccion(
     if (resultado.error === "PROVINCIA_INVALIDA") {
       return {
         errores: { "domicilioFiscal.provincia": ["Elegí una provincia de la lista."] },
+        valores,
+      };
+    }
+    if (resultado.error === "CONDICION_IVA_INVALIDA") {
+      return {
+        errores: { condicionIva: ["Elegí una condición frente al IVA de la lista."] },
         valores,
       };
     }

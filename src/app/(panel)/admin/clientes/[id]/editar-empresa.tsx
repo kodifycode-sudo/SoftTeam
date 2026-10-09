@@ -30,7 +30,6 @@ export interface DatosEmpresa {
   version: string;
   nombre: string;
   nombreCorto: string;
-  tipoCliente: "DIRECTO" | "CORPORATIVO";
   tipoInstalacion: "SAAS" | "ON_PREMISE";
   activa: boolean;
 }
@@ -64,16 +63,6 @@ function Contenido({
         estado={estado}
       />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Selector
-          nombre="tipoCliente"
-          etiqueta="Tipo de cliente"
-          estado={estado}
-          valorInicial={empresa.tipoCliente}
-          ayuda="Corporativo: se habilita al confirmar la orden, sin esperar el pago."
-        >
-          <option value="DIRECTO">Directo</option>
-          <option value="CORPORATIVO">Corporativo</option>
-        </Selector>
         <Selector
           nombre="tipoInstalacion"
           etiqueta="Instalación"

@@ -28,6 +28,10 @@ export interface ContratoVigenteResumen {
   estado: "ACTIVO" | "PEND_PAGO_ACTIVO";
   tipoPaquete: "TEMPORAL" | "CONSUMIBLE";
   hasta: Fecha | null;
+  /** Prórroga de un contrato activo con la renovación impaga. */
+  prorrogaHasta: Fecha | null;
+  /** Plazo de un contrato habilitado sin pago (`null`: sin límite). */
+  pendPagoActivoHasta: Fecha | null;
   cantidad: number;
   /** Oficina a la que está asignado (compra delegada); `null`: toda la empresa. */
   oficina: { id: string; canalId: string } | null;
@@ -55,6 +59,7 @@ export async function licenciaDeEmpresa(
       desde: t.contratos.desde,
       hasta: t.contratos.hasta,
       pendPagoActivoHasta: t.contratos.pendPagoActivoHasta,
+      prorrogaHasta: t.contratos.prorrogaHasta,
       cantidad: t.contratos.cantidad,
       paquete: t.paquetes.nombre,
       oficinaId: t.oficinas.id,
@@ -189,6 +194,8 @@ export async function licenciaDeEmpresa(
       estado: c.estado as "ACTIVO" | "PEND_PAGO_ACTIVO",
       tipoPaquete: c.tipoPaquete,
       hasta: c.hasta,
+      prorrogaHasta: c.prorrogaHasta,
+      pendPagoActivoHasta: c.pendPagoActivoHasta,
       cantidad: c.cantidad,
       oficina:
         c.oficinaId && c.oficinaCanalId ? { id: c.oficinaId, canalId: c.oficinaCanalId } : null,

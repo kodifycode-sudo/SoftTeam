@@ -20,6 +20,7 @@ export async function guardarMedioPagoAccion(
     habilitadoAlta: valores.habilitadoAlta === "on",
     habilitadoAdicional: valores.habilitadoAdicional === "on",
     habilitadoRenovacion: valores.habilitadoRenovacion === "on",
+    modosFacturacion: [0, 1, 2, 3].filter((m) => valores[`modo${m}`] === "on"),
     activo: valores.activo === "on",
     instrucciones: valores.instrucciones || undefined,
   });

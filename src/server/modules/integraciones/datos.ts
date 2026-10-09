@@ -27,7 +27,11 @@ async function productosVigentesPorEmpresa(db: Ejecutor, empresaIds: string[], h
         inArray(t.contratos.empresaId, empresaIds),
         inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
         sql`${t.contratos.desde} <= ${hoy}`,
-        or(isNull(t.contratos.hasta), gte(t.contratos.hasta, hoy)),
+        or(
+          isNull(t.contratos.hasta),
+          gte(t.contratos.hasta, hoy),
+          and(eq(t.contratos.estado, "ACTIVO"), gte(t.contratos.prorrogaHasta, hoy)),
+        ),
         sql`${t.contratoRecursos.cantidad} > 0`,
       ),
     );

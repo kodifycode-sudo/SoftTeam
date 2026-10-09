@@ -2,9 +2,12 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { porcentaje } from "@/domain/dinero";
 import { calcularOrden } from "@/domain/facturacion/calculo-orden";
+import { condicionParaFacturar, type RechazoCondicion } from "@/domain/facturacion/impuestos";
 import type { Db } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { condicionFiscal } from "../catalogo/condiciones-iva";
+import { registrarPago } from "./ordenes";
 
 export const esquemaBonificacion = z.object({
   contratoId: z.uuid(),
@@ -23,13 +26,19 @@ export const esquemaBonificacion = z.object({
 
 export type EntradaBonificacion = z.infer<typeof esquemaBonificacion>;
 
-export type ErrorBonificacion = "NO_EXISTE" | "ORDEN_NO_PENDIENTE" | "CON_TICKET" | "CALCULO";
+export type ErrorBonificacion =
+  | "NO_EXISTE"
+  | "ORDEN_NO_PENDIENTE"
+  | "CON_TICKET"
+  | "CALCULO"
+  | RechazoCondicion;
 
 /**
  * SOFTeam bonifica un paquete de una orden pendiente de pago: recalcula la
- * orden con el mismo motor de cálculo (con el ajuste del medio de pago y el
- * IVA que la orden congeló), actualiza sus líneas y contratos e invalida el
- * link de pago (el importe cambió). No se combina con un ticket. Si es
+ * orden con el mismo motor de cálculo y vuelve a tomar la foto fiscal
+ * (Mejora v2.1, 2.5): la condición frente al IVA vigente del cliente de
+ * facturación y el ajuste vigente del medio de pago. Actualiza sus líneas y
+ * contratos e invalida el link de pago (el importe cambió). No se combina con un ticket. Si es
  * recurrente, la renovación la conserva. Una bonificación de 0 la quita.
  */
 export async function bonificarContrato(
@@ -42,7 +51,7 @@ export async function bonificarContrato(
       columns: { id: true, ordenId: true },
       where: eq(t.contratos.id, entrada.contratoId),
     });
-    if (!contrato) return { ok: false, error: "NO_EXISTE" };
+    if (!contrato?.ordenId) return { ok: false, error: "NO_EXISTE" };
     const [orden] = await tx
       .select()
       .from(t.ordenes)
@@ -52,6 +61,22 @@ export async function bonificarContrato(
     if (orden.estado !== "PEND_PAGO") return { ok: false, error: "ORDEN_NO_PENDIENTE" };
     if (orden.ticketId) return { ok: false, error: "CON_TICKET" };
 
+    const [cliente, medio] = await Promise.all([
+      tx.query.clientes.findFirst({
+        columns: { condicionIva: true },
+        where: eq(t.clientes.id, orden.clienteFacturacionId),
+      }),
+      tx.query.mediosPago.findFirst({
+        columns: { ajustePorcentaje: true },
+        where: eq(t.mediosPago.id, orden.medioPagoId),
+      }),
+    ]);
+    const fiscal = condicionParaFacturar(
+      cliente ? await condicionFiscal(tx, cliente.condicionIva) : undefined,
+    );
+    if (!fiscal.ok) return { ok: false, error: fiscal.error };
+    const ajustePagoPorcentaje = medio?.ajustePorcentaje ?? orden.ajustePagoPorcentaje;
+
     const contratos = await tx
       .select()
       .from(t.contratos)
@@ -59,22 +84,21 @@ export async function bonificarContrato(
       .for("update");
     const calculo = calcularOrden({
       moneda: orden.moneda,
-      items: contratos.map((c) => {
-        // El precio de lista del contrato es unitario × cantidad.
-        const unitario = c.precioLista / BigInt(c.cantidad);
-        return {
-          clave: c.id,
-          paqueteId: c.paqueteId,
-          tipoAccion: "ALTA" as const,
-          cantidad: c.cantidad,
-          precioCompra: unitario,
-          precioRenovacion: unitario,
-          bonifPorcentaje: c.id === entrada.contratoId ? entrada.porcentaje : c.bonifPorcentaje,
-          moneda: orden.moneda,
-        };
-      }),
-      ajustePagoPorcentaje: orden.ajustePagoPorcentaje,
-      alicuotaIva: orden.alicuotaIva,
+      // El precio de lista del contrato ya incluye la cantidad y el tramo
+      // prorrateado: se toma entero, sin volver a dividirlo.
+      items: contratos.map((c) => ({
+        clave: c.id,
+        paqueteId: c.paqueteId,
+        tipoAccion: "ALTA" as const,
+        cantidad: c.cantidad,
+        precioCompra: c.precioLista,
+        precioRenovacion: c.precioLista,
+        precioListaResuelto: c.precioLista,
+        bonifPorcentaje: c.id === entrada.contratoId ? entrada.porcentaje : c.bonifPorcentaje,
+        moneda: orden.moneda,
+      })),
+      ajustePagoPorcentaje,
+      alicuotaIva: fiscal.valor.alicuota,
     });
     if (!calculo.ok) return { ok: false, error: "CALCULO" };
     const k = calculo.valor;
@@ -112,8 +136,13 @@ export async function bonificarContrato(
         bonificacionTotal: k.bonificacionTotal,
         subtotal: k.subtotal,
         baseNeta: k.baseNeta,
+        ajustePagoPorcentaje: k.ajustePagoPorcentaje,
         ajustePago: k.ajustePago,
         netoGravado: k.netoGravado,
+        condicionIva: fiscal.valor.codigo,
+        codigoArca: fiscal.valor.codigoArca,
+        tipoComprobante: fiscal.valor.comprobante,
+        alicuotaIva: k.alicuotaIva,
         iva: k.iva,
         total: k.total,
         // El link de pago era por el importe anterior.
@@ -142,6 +171,9 @@ export async function bonificarContrato(
         motivo: entrada.motivo,
       },
     });
+    // Bonificada al 100 %: no hay nada que cobrar ni facturar.
+    if (k.total === 0n)
+      await registrarPago(tx, orden.id, actorId, undefined, { actorTipo: "usuario" });
     return { ok: true, total: k.total };
   });
 }

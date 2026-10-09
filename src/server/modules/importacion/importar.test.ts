@@ -42,7 +42,10 @@ describe("importación", () => {
     const importacion = await importarTexto("clientes", archivo);
     expect(importacion).toMatchObject({ confirmado: true, creados: 1 });
     const empresa = await db.query.empresas.findFirst({ where: eq(t.empresas.numero, 7001) });
-    expect(empresa).toMatchObject({ nombre: "Broker Importado SA", tipoCliente: "CORPORATIVO" });
+    expect(empresa).toMatchObject({ nombre: "Broker Importado SA" });
+    // El tipo de cliente viejo (Corporativo) se importa como factura agrupada.
+    const importado = await db.query.clientes.findFirst({ where: eq(t.clientes.cuit, cuit) });
+    expect(importado?.modoFacturacion).toBe(3);
     const admin = await db.query.colaboradores.findFirst({
       where: eq(t.colaboradores.empresaId, empresa!.id),
     });

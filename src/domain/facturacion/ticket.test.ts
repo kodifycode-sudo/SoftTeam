@@ -16,7 +16,7 @@ const ticket: Ticket = {
 const entrada = (parcial: Partial<Parameters<typeof evaluarTicket>[0]> = {}) => ({
   ticket,
   hoy: fecha("2026-09-25"),
-  tipoCliente: "DIRECTO" as const,
+  modoFacturacion: 0 as const,
   items: [{ paqueteId: "p1", tipoAccion: "ALTA" as const, bonifPorcentaje: 0n }],
   ...parcial,
 });
@@ -33,7 +33,7 @@ describe("evaluarTicket", () => {
     ["TICKET_INVALIDO", entrada({ ticket: undefined })],
     ["TICKET_INVALIDO", entrada({ ticket: { ...ticket, activo: false } })],
     ["TICKET_VENCIDO", entrada({ hoy: fecha("2027-01-01") })],
-    ["TICKET_CORPORATIVO", entrada({ tipoCliente: "CORPORATIVO" })],
+    ["TICKET_CORPORATIVO", entrada({ modoFacturacion: 3 })],
     [
       "TICKET_SOBRE_BONIFICADO",
       entrada({

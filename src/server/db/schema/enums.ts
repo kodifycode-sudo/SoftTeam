@@ -1,10 +1,7 @@
 import { pgEnum } from "drizzle-orm/pg-core";
-import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
 import { ESTADOS_CONTRATO } from "@/domain/licencias/contrato";
 
-export const condicionIva = pgEnum("condicion_iva", CONDICIONES_IVA);
 export const tipoPersona = pgEnum("tipo_persona", ["FISICA", "JURIDICA"]);
-export const tipoCliente = pgEnum("tipo_cliente", ["DIRECTO", "CORPORATIVO"]);
 export const tipoInstalacion = pgEnum("tipo_instalacion", ["SAAS", "ON_PREMISE"]);
 export const tipoPaquete = pgEnum("tipo_paquete", ["TEMPORAL", "CONSUMIBLE"]);
 export const claseRecurso = pgEnum("clase_recurso", [
@@ -46,6 +43,8 @@ export const tipoAlerta = pgEnum("tipo_alerta", [
   "SOPORTE_RESPUESTA",
   "FACTURACION_SOLICITADA",
   "FACTURACION_RESUELTA",
+  "TOLERANCIA_PAGO_VENCIDA",
+  "RENOVACION_A_NEGOCIAR",
 ]);
 export const estadoSolicitud = pgEnum("estado_solicitud", [
   "PENDIENTE",

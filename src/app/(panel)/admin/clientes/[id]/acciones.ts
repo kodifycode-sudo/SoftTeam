@@ -34,6 +34,11 @@ import {
   darDeBajaContrato,
   type ErrorBajaContrato,
 } from "@/server/modules/licencias/baja-contrato";
+import {
+  type ErrorPlazosContrato,
+  esquemaPlazosContrato,
+  guardarPlazosContrato,
+} from "@/server/modules/licencias/plazos-contrato";
 
 export async function guardarNotasAccion(
   _: EstadoFormulario,
@@ -142,8 +147,15 @@ const MENSAJES_EDICION: Record<ErrorEdicion, EstadoFormulario> = {
   CUIT_DUPLICADO: { errores: { cuit: ["Ya hay otro cliente con ese CUIT."] } },
   SIN_PERMISO: { mensaje: "Solo Administración puede cambiar el CUIT o dar de baja." },
   GRUPO_INVALIDO: { errores: { grupoId: ["Elegí un grupo económico de la lista."] } },
-  MEDIO_INVALIDO: { mensaje: "Elegí medios de pago de la lista." },
+  MEDIO_INVALIDO: {
+    mensaje:
+      "Elegí medios de pago de la lista, habilitados para el modo de facturación del cliente.",
+  },
   PROVINCIA_INVALIDA: { mensaje: "Elegí las provincias de la lista." },
+  CONDICION_IVA_INVALIDA: {
+    errores: { condicionIva: ["Elegí una condición frente al IVA de la lista."] },
+  },
+  EMISOR_INVALIDO: { errores: { emisorId: ["Elegí un emisor activo."] } },
 };
 
 /** Corrige los datos del cliente (Administración o Comercial). */
@@ -157,6 +169,7 @@ export async function guardarClienteAccion(
   if (!clienteId.success) return { mensaje: "Cliente inválido.", valores };
   const datos = esquemaEdicionCliente.safeParse({
     ...anidar(valores),
+    emisorId: valores.emisorId || undefined,
     activo: valores.activo === "on",
   });
   if (!datos.success) {
@@ -168,7 +181,9 @@ export async function guardarClienteAccion(
   });
   if (!resultado.ok) return { ...MENSAJES_EDICION[resultado.error], valores };
   revalidatePath(`/admin/clientes/${clienteId.data}`);
-  redirect(`/admin/clientes/${clienteId.data}?aviso=guardado`);
+  redirect(
+    `/admin/clientes/${clienteId.data}?aviso=${resultado.emisorCambiado ? "emisor" : "guardado"}`,
+  );
 }
 
 /** Corrige los datos de una empresa (Administración o Comercial). */
@@ -240,6 +255,38 @@ const MENSAJES_BAJA: Record<ErrorBajaContrato, EstadoFormulario> = {
   },
   FALTA_MOTIVO: { errores: { motivo: ["Contá por qué se da de baja (queda en la auditoría)."] } },
 };
+
+const MENSAJES_PLAZOS: Record<ErrorPlazosContrato, EstadoFormulario> = {
+  NO_EXISTE: { mensaje: "El paquete ya no existe." },
+  ESTADO_INVALIDO: {
+    mensaje: "Solo se ajustan los plazos de un paquete activo o habilitado sin pago.",
+  },
+  PRORROGA_ANTERIOR: {
+    errores: { prorrogaHasta: ["La prórroga no puede terminar antes del vencimiento."] },
+  },
+};
+
+/** Ajusta la prórroga o el plazo de pago de un paquete (solo Administración). */
+export async function plazosContratoAccion(
+  _: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  const { user } = await requerirSofteam(["ADMINISTRACION"]);
+  const valores = valoresDe(formData);
+  const clienteId = z.uuid().safeParse(valores.clienteId);
+  const datos = esquemaPlazosContrato.safeParse({
+    ...valores,
+    prorrogaHasta: valores.prorrogaHasta || undefined,
+    pendPagoActivoHasta: valores.pendPagoActivoHasta || undefined,
+  });
+  if (!clienteId.success) return { mensaje: "Paquete inválido." };
+  if (!datos.success) return { errores: erroresPorCampo(datos.error), valores };
+  const resultado = await guardarPlazosContrato(await obtenerDb(), datos.data, user.id);
+  if (!resultado.ok) return { ...MENSAJES_PLAZOS[resultado.error], valores };
+  programarEntregaDeEventos();
+  revalidatePath(`/admin/clientes/${clienteId.data}`);
+  return { ok: true, mensaje: "Plazos guardados: rigen en el acto." };
+}
 
 /** Baja de un paquete activo antes de su vencimiento (solo Administración). */
 export async function bajaContratoAccion(

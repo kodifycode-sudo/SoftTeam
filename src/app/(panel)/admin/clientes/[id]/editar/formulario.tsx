@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { formatearCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA_ETIQUETA, TIPOS_SOCIEDAD } from "@/lib/argentina";
+import { TIPOS_SOCIEDAD } from "@/lib/argentina";
 import { ESTADO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
 import { guardarClienteAccion } from "../acciones";
 
@@ -40,7 +40,7 @@ export interface DatosCliente {
   tipoSociedad: string | null;
   nombreFactura: string;
   cuit: string;
-  condicionIva: keyof typeof CONDICIONES_IVA_ETIQUETA;
+  condicionIva: string;
   domicilioFiscal: Domicilio;
   domicilioComercial: Domicilio | null;
   contactoAdministrador: Contacto;
@@ -49,6 +49,8 @@ export interface DatosCliente {
   grupoId: string | null;
   medioPagoAltaId: string | null;
   medioPagoRenovacionId: string | null;
+  modoFacturacion: number;
+  emisorId: string | null;
   xubioId: string | null;
   observacionFactura: string | null;
   observaciones: string | null;
@@ -204,14 +206,19 @@ export function FormularioCliente({
   grupos,
   medios,
   administracion,
+  emisores,
   provincias,
+  condicionesIva,
 }: {
   cliente: DatosCliente;
   provincias: readonly string[];
+  /** Activas del país, más la actual del cliente si se dio de baja. */
+  condicionesIva: readonly { codigo: string; nombre: string }[];
   grupos: { id: string; nombre: string }[];
   medios: { id: string; nombre: string }[];
   /** CUIT y alta/baja solo los cambia Administración. */
   administracion: boolean;
+  emisores: readonly { id: string; razonSocial: string; cuit: string }[];
 }) {
   const [estado, accion] = useActionState(guardarClienteAccion, ESTADO_INICIAL);
   return (
@@ -279,9 +286,9 @@ export function FormularioCliente({
           valorInicial={cliente.condicionIva}
           ayuda="Define si la factura es A o B."
         >
-          {Object.entries(CONDICIONES_IVA_ETIQUETA).map(([valor, etiqueta]) => (
-            <option key={valor} value={valor}>
-              {etiqueta}
+          {condicionesIva.map((c) => (
+            <option key={c.codigo} value={c.codigo}>
+              {c.nombre}
             </option>
           ))}
         </Selector>
@@ -346,7 +353,34 @@ export function FormularioCliente({
             </option>
           ))}
         </Selector>
-        <span className="hidden sm:block" />
+        <Selector
+          nombre="modoFacturacion"
+          etiqueta="Modo de facturación"
+          estado={estado}
+          valorInicial={String(cliente.modoFacturacion)}
+          ayuda="Rige para las órdenes nuevas. Los medios de pago tienen que estar habilitados para el modo."
+        >
+          <option value="0">Pago directo</option>
+          <option value="1">Factura adelantada</option>
+          <option value="2">Suscripción de Mercado Pago</option>
+          <option value="3">Factura agrupada con transferencia</option>
+        </Selector>
+        {administracion && (
+          <Selector
+            nombre="emisorId"
+            etiqueta="Emisor"
+            estado={estado}
+            valorInicial={cliente.emisorId ?? ""}
+            ayuda="Sociedad que le factura. Rige para las órdenes nuevas."
+          >
+            <option value="">El preferido del país</option>
+            {emisores.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.razonSocial}
+              </option>
+            ))}
+          </Selector>
+        )}
         <Selector
           nombre="medioPagoAltaId"
           etiqueta="Medio de pago para compras"

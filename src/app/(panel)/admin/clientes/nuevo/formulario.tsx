@@ -12,12 +12,21 @@ import {
   Selector,
 } from "@/components/formulario";
 import { buttonVariants } from "@/components/ui/button";
-import { CONDICIONES_IVA_ETIQUETA, TIPOS_SOCIEDAD } from "@/lib/argentina";
+import { TIPOS_SOCIEDAD } from "@/lib/argentina";
 import { ESTADO_INICIAL } from "@/lib/formulario";
 import { CamposDomicilio, Seccion } from "../[id]/editar/formulario";
 import { altaClienteAccion } from "./acciones";
 
-export function FormularioAltaCliente({ provincias }: { provincias: readonly string[] }) {
+export function FormularioAltaCliente({
+  provincias,
+  condicionesIva,
+  emisores,
+}: {
+  provincias: readonly string[];
+  condicionesIva: readonly { codigo: string; nombre: string }[];
+  /** Solo para Administración: los demás dejan el preferido del país. */
+  emisores: readonly { id: string; razonSocial: string; cuit: string }[] | null;
+}) {
   const [estado, accion] = useActionState(altaClienteAccion, ESTADO_INICIAL);
   return (
     <FormularioConservado accion={accion} className="space-y-6" noValidate>
@@ -47,11 +56,11 @@ export function FormularioAltaCliente({ provincias }: { provincias: readonly str
           nombre="condicionIva"
           etiqueta="Condición frente al IVA"
           estado={estado}
-          valorInicial="RESPONSABLE_INSCRIPTO"
+          valorInicial={condicionesIva[0]?.codigo ?? ""}
         >
-          {Object.entries(CONDICIONES_IVA_ETIQUETA).map(([valor, etiqueta]) => (
-            <option key={valor} value={valor}>
-              {etiqueta}
+          {condicionesIva.map((c) => (
+            <option key={c.codigo} value={c.codigo}>
+              {c.nombre}
             </option>
           ))}
         </Selector>
@@ -97,14 +106,27 @@ export function FormularioAltaCliente({ provincias }: { provincias: readonly str
           estado={estado}
         />
         <Selector
-          nombre="empresa.tipoCliente"
-          etiqueta="Tipo de cliente"
+          nombre="modoFacturacion"
+          etiqueta="Modo de facturación"
           estado={estado}
-          valorInicial="DIRECTO"
+          valorInicial="0"
+          ayuda="Define cuándo se habilitan los paquetes, la tolerancia de pago y los medios de pago."
         >
-          <option value="DIRECTO">Directo</option>
-          <option value="CORPORATIVO">Corporativo</option>
+          <option value="0">Pago directo (link de pago; se activa al pagar)</option>
+          <option value="1">Factura adelantada (se habilita al confirmar; transferencia)</option>
+          <option value="2">Suscripción de Mercado Pago</option>
+          <option value="3">Factura agrupada (no se suspende; planilla)</option>
         </Selector>
+        {emisores && (
+          <Selector nombre="emisorId" etiqueta="Emisor" estado={estado} valorInicial="">
+            <option value="">El preferido del país</option>
+            {emisores.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.razonSocial}
+              </option>
+            ))}
+          </Selector>
+        )}
         <Selector
           nombre="empresa.tipoInstalacion"
           etiqueta="Instalación"

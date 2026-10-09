@@ -13,6 +13,7 @@ import {
   Globe,
   Headset,
   History,
+  Landmark,
   LayoutDashboard,
   LifeBuoy,
   MapPinned,
@@ -69,7 +70,10 @@ const NAVEGACION: Record<VariantePanel, { titulo: string; items: ItemNavegacion[
     },
     {
       titulo: "Cobranza",
-      items: [{ href: "/admin/ordenes", etiqueta: "Órdenes", icono: Receipt }],
+      items: [
+        { href: "/admin/ordenes", etiqueta: "Órdenes", icono: Receipt },
+        { href: "/admin/pendientes", etiqueta: "Para negociar", icono: CalendarClock },
+      ],
     },
     {
       titulo: "Catálogo",
@@ -98,6 +102,12 @@ const NAVEGACION: Record<VariantePanel, { titulo: string; items: ItemNavegacion[
           href: "/admin/paises",
           etiqueta: "Países y monedas",
           icono: Globe,
+        },
+        {
+          href: "/admin/emisores",
+          etiqueta: "Emisores",
+          icono: Landmark,
+          permisos: ["ADMINISTRACION"],
         },
         {
           href: "/admin/parametros",

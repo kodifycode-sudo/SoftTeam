@@ -20,6 +20,10 @@ export const esquemaMedioPago = z.object({
   habilitadoAlta: z.boolean(),
   habilitadoAdicional: z.boolean(),
   habilitadoRenovacion: z.boolean(),
+  /** Modos de facturación con que se puede usar (Mejora v2.1, 6.5). */
+  modosFacturacion: z
+    .array(z.int().min(0).max(3))
+    .min(1, { error: "Elegí al menos un modo de facturación." }),
   activo: z.boolean(),
   instrucciones: z.string().trim().max(1000).optional(),
 });

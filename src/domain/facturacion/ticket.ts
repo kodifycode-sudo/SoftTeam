@@ -1,8 +1,8 @@
 import type { Centavos, Porcentaje } from "../dinero";
 import { esAnterior, esPosterior, type Fecha } from "../fecha";
-import type { TipoCliente } from "../licencias/contrato";
 import { exito, type Resultado, rechazo } from "../resultado";
 import type { TipoAccion } from "./calculo-orden";
+import { aceptaTicket, type ModoFacturacion } from "./modo";
 
 export interface Ticket {
   readonly codigo: string;
@@ -40,7 +40,8 @@ export interface TicketAplicable {
 export function evaluarTicket(entrada: {
   readonly ticket: Ticket | undefined;
   readonly hoy: Fecha;
-  readonly tipoCliente: TipoCliente;
+  /** Del cliente de facturación. */
+  readonly modoFacturacion: ModoFacturacion;
   readonly items: readonly {
     readonly paqueteId: string;
     readonly tipoAccion: TipoAccion;
@@ -52,8 +53,8 @@ export function evaluarTicket(entrada: {
   if (esAnterior(hoy, ticket.vigenteDesde) || esPosterior(hoy, ticket.vigenteHasta)) {
     return rechazo("TICKET_VENCIDO");
   }
-  // Las condiciones de los corporativos se negocian por contrato.
-  if (entrada.tipoCliente === "CORPORATIVO") return rechazo("TICKET_CORPORATIVO");
+  // Las condiciones de la factura agrupada se negocian con el agrupador.
+  if (!aceptaTicket(entrada.modoFacturacion)) return rechazo("TICKET_CORPORATIVO");
   if (items.some((i) => i.tipoAccion === "RENOVACION")) {
     return rechazo("TICKET_SOLO_PAQUETES_NUEVOS");
   }

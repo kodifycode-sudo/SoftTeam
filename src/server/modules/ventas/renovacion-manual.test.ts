@@ -116,7 +116,7 @@ describe("renovación manual", () => {
     });
 
     // La renovación automática ya no lo toma.
-    const resumen = await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-09-15")).at(-1)!);
+    const resumen = await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-10-11")).at(-1)!);
     expect(resumen.errores).toEqual([]);
     expect(await db.$count(t.contratos, eq(t.contratos.contratoAnteriorId, contrato.id))).toBe(1);
   });
@@ -133,7 +133,7 @@ describe("renovación manual", () => {
       },
       HOY,
     );
-    await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-09-15")).at(-1)!);
+    await procesoRenovacion(db, ventanasDeRenovacion(fecha("2026-10-11")).at(-1)!);
     expect(await db.$count(t.contratos, eq(t.contratos.contratoAnteriorId, contrato.id))).toBe(1);
 
     const r = await confirmarOrden(

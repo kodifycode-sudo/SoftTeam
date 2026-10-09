@@ -1,6 +1,6 @@
 import { importeCsv } from "@/domain/exportacion/csv";
+import { type ModoFacturacion, NOMBRE_MODO } from "@/domain/facturacion/modo";
 import { hoy } from "@/domain/fecha";
-import { CONDICIONES_IVA_ETIQUETA } from "@/lib/argentina";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { respuestaCsv } from "@/server/exportacion";
@@ -138,11 +138,14 @@ export async function GET(peticion: Request) {
         { titulo: "N.º cliente", valor: (f) => f.numero },
         { titulo: "Cliente", valor: (f) => f.nombre },
         { titulo: "CUIT", valor: (f) => f.cuit },
-        { titulo: "Condición IVA", valor: (f) => CONDICIONES_IVA_ETIQUETA[f.condicionIva] },
+        { titulo: "Condición IVA", valor: (f) => f.condicionIvaNombre },
         { titulo: "Administrador", valor: (f) => f.administrador },
         { titulo: "Mail", valor: (f) => f.email },
         { titulo: "Empresas", valor: (f) => f.empresas },
-        { titulo: "Corporativo", valor: (f) => f.corporativo },
+        {
+          titulo: "Modo de facturación",
+          valor: (f) => NOMBRE_MODO[f.modoFacturacion as ModoFacturacion],
+        },
         { titulo: "Activo", valor: (f) => f.activo },
         { titulo: "Alta", valor: (f) => f.creadoEn },
       ]);

@@ -1,4 +1,4 @@
-import { type Fecha, inicioDeMes, sumarDias, sumarMeses } from "../fecha";
+import { type Fecha, inicioDeMes, sumarMeses } from "../fecha";
 
 /*
  * Reglas de calendario de los procesos programados. Funciones puras: el
@@ -17,42 +17,43 @@ export interface VentanaRenovacion {
 }
 
 const dia = (f: Fecha) => Number(f.slice(8, 10));
-const ultimoDiaDelMes = (f: Fecha): Fecha => sumarDias(sumarMeses(inicioDeMes(f), 1), -1);
 const conDia = (f: Fecha, d: number) => `${f.slice(0, 8)}${String(d).padStart(2, "0")}` as Fecha;
 
-/** Las dos ventanas quincenales de renovación que se generan durante el mes de `mes`. */
+/**
+ * Las dos corridas del mes de `mes` (Mejora v2.1, 8.2): la del primer día de
+ * corte renueva los vencimientos desde el día siguiente hasta el día siguiente
+ * al segundo corte (con 2 y 11: del 3 al 12, que incluye los alineados al 10);
+ * la del segundo, desde ahí hasta el primer corte del mes siguiente (del 13 al
+ * 2, que incluye los alineados al 20). Cubren todos los días del mes.
+ */
 function ventanasDelMes(mes: Fecha, diasCorte: readonly [number, number]): VentanaRenovacion[] {
-  const objetivo = sumarMeses(inicioDeMes(mes), 1);
-  const periodo = objetivo.slice(0, 7);
+  const inicio = inicioDeMes(mes);
+  const periodo = inicio.slice(0, 7);
+  const [c1, c2] = diasCorte;
   return [
     {
-      clave: `${periodo}-Q1`,
-      desde: objetivo,
-      hasta: conDia(objetivo, 15),
-      corte: conDia(inicioDeMes(mes), diasCorte[0]),
+      clave: `${periodo}-C1`,
+      desde: conDia(inicio, c1 + 1),
+      hasta: conDia(inicio, c2 + 1),
+      corte: conDia(inicio, c1),
     },
     {
-      clave: `${periodo}-Q2`,
-      desde: conDia(objetivo, 16),
-      hasta: ultimoDiaDelMes(objetivo),
-      corte: conDia(inicioDeMes(mes), diasCorte[1]),
+      clave: `${periodo}-C2`,
+      desde: conDia(inicio, c2 + 2),
+      hasta: conDia(sumarMeses(inicio, 1), c1),
+      corte: conDia(inicio, c2),
     },
   ];
 }
 
 /**
- * Ventanas de renovación que ya deberían haberse generado a la fecha: el
- * primer día de corte del mes renueva los vencimientos del 1 al 15 del mes
- * siguiente y el segundo, los del 16 a fin de mes. Así la orden llega con
- * tiempo para pagar antes del vencimiento.
- *
- * Incluye las del mes anterior: si el proceso no corrió algún día (caída,
- * mantenimiento), la próxima corrida las recupera. Las ya generadas se
- * saltean por su clave.
+ * Corridas de renovación que ya deberían haberse hecho a la fecha. Incluye las
+ * del mes anterior: si el proceso no corrió algún día (caída, mantenimiento),
+ * la próxima corrida las recupera. Las ya generadas se saltean por su clave.
  */
 export function ventanasDeRenovacion(
   hoy: Fecha,
-  diasCorte: readonly [number, number] = [5, 15],
+  diasCorte: readonly [number, number] = [2, 11],
 ): VentanaRenovacion[] {
   const mesAnterior = sumarMeses(inicioDeMes(hoy), -1);
   return [...ventanasDelMes(mesAnterior, diasCorte), ...ventanasDelMes(hoy, diasCorte)].filter(

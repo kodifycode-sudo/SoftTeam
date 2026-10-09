@@ -2,17 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/formulario";
 import { oficinaDeCompra, puedeContratar, requerirCliente } from "@/server/auth/sesion";
+import { facturadorDeEmisor } from "@/server/cobros";
 import { obtenerDb } from "@/server/db";
+import { facturarOrden } from "@/server/modules/cobros/facturacion";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 import {
   agregarAlCarrito,
   agregarRenovacion,
   cambiarCantidad,
 } from "@/server/modules/ventas/carrito";
-import { confirmarOrden } from "@/server/modules/ventas/checkout";
+import { confirmarAltaAGrupo, confirmarOrden } from "@/server/modules/ventas/checkout";
 import { mensajeRechazoCompra } from "./mensajes";
 
 export async function agregarAlCarritoAccion(
@@ -107,12 +110,14 @@ export async function confirmarOrdenAccion(
       medioPagoId: z.uuid(),
       ticketCodigo: z.string().trim().max(20).optional(),
       claveIdempotencia: z.uuid(),
+      diaVenc: z.coerce.number().int().min(1).max(28).optional(),
       acepta: z.literal("on", { error: "Confirmá que revisaste la orden" }),
     })
     .safeParse({
       medioPagoId: formData.get("medioPagoId"),
       ticketCodigo: formData.get("ticketCodigo") || undefined,
       claveIdempotencia: formData.get("claveIdempotencia"),
+      diaVenc: formData.get("diaVenc") || undefined,
       acepta: formData.get("acepta"),
     });
   if (!datos.success) {
@@ -120,17 +125,40 @@ export async function confirmarOrdenAccion(
   }
 
   const db = await obtenerDb();
-  const resultado = await confirmarOrden(db, {
+  const entrada = {
     empresaId: contexto.empresaId,
     oficinaId: oficinaDeCompra(contexto),
     usuarioId: contexto.usuarioId,
     medioPagoId: datos.data.medioPagoId,
     ticketCodigo: datos.data.ticketCodigo,
+    diaVenc: datos.data.diaVenc,
+  };
+  const resultado = await confirmarOrden(db, {
+    ...entrada,
     claveIdempotencia: datos.data.claveIdempotencia,
   });
+  // Alta a grupo: los paquetes quedan cargados y se cobran en la próxima orden colectiva.
+  if (!resultado.ok && resultado.error === "ALTA_A_GRUPO") {
+    const alta = await confirmarAltaAGrupo(db, entrada);
+    if (!alta.ok) return { mensaje: mensajeRechazoCompra(alta.error, alta.detalle) };
+    programarEntregaDeEventos();
+    revalidatePath("/portal", "layout");
+    redirect("/portal/carrito?alta=grupo");
+  }
   if (!resultado.ok) return { mensaje: mensajeRechazoCompra(resultado.error, resultado.detalle) };
 
   programarEntregaDeEventos();
+  // Factura adelantada (modos 1 y 3): se emite al terminar la respuesta; si
+  // falla, la reintenta el proceso diario. En los demás modos no hace nada.
+  const ordenId = resultado.valor.ordenId;
+  after(async () => {
+    try {
+      const db = await obtenerDb();
+      await facturarOrden(db, (e) => facturadorDeEmisor(db, e), ordenId);
+    } catch (error) {
+      console.error("[compra] no se pudo facturar ahora", error);
+    }
+  });
   revalidatePath("/portal", "layout");
-  redirect(`/portal/ordenes/${resultado.valor.ordenId}?nueva=1`);
+  redirect(`/portal/ordenes/${ordenId}?nueva=1`);
 }

@@ -10,7 +10,6 @@ import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
 import { ordenEnAlcance } from "../cuentas/alcance";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
-import { cargarSaldos } from "./checkout";
 
 export type EstadoOrden = "PEND_PAGO" | "PAGADA" | "CANCELADA";
 
@@ -45,6 +44,8 @@ export async function listarOrdenes(
   db: Ejecutor,
   filtros: AlcanceOrden & {
     estado?: EstadoOrden;
+    /** Solo las que tuvieron un pago rechazado. */
+    conErrorDePago?: boolean;
     busqueda?: string;
     /** Sin página, devuelve todas (exportación). */
     pagina?: Pagina;
@@ -86,6 +87,7 @@ export async function listarOrdenes(
       and(
         alcanceDeOrden(filtros),
         filtros.estado ? eq(t.ordenes.estado, filtros.estado) : undefined,
+        filtros.conErrorDePago ? eq(t.ordenes.pagoError, true) : undefined,
         numero ? eq(t.ordenes.numero, Number(numero)) : undefined,
       ),
     )
@@ -219,6 +221,13 @@ export async function registrarPago(
           hasta: periodo?.hasta ?? contrato.hasta,
         })
         .where(eq(t.contratos.id, contrato.id));
+      // Pagada la renovación, rige el contrato nuevo: el anterior deja de estar prorrogado.
+      if (contrato.contratoAnteriorId) {
+        await tx
+          .update(t.contratos)
+          .set({ prorrogaHasta: null })
+          .where(eq(t.contratos.id, contrato.contratoAnteriorId));
+      }
 
       const yaCargado = await tx.query.movimientosSaldo.findFirst({
         columns: { id: true },
@@ -316,4 +325,26 @@ export async function marcarOrdenRevisada(db: Db, ordenId: string, actorId: stri
     await tx.update(t.ordenes).set({ requiereRevision: false }).where(eq(t.ordenes.id, ordenId));
     await auditar(tx, { actorId, entidad: "orden", entidadId: ordenId, accion: "revisada" });
   });
+}
+
+/** Acredita el saldo prepago de un contrato (movimientos de CARGA en el libro). */
+export async function cargarSaldos(
+  tx: Ejecutor,
+  contratoId: string,
+  recursos: { recursoId: string; cantidad: number; clase: string }[],
+  unidades: number,
+  observacion: string,
+) {
+  const saldos = recursos.filter((r) => r.clase === "SALDO" && r.cantidad > 0);
+  if (saldos.length === 0) return;
+  await tx.insert(t.movimientosSaldo).values(
+    saldos.map((r) => ({
+      contratoId,
+      recursoId: r.recursoId,
+      clase: "SALDO" as const,
+      tipo: "CARGA" as const,
+      creditos: r.cantidad * unidades,
+      observacion,
+    })),
+  );
 }

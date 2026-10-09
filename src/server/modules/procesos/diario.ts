@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray, isNotNull, lt, lte, sql } from "drizzle-orm";
 import { excedeLicencia, PRODUCTOS_CON_ACCESO, TIPOS_INTERFAZ } from "@/domain/cuentas/limites";
 import { diasEntre, type Fecha, sumarDias } from "@/domain/fecha";
+import { estaProrrogado } from "@/domain/licencias/contrato";
 import { avisoDeVencimiento, estadoDeSaldo } from "@/domain/procesos/calendario";
 import { fechaCorta } from "@/lib/formato";
 import type { Db } from "@/server/db/cliente";
@@ -12,6 +13,7 @@ import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { limpiarUsoApi } from "../integraciones/limite";
 import { licenciaDeEmpresa } from "../licencias/licencia-empresa";
 import { leerParametroDe } from "../parametros";
+import { renovacionesANegociar } from "../ventas/tablero";
 import { registrarAlerta } from "./alertas";
 
 const ACTOR = { actorId: null, actorTipo: "job:diario" } as const;
@@ -49,8 +51,10 @@ export async function procesoDiario(db: Db, hoy: Fecha): Promise<ResumenDiario> 
 
   await alertasDeVencimiento(db, hoy, umbrales, contar);
   await alertasDePlazoDePago(db, hoy, contar);
+  await alertasDeTolerancia(db, hoy, contar);
   await alertasDeSaldo(db, porcentajeBajo, contar);
   await alertasDeEmpresa(db, hoy, contar);
+  await alertasDeNegociacion(db, hoy, contar);
   const usoApiBorrado = await limpiarUsoApi(db);
   const intentosBorrados = await limpiarIntentos(db);
   return { excepcionesVencidas, alertas, usoApiBorrado, intentosBorrados };
@@ -93,6 +97,26 @@ async function vencerExcepciones(db: Db, hoy: Fecha): Promise<number> {
 
 type Contar = (tipo: string, creada: boolean) => void;
 
+/**
+ * Trimestres iniciales a negociar (Mejora v2.1, 11.7): una alerta para SOFTeam
+ * por paquete, una sola vez, desde el comienzo del mes de su vencimiento.
+ */
+async function alertasDeNegociacion(db: Db, hoy: Fecha, contar: Contar) {
+  for (const n of await renovacionesANegociar(db, hoy)) {
+    contar(
+      "RENOVACION_A_NEGOCIAR",
+      await registrarAlerta(db, {
+        tipo: "RENOVACION_A_NEGOCIAR",
+        clave: `RENOVACION_A_NEGOCIAR:${n.contratoId}`,
+        mensaje: `Negociar la continuidad de ${n.paquete} de ${n.empresa.nombre}: el trimestre inicial vence el ${fechaCorta(n.hasta)}.`,
+        empresaId: n.empresa.id,
+        contratoId: n.contratoId,
+        paraCliente: false,
+      }),
+    );
+  }
+}
+
 /** Contratos que ya tienen una renovación generada (no cancelada). */
 const tieneRenovacion = sql<boolean>`exists (select 1 from ${t.contratos} r where r.contrato_anterior_id = ${t.contratos.id} and r.estado <> 'CANCELADO')`;
 /** Renovación ya habilitada (pagada o con excepción de pago). */
@@ -110,6 +134,8 @@ async function alertasDeVencimiento(
       id: t.contratos.id,
       empresaId: t.contratos.empresaId,
       hasta: t.contratos.hasta,
+      estado: t.contratos.estado,
+      prorrogaHasta: t.contratos.prorrogaHasta,
       paquete: t.paquetes.nombre,
       renovado: tieneRenovacion,
       renovacionHabilitada,
@@ -123,7 +149,8 @@ async function alertasDeVencimiento(
         eq(t.contratos.tipoPaquete, "TEMPORAL"),
         eq(t.contratos.noRenovar, false),
         inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
-        gte(t.contratos.hasta, sumarDias(hoy, -DIAS_RECUPERO)),
+        // Con prórroga, el aviso de vencida se mide desde el fin de la prórroga.
+        sql`greatest(${t.contratos.hasta}, coalesce(${t.contratos.prorrogaHasta}, ${t.contratos.hasta})) >= ${sumarDias(hoy, -DIAS_RECUPERO)}`,
         lte(t.contratos.hasta, sumarDias(hoy, maximo)),
       ),
     );
@@ -150,6 +177,7 @@ async function alertasDeVencimiento(
           paraSofteam: false,
         }),
       );
+    } else if (estaProrrogado(c, hoy)) {
     } else if (!c.renovacionHabilitada) {
       contar(
         "LICENCIA_VENCIDA",
@@ -194,6 +222,39 @@ async function alertasDePlazoDePago(db: Db, hoy: Fecha, contar: Contar) {
         mensaje: `El servicio de la orden #${o.numero} sigue habilitado hasta el ${fechaCorta(o.limite)}. Pagala antes para no perderlo.`,
         empresaId: o.empresaId,
         ordenId: o.ordenId,
+      }),
+    );
+  }
+}
+
+/**
+ * Factura agrupada (modo 3) impaga más allá de la tolerancia: no se suspende
+ * nunca, se avisa a SOFTeam para que gestione el cobro (Mejora v2.1, 7.7).
+ */
+async function alertasDeTolerancia(db: Db, hoy: Fecha, contar: Contar) {
+  const tolerancia = (await leerParametroDe(db, "facturacion.tolerancia_dias"))[3];
+  // Inicio del día en Argentina (UTC−3, sin horario de verano).
+  const limite = new Date(`${sumarDias(hoy, -tolerancia)}T03:00:00Z`);
+  const ordenes = await db
+    .select({ id: t.ordenes.id, numero: t.ordenes.numero, empresaId: t.ordenes.empresaId })
+    .from(t.ordenes)
+    .where(
+      and(
+        eq(t.ordenes.estado, "PEND_PAGO"),
+        eq(t.ordenes.modoFacturacion, 3),
+        lt(t.ordenes.creadoEn, limite),
+      ),
+    );
+  for (const o of ordenes) {
+    contar(
+      "TOLERANCIA_PAGO_VENCIDA",
+      await registrarAlerta(db, {
+        tipo: "TOLERANCIA_PAGO_VENCIDA",
+        clave: `TOLERANCIA_PAGO_VENCIDA:${o.id}`,
+        mensaje: `La orden #${o.numero} (factura agrupada) lleva más de ${tolerancia} días sin pagarse. El servicio no se suspende: hay que gestionar el cobro.`,
+        empresaId: o.empresaId,
+        ordenId: o.id,
+        paraCliente: false,
       }),
     );
   }

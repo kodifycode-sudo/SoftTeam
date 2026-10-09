@@ -16,6 +16,8 @@ export interface SolicitudFactura {
     cuit: string;
     nombre: string;
     condicionIva: string;
+    /** Condición del receptor según ARCA, congelada en la orden. */
+    codigoArca: number;
     /** Código del cliente en Xubio, si SOFTeam lo cargó. */
     xubioId?: string | null | undefined;
     email?: string | null | undefined;

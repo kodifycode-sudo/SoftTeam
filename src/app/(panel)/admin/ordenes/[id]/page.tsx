@@ -12,7 +12,7 @@ import { obtenerOrden } from "@/server/modules/ventas/ordenes";
 import { marcarRevisadaAccion } from "../acciones";
 import { AccionesOrden } from "./acciones-orden";
 import { Bonificar } from "./bonificar";
-import { EmitirFactura, ReenviarLink } from "./cobro";
+import { EmitirFactura, FacturaManual, ReenviarLink } from "./cobro";
 
 export const metadata: Metadata = { title: "Orden" };
 
@@ -36,6 +36,13 @@ export default async function OrdenAdmin({
   if (!detalle) notFound();
   const { orden, empresa } = detalle;
 
+  // Pagada, o pendiente con factura adelantada (modos 1 y 3), con importe y sin factura.
+  const facturable =
+    !orden.facturadaEn &&
+    orden.total > 0n &&
+    (orden.estado === "PAGADA" ||
+      (orden.estado === "PEND_PAGO" &&
+        (orden.modoFacturacion === 1 || orden.modoFacturacion === 3)));
   return (
     <>
       {mensaje && (
@@ -102,8 +109,11 @@ export default async function OrdenAdmin({
             {orden.estado === "PEND_PAGO" && detalle.medio.generaLink && rol !== "SOPORTE" && (
               <ReenviarLink ordenId={orden.id} reenvios={orden.linkReenvios} />
             )}
-            {orden.estado === "PAGADA" && !orden.facturadaEn && rol === "ADMINISTRACION" && (
-              <EmitirFactura ordenId={orden.id} />
+            {facturable && rol === "ADMINISTRACION" && (
+              <>
+                <EmitirFactura ordenId={orden.id} />
+                <FacturaManual ordenId={orden.id} />
+              </>
             )}
           </div>
         }

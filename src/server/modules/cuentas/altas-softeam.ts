@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { esCuitValido, normalizarCuit } from "@/domain/cuentas/cuit";
-import { CONDICIONES_IVA } from "@/domain/facturacion/impuestos";
 import { TIPOS_SOCIEDAD } from "@/lib/argentina";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
+import { condicionIvaValida } from "../catalogo/condiciones-iva";
 import { provinciaValida } from "../catalogo/paises";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { crearAdministradorGeneral, crearCliente, crearEmpresa } from "./creacion";
@@ -40,19 +40,32 @@ const administrador = z.object({
 const empresa = z.object({
   nombre: z.string().trim().max(120).optional(),
   nombreCorto: z.string().trim().max(20).optional(),
-  tipoCliente: z.enum(["DIRECTO", "CORPORATIVO"]),
   tipoInstalacion: z.enum(["SAAS", "ON_PREMISE"]),
 });
 
+/** Modo de facturación del cliente (Mejora v2.1, 7.6). */
+export const campoModoFacturacion = z.coerce
+  .number({ error: "Elegí el modo de facturación" })
+  .int()
+  .min(0, { error: "Elegí el modo de facturación" })
+  .max(3, { error: "Elegí el modo de facturación" });
+
 export const esquemaAltaCliente = z.object({
   tipoPersona: z.enum(["FISICA", "JURIDICA"]),
+  modoFacturacion: campoModoFacturacion,
+  /** Vacío: el emisor preferido del país. */
+  emisorId: z.uuid().optional(),
   nombre: texto(3, 120, "Ingresá el nombre o la razón social"),
   tipoSociedad: z.enum(TIPOS_SOCIEDAD).optional(),
   cuit: z
     .string()
     .transform(normalizarCuit)
     .refine(esCuitValido, { error: "El CUIT/CUIL no es válido" }),
-  condicionIva: z.enum(CONDICIONES_IVA, { error: "Elegí la condición frente al IVA" }),
+  condicionIva: z
+    .string({ error: "Elegí la condición frente al IVA" })
+    .trim()
+    .min(1, { error: "Elegí la condición frente al IVA" })
+    .max(30),
   domicilioFiscal: z.object({
     calle: texto(3, 120, "Ingresá la dirección"),
     ciudad: texto(2, 60, "Ingresá la localidad"),
@@ -68,7 +81,10 @@ export type EntradaAltaCliente = z.infer<typeof esquemaAltaCliente>;
 export type ResultadoAlta =
   | { ok: true; clienteId: string; empresaId: string; usuario: UsuarioLogin }
   | { ok: false; error: "CUIT_DUPLICADO"; clienteId: string }
-  | { ok: false; error: "ES_SOFTEAM" | "NO_EXISTE" | "PROVINCIA_INVALIDA" };
+  | {
+      ok: false;
+      error: "ES_SOFTEAM" | "NO_EXISTE" | "PROVINCIA_INVALIDA" | "CONDICION_IVA_INVALIDA";
+    };
 
 /** Alta de cliente por SOFTeam: cliente, su primera empresa y el administrador general. */
 export async function altaClientePorSofteam(
@@ -88,6 +104,9 @@ export async function altaClientePorSofteam(
     if (!(await provinciaValida(tx, "AR", entrada.domicilioFiscal.provincia))) {
       return { ok: false, error: "PROVINCIA_INVALIDA" };
     }
+    if (!(await condicionIvaValida(tx, "AR", entrada.condicionIva))) {
+      return { ok: false, error: "CONDICION_IVA_INVALIDA" };
+    }
 
     const contacto = {
       nombre: entrada.administrador.nombre,
@@ -95,6 +114,8 @@ export async function altaClientePorSofteam(
       telefono: entrada.administrador.telefono ?? null,
     };
     const cliente = await crearCliente(tx, {
+      modoFacturacion: entrada.modoFacturacion,
+      emisorId: entrada.emisorId,
       tipoPersona: entrada.tipoPersona,
       nombre: entrada.nombre,
       tipoSociedad: entrada.tipoPersona === "JURIDICA" ? (entrada.tipoSociedad ?? null) : null,
@@ -107,7 +128,6 @@ export async function altaClientePorSofteam(
       clienteId: cliente.id,
       nombre: entrada.empresa.nombre || entrada.nombre,
       nombreCorto: entrada.empresa.nombreCorto || undefined,
-      tipoCliente: entrada.empresa.tipoCliente,
       tipoInstalacion: entrada.empresa.tipoInstalacion,
       oficina: {
         telefono: contacto.telefono,
@@ -157,7 +177,6 @@ export async function nuevaEmpresaDeCliente(
       clienteId,
       nombre: entrada.empresa.nombre,
       nombreCorto: entrada.empresa.nombreCorto || undefined,
-      tipoCliente: entrada.empresa.tipoCliente,
       tipoInstalacion: entrada.empresa.tipoInstalacion,
       paisId: cliente.domicilioFiscal.paisId,
     });

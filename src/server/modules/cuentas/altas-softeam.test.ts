@@ -40,7 +40,8 @@ const entrada = (cambios: Partial<Record<string, unknown>> = {}): EntradaAltaCli
       provincia: "Santa Fe",
     },
     administrador: { nombre: "Carla Corp", email: `carla.${secuencia}@corp.com` },
-    empresa: { tipoCliente: "CORPORATIVO", tipoInstalacion: "SAAS" },
+    modoFacturacion: 3,
+    empresa: { tipoInstalacion: "SAAS" },
     ...cambios,
   });
 
@@ -51,7 +52,9 @@ describe("altas por SOFTeam", () => {
     if (!r.ok) throw new Error(r.error);
 
     const empresa = await db.query.empresas.findFirst({ where: eq(t.empresas.id, r.empresaId) });
-    expect(empresa).toMatchObject({ nombre: "Corporativo del Sur SA", tipoCliente: "CORPORATIVO" });
+    expect(empresa).toMatchObject({ nombre: "Corporativo del Sur SA" });
+    const cliente = await db.query.clientes.findFirst({ where: eq(t.clientes.id, r.clienteId) });
+    expect(cliente?.modoFacturacion).toBe(3);
     expect(await db.$count(t.oficinas, eq(t.oficinas.empresaId, r.empresaId))).toBe(1);
     expect(await db.$count(t.politicasEmpresa, eq(t.politicasEmpresa.empresaId, r.empresaId))).toBe(
       1,
@@ -76,7 +79,6 @@ describe("altas por SOFTeam", () => {
       {
         empresa: {
           nombre: "Corporativo Norte",
-          tipoCliente: "DIRECTO",
           tipoInstalacion: "ON_PREMISE",
         },
         administrador: { nombre: "Carla Corp", email: datos.administrador.email },

@@ -76,6 +76,7 @@ async function fuentesDeCredito(
       desde: t.contratos.desde,
       hasta: t.contratos.hasta,
       pendPagoActivoHasta: t.contratos.pendPagoActivoHasta,
+      prorrogaHasta: t.contratos.prorrogaHasta,
       recursoId: t.contratoRecursos.recursoId,
       clase: t.contratoRecursos.clase,
       cantidad: t.contratoRecursos.cantidad,

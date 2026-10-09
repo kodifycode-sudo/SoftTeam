@@ -50,7 +50,7 @@ describe("licenciaDeEmpresa", () => {
   });
 
   it("un corporativo habilitado sin pago suma durante su período", async () => {
-    const { empresa, orden } = await crearEmpresaDePrueba(db, { tipoCliente: "CORPORATIVO" });
+    const { empresa, orden } = await crearEmpresaDePrueba(db, { modoFacturacion: 3 });
     await crearContratoDePrueba(
       db,
       { empresaId: empresa.id, ordenId: orden.id },

@@ -1,10 +1,10 @@
 "use client";
 
-import { History, PackageX } from "lucide-react";
+import { CalendarClock, History, PackageX } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { toast } from "sonner";
-import { BotonEnviar } from "@/components/formulario";
+import { BotonEnviar, Campo, MensajeFormulario, useAvisoDeAccion } from "@/components/formulario";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -20,7 +20,7 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { ESTADO_INICIAL } from "@/lib/formulario";
-import { bajaContratoAccion } from "./acciones";
+import { bajaContratoAccion, plazosContratoAccion } from "./acciones";
 
 export interface PaqueteVigente {
   id: string;
@@ -28,8 +28,55 @@ export interface PaqueteVigente {
   cantidad: number;
   estado: "ACTIVO" | "PEND_PAGO_ACTIVO";
   hasta: string | null;
+  prorrogaHasta: string | null;
+  pendPagoActivoHasta: string | null;
   /** "Hasta el 31/10/2026" o "Hasta agotar el saldo". */
   vigencia: string;
+}
+
+function Plazos({ paquete, clienteId }: { paquete: PaqueteVigente; clienteId: string }) {
+  const [abierto, setAbierto] = useState(false);
+  const [estado, accion] = useActionState(plazosContratoAccion, ESTADO_INICIAL);
+  useAvisoDeAccion(estado, () => setAbierto(false));
+  const activo = paquete.estado === "ACTIVO";
+  return (
+    <Dialog open={abierto} onOpenChange={setAbierto}>
+      <DialogTrigger
+        render={
+          <Button variant="ghost" size="sm" aria-label={`Plazos de pago de ${paquete.paquete}`} />
+        }
+      >
+        <CalendarClock data-icon="inline-start" /> Plazos
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Plazos de pago de {paquete.paquete}</DialogTitle>
+          <DialogDescription>
+            {activo
+              ? "Prórroga: el paquete sigue sumando después de vencer mientras se paga su renovación. Vacío, sin prórroga."
+              : "Plazo para pagar el paquete habilitado sin pago. Vacío, sin límite: nunca se suspende."}
+          </DialogDescription>
+        </DialogHeader>
+        <form action={accion} className="space-y-4">
+          <input type="hidden" name="contratoId" value={paquete.id} />
+          <input type="hidden" name="clienteId" value={clienteId} />
+          {!estado.ok && <MensajeFormulario estado={estado} />}
+          <Campo
+            nombre={activo ? "prorrogaHasta" : "pendPagoActivoHasta"}
+            etiqueta={activo ? "Prorrogado hasta" : "Habilitado sin pago hasta"}
+            type="date"
+            defaultValue={(activo ? paquete.prorrogaHasta : paquete.pendPagoActivoHasta) ?? ""}
+            estado={estado}
+          />
+          <Campo nombre="motivo" etiqueta="Motivo" estado={estado} />
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="ghost" />}>Cancelar</DialogClose>
+            <BotonEnviar>Guardar</BotonEnviar>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function DarDeBaja({ paquete, clienteId }: { paquete: PaqueteVigente; clienteId: string }) {
@@ -115,6 +162,7 @@ export function PaquetesVigentes({
                 >
                   <History data-icon="inline-start" /> Movimientos
                 </Link>
+                {administracion && p.hasta && <Plazos paquete={p} clienteId={clienteId} />}
                 {administracion && p.estado === "ACTIVO" && (
                   <DarDeBaja paquete={p} clienteId={clienteId} />
                 )}

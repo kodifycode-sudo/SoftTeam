@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { porcentaje } from "../dinero";
-import { alicuotaIva, tipoComprobante } from "./impuestos";
 import { type MedioPago, resolverClienteFacturacion, validarMedioPago } from "./medio-pago";
 
 const medio = (parcial: Partial<MedioPago> = {}): MedioPago => ({
@@ -77,17 +75,5 @@ describe("resolverClienteFacturacion", () => {
         medio: medio({ planilla: true }),
       }),
     ).toBe("c1");
-  });
-});
-
-describe("impuestos", () => {
-  it("exento no paga IVA; el resto paga la alícuota general", () => {
-    expect(alicuotaIva("EXENTO", porcentaje("21"))).toBe(0n);
-    expect(alicuotaIva("MONOTRIBUTO", porcentaje("21"))).toBe(porcentaje("21"));
-  });
-
-  it("factura A solo a Responsable Inscripto", () => {
-    expect(tipoComprobante("RESPONSABLE_INSCRIPTO")).toBe("A");
-    expect(tipoComprobante("CONSUMIDOR_FINAL")).toBe("B");
   });
 });

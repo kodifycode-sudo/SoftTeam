@@ -1,5 +1,6 @@
-import { and, asc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
+import { TRIMESTRAL_INICIAL } from "@/domain/licencias/periodo";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { vendibleHoy } from "../catalogo/paquetes";
@@ -40,6 +41,9 @@ export async function listarCarrito(
       /** Renovación manual: el contrato que se renueva, su vencimiento y su bonificación recurrente. */
       contratoAnteriorId: t.carritoItems.contratoAnteriorId,
       anteriorHasta: sql<Fecha | null>`(select c.hasta from ${t.contratos} c where c.id = ${t.carritoItems.contratoAnteriorId})`,
+      anteriorDiaVenc: sql<
+        number | null
+      >`(select c.dia_venc from ${t.contratos} c where c.id = ${t.carritoItems.contratoAnteriorId})`,
       bonifRenovacion:
         sql<bigint>`coalesce((select case when c.bonif_recurrente then c.bonif_porcentaje else 0 end from ${t.contratos} c where c.id = ${t.carritoItems.contratoAnteriorId}), 0)`.mapWith(
           t.contratos.bonifPorcentaje,
@@ -183,6 +187,8 @@ const renovable = (empresaId: string, oficinaId: string | null, hoy: Fecha) =>
     inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
     isNotNull(t.contratos.hasta),
     gte(t.contratos.hasta, hoy),
+    // El trimestre inicial no se renueva desde acá: su continuidad se negocia (8.11).
+    isNotNull(t.contratos.diaVenc),
     sql`not exists (select 1 from ${t.contratos} r where r.contrato_anterior_id = ${t.contratos.id} and r.estado <> 'CANCELADO')`,
     sql`not exists (select 1 from ${t.carritoItems} ci where ci.contrato_anterior_id = ${t.contratos.id})`,
   );
@@ -222,6 +228,8 @@ export async function renovablesDeEmpresa(
         inArray(t.alternativas.paqueteId, [...new Set(contratos.map((c) => c.paqueteId))]),
         eq(t.alternativas.activa, true),
         isNotNull(t.alternativas.meses),
+        // El trimestral es solo para el alta inicial (8.18).
+        ne(t.alternativas.meses, TRIMESTRAL_INICIAL),
       ),
     )
     .orderBy(asc(t.alternativas.meses));
@@ -273,6 +281,7 @@ export async function agregarRenovacion(
         eq(t.alternativas.paqueteId, contrato.paqueteId),
         eq(t.alternativas.activa, true),
         isNotNull(t.alternativas.meses),
+        ne(t.alternativas.meses, TRIMESTRAL_INICIAL),
       ),
     });
     if (!alternativa) return { ok: false, error: "ALTERNATIVA_INVALIDA" };

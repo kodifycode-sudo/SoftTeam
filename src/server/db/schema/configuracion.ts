@@ -14,8 +14,8 @@ import {
 } from "drizzle-orm/pg-core";
 import type { MediosComunicacion, ReglaComunicacion } from "@/domain/comunicaciones/tipos";
 import { usuarios } from "./auth";
-import { canales, empresas, oficinas, paises } from "./cuentas";
-import { condicionIva, rolProductor, tipoPersona } from "./enums";
+import { canales, condicionesIva, empresas, oficinas, paises } from "./cuentas";
+import { rolProductor, tipoPersona } from "./enums";
 import { marcasTiempo } from "./tipos";
 
 /**
@@ -119,7 +119,7 @@ export const productores = pgTable(
     matricula: varchar({ length: 20 }),
     tipoPersona: tipoPersona(),
     cuit: char({ length: 11 }),
-    condicionIva: condicionIva(),
+    condicionIva: varchar({ length: 30 }).references(() => condicionesIva.codigo),
     email: varchar({ length: 160 }),
     telefono: varchar({ length: 30 }),
     celular: varchar({ length: 30 }),

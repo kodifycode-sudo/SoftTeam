@@ -25,7 +25,7 @@ test.describe
       await registrarCliente(page, `Cobros ${sufijo} SRL`, email);
       await page.goto("/portal/paquetes");
       await page
-        .getByRole("button", { name: "Agregar Prodigal Inicial · Mensual al carrito" })
+        .getByRole("button", { name: "Agregar Prodigal Inicial · Trimestral inicial al carrito" })
         .click();
       await expect(page.getByText("Agregado al carrito.")).toBeVisible();
       await page.goto("/portal/carrito");
@@ -37,8 +37,8 @@ test.describe
       await page.getByLabel("Código de descuento").fill(ticket);
       await page.getByRole("button", { name: "Aplicar" }).click();
       await expect(page.getByText(`Descuento ${ticket} (10 %)`).first()).toBeVisible();
-      // 38.000 − 10 % = 34.200, más 21 % de IVA.
-      await expect(page.getByText("$ 41.382,00").first()).toBeVisible();
+      // Trimestre inicial: 114.000 − 10 % = 102.600, más 21 % de IVA.
+      await expect(page.getByText("$ 124.146,00").first()).toBeVisible();
       await page.getByRole("checkbox", { name: /Revisé los paquetes/ }).click();
       await page.getByRole("button", { name: "Confirmar orden" }).click();
       await expect(page).toHaveURL(/\/portal\/ordenes\/[0-9a-f-]{36}\?nueva=1/);
@@ -51,7 +51,7 @@ test.describe
       await page.goto(urlOrden);
       await page.getByRole("button", { name: "Pagar ahora" }).click();
       await expect(page).toHaveURL(/\/simulador\/pago\//);
-      await expect(page.getByText("$ 41.382,00")).toBeVisible();
+      await expect(page.getByText("$ 124.146,00")).toBeVisible();
       await capturar(page, "simulador-pago");
       await page.getByRole("button", { name: "Rechazar (sin fondos)" }).click();
 
@@ -74,7 +74,7 @@ test.describe
       await ingresar(page, ADMIN.email, ADMIN.contrasena);
       await page.goto("/admin/tickets");
       const fila = page.getByRole("row").filter({ hasText: ticket });
-      await expect(fila.getByText("$ 3.800,00")).toBeVisible();
+      await expect(fila.getByText("$ 11.400,00")).toBeVisible();
       await capturar(page, "admin-tickets");
     });
   });

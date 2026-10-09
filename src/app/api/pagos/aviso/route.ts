@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { json, problema } from "@/server/api/http";
-import { obtenerFacturador, obtenerPasarela } from "@/server/cobros";
+import { facturadorDeEmisor, obtenerPasarela, pasarelaDeEmisor } from "@/server/cobros";
 import { obtenerDb } from "@/server/db";
 import { facturarOrden } from "@/server/modules/cobros/facturacion";
 import { procesarPago } from "@/server/modules/cobros/pagos";
@@ -17,7 +17,12 @@ const TAMANO_MAXIMO = 16 * 1024;
  *   pasarela reintenta.
  */
 export async function POST(peticion: Request) {
-  const pasarela = obtenerPasarela();
+  // El link de cada orden avisa con su emisor: se valida con la clave de su cuenta.
+  const emisor = new URL(peticion.url).searchParams.get("emisor");
+  const pasarela =
+    emisor && /^[0-9a-f-]{36}$/i.test(emisor)
+      ? await pasarelaDeEmisor(await obtenerDb(), emisor)
+      : obtenerPasarela();
   if (!pasarela) return problema(404, "Pasarela no configurada");
   const cuerpo = await peticion.text();
   if (cuerpo.length > TAMANO_MAXIMO) return problema(413, "Cuerpo demasiado grande");
@@ -43,16 +48,14 @@ export async function POST(peticion: Request) {
       programarEntregaDeEventos();
       // La factura se emite apenas termina la respuesta; si falla, la
       // reintenta el proceso diario.
-      const facturador = obtenerFacturador();
-      if (facturador) {
-        after(async () => {
-          try {
-            await facturarOrden(await obtenerDb(), facturador, pago.ordenId);
-          } catch (error) {
-            console.error("[pagos] no se pudo facturar ahora", error);
-          }
-        });
-      }
+      after(async () => {
+        try {
+          const db = await obtenerDb();
+          await facturarOrden(db, (e) => facturadorDeEmisor(db, e), pago.ordenId);
+        } catch (error) {
+          console.error("[pagos] no se pudo facturar ahora", error);
+        }
+      });
     }
     return json({ resultado });
   } catch (error) {

@@ -16,6 +16,15 @@ export function mensajeRechazoCompra(error: RechazoCompra, detalle?: string): st
       return "Ese medio de pago no está disponible para esta compra. Elegí otro.";
     case "YA_RENOVADO":
       return `${detalle ?? "Un paquete"} ya tiene su renovación generada. Quitalo del carrito para continuar.`;
+    case "SIN_EMISOR":
+      return "Por ahora no podemos tomar tu compra. Escribinos y lo resolvemos.";
+    case "IVA_COND_INVALIDA":
+    case "COMP_NO_HABILITADO":
+      return "Falta definir tu condición frente al IVA para facturarte. Escribinos y lo resolvemos.";
+    case "PLAN_NO_PERMITIDO":
+      return `${detalle ?? "Un paquete"}: el primer alta es por un trimestre y, a partir de ahí, se contrata mensual o anual. Quitalo y elegí la opción que corresponde.`;
+    case "DIA_INVALIDO":
+      return "Ese día de vencimiento no está disponible. Elegí otro.";
     case "ITEM_NO_DISPONIBLE":
       return `${detalle ?? "Un paquete"} ya no está a la venta. Quitalo del carrito para continuar.`;
     default:

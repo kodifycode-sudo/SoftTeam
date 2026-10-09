@@ -9,13 +9,14 @@ import {
   jsonb,
   numeric,
   pgTable,
+  smallint,
   text,
   uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
 import { mediosPago } from "./catalogo";
-import { condicionIva, tipoCliente, tipoInstalacion, tipoPersona } from "./enums";
+import { tipoInstalacion, tipoPersona } from "./enums";
 import { instante, marcasTiempo, pct } from "./tipos";
 
 export interface Domicilio {
@@ -79,6 +80,81 @@ export const provincias = pgTable(
   (t) => [uniqueIndex().on(t.paisId, t.codigo), uniqueIndex().on(t.paisId, t.nombre)],
 );
 
+/**
+ * Condición frente al IVA del receptor (`STLicIVACondiciones`). Alícuota,
+ * comprobante y código ARCA son datos que edita Administración: el cálculo de
+ * la orden los toma de acá. Se dan de baja, no se borran (las órdenes guardan
+ * el código).
+ */
+export const condicionesIva = pgTable(
+  "condiciones_iva",
+  {
+    codigo: varchar({ length: 30 }).primaryKey(),
+    paisId: char({ length: 2 })
+      .notNull()
+      .references(() => paises.id),
+    nombre: varchar({ length: 60 }).notNull(),
+    /** Condición del receptor según ARCA. No es única: monotributo con A y con B comparten el 6. */
+    codigoArca: smallint().notNull(),
+    alicuota: pct().notNull(),
+    /** A discrimina el IVA; B lo incluye; E (exterior) todavía no se emite. */
+    comprobante: char({ length: 1 }).$type<"A" | "B" | "E">().notNull(),
+    activa: boolean().notNull().default(true),
+    orden: smallint().notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex().on(t.paisId, t.nombre),
+    check("comprobante_valido", sql`${t.comprobante} in ('A', 'B', 'E')`),
+    check("alicuota_rango", sql`${t.alicuota} >= 0 and ${t.alicuota} <= 100`),
+  ],
+);
+
+/**
+ * Sociedad de SOFTeam que factura (Mejora v2.1, 5.11): cada cliente tiene un
+ * emisor y la orden lo congela. Cada emisor tiene su propia conexión con Xubio
+ * y con Mercado Pago; los secretos se guardan cifrados (AES-256-GCM).
+ */
+export const emisores = pgTable(
+  "emisores",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    razonSocial: varchar({ length: 120 }).notNull(),
+    cuit: char({ length: 11 }).notNull(),
+    /** Responsable Inscripto o Gran Contribuyente: emite comprobantes A y B. */
+    condicionIva: varchar({ length: 30 })
+      .notNull()
+      .references(() => condicionesIva.codigo),
+    domicilioFiscal: varchar({ length: 160 }).notNull(),
+    paisId: char({ length: 2 })
+      .notNull()
+      .references(() => paises.id),
+    /** Punto de venta de ARCA. */
+    puntoVenta: smallint(),
+    /** El que se propone al crear un cliente del país (a lo sumo uno por país). */
+    preferido: boolean().notNull().default(false),
+    activo: boolean().notNull().default(true),
+    /** Con Xubio la factura se emite sola; sin Xubio, Administración la registra a mano. */
+    xubio: boolean().notNull().default(false),
+    xubioClientId: varchar({ length: 100 }),
+    xubioSecretoCifrado: text(),
+    /** Punto de venta electrónico de la cuenta de Xubio (su id interno). */
+    xubioPuntoVentaId: integer(),
+    xubioProductoId: integer(),
+    xubioCentroCostoId: integer(),
+    /** Sin Mercado Pago no se ofrecen el link de pago ni la suscripción. */
+    mercadoPago: boolean().notNull().default(false),
+    mpAccessTokenCifrado: text(),
+    mpSecretoAvisosCifrado: text(),
+    ...marcasTiempo,
+  },
+  (t) => [
+    uniqueIndex().on(t.cuit),
+    uniqueIndex("emisor_preferido_por_pais")
+      .on(t.paisId)
+      .where(sql`${t.preferido} and ${t.activo}`),
+  ],
+);
+
 export const gruposEconomicos = pgTable("grupos_economicos", {
   id: uuid().primaryKey().defaultRandom(),
   nombre: varchar({ length: 80 }).notNull(),
@@ -105,7 +181,9 @@ export const clientes = pgTable(
     tipoSociedad: varchar({ length: 10 }),
     nombreFactura: varchar({ length: 120 }).notNull(),
     cuit: char({ length: 11 }).notNull(),
-    condicionIva: condicionIva().notNull(),
+    condicionIva: varchar({ length: 30 })
+      .notNull()
+      .references(() => condicionesIva.codigo),
     domicilioFiscal: jsonb().$type<Domicilio>().notNull(),
     domicilioComercial: jsonb().$type<Domicilio>(),
     contactoAdministrador: jsonb().$type<Contacto>().notNull(),
@@ -114,6 +192,14 @@ export const clientes = pgTable(
     grupoId: uuid().references(() => gruposEconomicos.id),
     medioPagoAltaId: uuid().references((): AnyPgColumn => mediosPago.id),
     medioPagoRenovacionId: uuid().references((): AnyPgColumn => mediosPago.id),
+    /**
+     * Modo de facturación (Mejora v2.1, 7.6): 0 pago directo, 1 factura
+     * adelantada, 2 suscripción de Mercado Pago, 3 factura agrupada. Define el
+     * estado inicial de los paquetes, la tolerancia de pago y los medios.
+     */
+    modoFacturacion: smallint().notNull().default(0),
+    /** Sociedad que le factura. `null`: el emisor preferido de su país. */
+    emisorId: uuid().references(() => emisores.id),
     xubioId: varchar({ length: 40 }),
     observaciones: text(),
     /** Observación fija que se imprime en sus comprobantes. */
@@ -121,7 +207,12 @@ export const clientes = pgTable(
     activo: boolean().notNull().default(true),
     ...marcasTiempo,
   },
-  (t) => [uniqueIndex().on(t.numero), uniqueIndex().on(t.cuit), index().on(t.grupoId)],
+  (t) => [
+    uniqueIndex().on(t.numero),
+    uniqueIndex().on(t.cuit),
+    index().on(t.grupoId),
+    check("modo_facturacion_valido", sql`${t.modoFacturacion} between 0 and 3`),
+  ],
 );
 
 /**
@@ -141,7 +232,6 @@ export const empresas = pgTable(
     paisId: char({ length: 2 })
       .notNull()
       .references(() => paises.id),
-    tipoCliente: tipoCliente().notNull().default("DIRECTO"),
     tipoInstalacion: tipoInstalacion().notNull().default("SAAS"),
     activa: boolean().notNull().default(true),
     /** Cambia con cualquier modificación de la empresa o sus datos: dispara la sincronización. */

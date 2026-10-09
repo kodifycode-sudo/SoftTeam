@@ -4,6 +4,7 @@ import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { aTextoDecimal } from "@/domain/dinero";
+import { type ModoFacturacion, NOMBRE_MODO } from "@/domain/facturacion/modo";
 import { porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
@@ -77,6 +78,10 @@ export default async function PaginaMediosPago() {
                   <Habilitado si={m.habilitadoAdicional} texto="Adicional" />
                   <Habilitado si={m.habilitadoRenovacion} texto="Renovación" />
                 </ul>
+                <p className="text-xs text-muted-foreground">
+                  Modos:{" "}
+                  {m.modosFacturacion.map((x) => NOMBRE_MODO[x as ModoFacturacion]).join(", ")}
+                </p>
                 <div className="flex flex-wrap gap-1.5">
                   {m.generaLink && <Badge variant="secondary">Genera link de pago</Badge>}
                   {m.planilla && <Badge variant="secondary">Factura al grupo</Badge>}
@@ -98,6 +103,7 @@ export default async function PaginaMediosPago() {
                       habilitadoAlta: m.habilitadoAlta,
                       habilitadoAdicional: m.habilitadoAdicional,
                       habilitadoRenovacion: m.habilitadoRenovacion,
+                      modosFacturacion: m.modosFacturacion,
                       activo: m.activo,
                       instrucciones: m.instrucciones ?? "",
                     }}

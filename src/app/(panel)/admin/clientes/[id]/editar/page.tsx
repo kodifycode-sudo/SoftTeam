@@ -5,6 +5,8 @@ import { EncabezadoPagina } from "@/components/panel/estructura";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import * as t from "@/server/db/schema";
+import { opcionesCondicionesIva } from "@/server/modules/catalogo/condiciones-iva";
+import { opcionesEmisores } from "@/server/modules/catalogo/emisores";
 import { mediosPagoActivos } from "@/server/modules/catalogo/medios-pago";
 import { nombresDeProvincias } from "@/server/modules/catalogo/paises";
 import { opcionesGrupos } from "@/server/modules/cuentas/grupos";
@@ -17,14 +19,26 @@ export default async function EditarCliente({ params }: PageProps<"/admin/client
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const db = await obtenerDb();
-  const [cliente, grupos, medios, provincias] = await Promise.all([
+  const [cliente, grupos, medios, provincias, condicionesIva, emisores] = await Promise.all([
     db.query.clientes.findFirst({ where: eq(t.clientes.id, id) }),
     opcionesGrupos(db),
     mediosPagoActivos(db),
     // Hoy todos los clientes son de Argentina; con otros países, la del domicilio fiscal.
     nombresDeProvincias(db, "AR"),
+    opcionesCondicionesIva(db, "AR"),
+    opcionesEmisores(db),
   ]);
   if (!cliente) notFound();
+  if (!condicionesIva.some((c) => c.codigo === cliente.condicionIva)) {
+    const actual = await db.query.condicionesIva.findFirst({
+      columns: { nombre: true },
+      where: eq(t.condicionesIva.codigo, cliente.condicionIva),
+    });
+    condicionesIva.push({
+      codigo: cliente.condicionIva,
+      nombre: `${actual?.nombre ?? cliente.condicionIva} (dada de baja)`,
+    });
+  }
 
   return (
     <>
@@ -44,6 +58,8 @@ export default async function EditarCliente({ params }: PageProps<"/admin/client
           grupos={grupos}
           medios={medios}
           provincias={provincias}
+          condicionesIva={condicionesIva}
+          emisores={emisores}
           cliente={{
             id: cliente.id,
             version: cliente.actualizadoEn.toISOString(),
@@ -61,6 +77,8 @@ export default async function EditarCliente({ params }: PageProps<"/admin/client
             grupoId: cliente.grupoId,
             medioPagoAltaId: cliente.medioPagoAltaId,
             medioPagoRenovacionId: cliente.medioPagoRenovacionId,
+            modoFacturacion: cliente.modoFacturacion,
+            emisorId: cliente.emisorId,
             xubioId: cliente.xubioId,
             observacionFactura: cliente.observacionFactura,
             observaciones: cliente.observaciones,

@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Ejecutor } from "@/server/db/cliente";
 import type { Contacto, Domicilio } from "@/server/db/schema";
 import * as t from "@/server/db/schema";
@@ -37,6 +37,10 @@ export interface DatosCliente {
   xubioId?: string | null;
   observaciones?: string | null;
   observacionFactura?: string | null;
+  /** Modo de facturación (0 a 3). Por defecto, pago directo. */
+  modoFacturacion?: number;
+  /** Sociedad que le factura. Por defecto, la preferida de su país. */
+  emisorId?: string | null;
   activo?: boolean;
   /** Número que traía el cliente en el sistema anterior (importación). */
   numero?: number | null;
@@ -44,8 +48,20 @@ export interface DatosCliente {
 
 export async function crearCliente(tx: Ejecutor, datos: DatosCliente) {
   const { numero, ...resto } = datos;
+  const preferido =
+    datos.emisorId === undefined
+      ? await tx.query.emisores.findFirst({
+          columns: { id: true },
+          where: and(
+            eq(t.emisores.paisId, datos.domicilioFiscal.paisId),
+            eq(t.emisores.preferido, true),
+            eq(t.emisores.activo, true),
+          ),
+        })
+      : undefined;
   const valores = {
     ...resto,
+    emisorId: datos.emisorId ?? preferido?.id ?? null,
     nombreFactura: datos.nombreFactura ?? datos.nombre,
     domicilioComercial: datos.domicilioComercial ?? datos.domicilioFiscal,
     contactoPagos: datos.contactoPagos ?? null,
@@ -70,7 +86,6 @@ export interface DatosEmpresa {
   clienteId: string;
   nombre: string;
   nombreCorto?: string;
-  tipoCliente?: "DIRECTO" | "CORPORATIVO";
   tipoInstalacion?: "SAAS" | "ON_PREMISE";
   activa?: boolean;
   paisId?: string;
@@ -90,7 +105,6 @@ export async function crearEmpresa(tx: Ejecutor, datos: DatosEmpresa) {
     nombre: datos.nombre,
     nombreCorto: datos.nombreCorto || nombreCorto(datos.nombre),
     paisId: datos.paisId ?? "AR",
-    tipoCliente: datos.tipoCliente ?? "DIRECTO",
     tipoInstalacion: datos.tipoInstalacion ?? "SAAS",
     activa: datos.activa ?? true,
   };

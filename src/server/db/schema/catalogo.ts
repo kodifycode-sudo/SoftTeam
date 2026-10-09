@@ -123,6 +123,8 @@ export const mediosPago = pgTable(
     habilitadoRenovacion: boolean().notNull().default(true),
     generaLink: boolean().notNull().default(false),
     planilla: boolean().notNull().default(false),
+    /** Modos de facturación con que se puede usar (Mejora v2.1, 6.5). */
+    modosFacturacion: smallint().array().notNull().default(sql`'{0,1,2,3}'`),
     /** Instrucciones al cliente cuando el medio no genera link (datos bancarios, etc.). */
     instrucciones: text(),
     orden: smallint().notNull().default(0),

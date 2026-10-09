@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fecha } from "../fecha";
 import {
   type ContratoVigencia,
-  estadoInicial,
+  estaProrrogado,
   estaVigente,
   periodoAlta,
   periodoRenovacion,
@@ -95,12 +95,33 @@ describe("períodos", () => {
   });
 });
 
-describe("estados", () => {
-  it("el estado inicial depende del tipo de cliente", () => {
-    expect(estadoInicial("DIRECTO")).toBe("PEND_PAGO");
-    expect(estadoInicial("CORPORATIVO")).toBe("PEND_PAGO_ACTIVO");
+describe("prórroga (Mejora v2.1, 7.7)", () => {
+  it("un contrato activo sigue sumando después del vencimiento hasta el fin de la prórroga", () => {
+    const c = temporal({
+      estado: "ACTIVO",
+      desde: fecha("2026-09-01"),
+      hasta: fecha("2026-09-30"),
+      prorrogaHasta: fecha("2026-10-07"),
+    });
+    expect(estaVigente(c, fecha("2026-10-07"))).toBe(true);
+    expect(estaProrrogado(c, fecha("2026-10-07"))).toBe(true);
+    expect(estaVigente(c, fecha("2026-10-08"))).toBe(false);
+    expect(estaProrrogado(c, fecha("2026-09-30"))).toBe(false);
   });
 
+  it("la prórroga solo sostiene contratos activos", () => {
+    const c = temporal({
+      estado: "PEND_PAGO_ACTIVO",
+      pendPagoActivoHasta: null,
+      desde: fecha("2026-09-01"),
+      hasta: fecha("2026-09-30"),
+      prorrogaHasta: fecha("2026-10-07"),
+    });
+    expect(estaVigente(c, fecha("2026-10-02"))).toBe(false);
+  });
+});
+
+describe("estados", () => {
   it("solo permite transiciones definidas", () => {
     expect(puedeTransicionar("PEND_PAGO", "ACTIVO")).toBe(true);
     expect(puedeTransicionar("PEND_PAGO_ACTIVO", "PEND_PAGO")).toBe(true);
