@@ -11,6 +11,7 @@ import {
 } from "@/lib/formulario";
 import { obtenerAuth } from "@/server/auth";
 import { codigoDeError, esErrorDeAuth, esLimiteDeIntentos } from "@/server/auth/errores";
+import { intentoPermitido } from "@/server/auth/limites";
 import { obtenerDb } from "@/server/db";
 import { provinciaValida } from "@/server/modules/catalogo/paises";
 import {
@@ -36,6 +37,12 @@ export async function ingresar(_: EstadoFormulario, formData: FormData): Promise
   const recordar = { email: valores.email ?? "" };
   const datos = esquemaIngreso.safeParse(valores);
   if (!datos.success) return { errores: erroresPorCampo(datos.error), valores: recordar };
+  if (!(await intentoPermitido("ingresar", datos.data.email))) {
+    return {
+      mensaje: "Demasiados intentos. Esperá unos minutos y volvé a probar.",
+      valores: recordar,
+    };
+  }
 
   const auth = await obtenerAuth();
   let esSofteam = false;
@@ -54,9 +61,12 @@ export async function ingresar(_: EstadoFormulario, formData: FormData): Promise
     }
   } catch (error) {
     if (codigoDeError(error) === "EMAIL_NOT_VERIFIED") {
-      await auth.api.sendVerificationOTP({
-        body: { email: datos.data.email, type: "email-verification" },
-      });
+      // Si ya se mandaron varios códigos, se usa el último que llegó.
+      if (await intentoPermitido("enviarCodigo", datos.data.email)) {
+        await auth.api.sendVerificationOTP({
+          body: { email: datos.data.email, type: "email-verification" },
+        });
+      }
       redirect(rutaVerificar(datos.data.email));
     }
     if (esLimiteDeIntentos(error)) {
@@ -104,6 +114,8 @@ export async function verificarSegundoFactor(
   const valores = valoresDe(formData);
   const datos = esquemaSegundoFactor.safeParse(valores);
   if (!datos.success) return { errores: erroresPorCampo(datos.error) };
+  if (!(await intentoPermitido("segundoFactor")))
+    return { mensaje: "Demasiados intentos. Esperá unos minutos y volvé a probar." };
 
   const auth = await obtenerAuth();
   const body = { code: datos.data.codigo, trustDevice: valores.confiar === "on" };
@@ -179,6 +191,11 @@ export async function registrarse(
       valores: recordar,
     };
   }
+  if (!(await intentoPermitido("registrarse")))
+    return {
+      mensaje: "Demasiados intentos. Esperá unos minutos y volvé a probar.",
+      valores: recordar,
+    };
   const { password, confirmacion: _confirmacion, aceptaTerminos: _acepta, ...alta } = datos.data;
 
   const db = await obtenerDb();
@@ -243,6 +260,8 @@ export async function verificarCodigo(
     })
     .safeParse(valoresDe(formData));
   if (!datos.success) return { errores: erroresPorCampo(datos.error) };
+  if (!(await intentoPermitido("verificarCodigo")))
+    return { mensaje: "Demasiados intentos. Esperá unos minutos y volvé a probar." };
 
   const auth = await obtenerAuth();
   let usuarioId: string;
@@ -276,6 +295,9 @@ export async function reenviarCodigo(
 ): Promise<EstadoFormulario> {
   const email = z.email().safeParse(formData.get("email"));
   if (!email.success) return { mensaje: "Falta el mail." };
+  if (!(await intentoPermitido("enviarCodigo", email.data))) {
+    return { mensaje: "Ya te mandamos varios códigos. Esperá unos minutos antes de pedir otro." };
+  }
   try {
     const auth = await obtenerAuth();
     await auth.api.sendVerificationOTP({ body: { email: email.data, type: "email-verification" } });
@@ -303,6 +325,12 @@ export async function pedirCodigoContrasena(
   const valores = valoresDe(formData);
   const email = z.email({ error: "Ingresá tu mail" }).trim().toLowerCase().safeParse(valores.email);
   if (!email.success) return { errores: { email: ["Ingresá tu mail"] }, valores };
+  if (!(await intentoPermitido("enviarCodigo", email.data))) {
+    return {
+      mensaje: "Ya te mandamos varios códigos. Esperá unos minutos antes de pedir otro.",
+      valores,
+    };
+  }
   try {
     const auth = await obtenerAuth();
     await auth.api.requestPasswordResetEmailOTP({ body: { email: email.data } });
@@ -333,6 +361,8 @@ export async function cambiarContrasena(
 ): Promise<EstadoFormulario> {
   const datos = esquemaCambio.safeParse(valoresDe(formData));
   if (!datos.success) return { errores: erroresPorCampo(datos.error) };
+  if (!(await intentoPermitido("verificarCodigo")))
+    return { mensaje: "Demasiados intentos. Esperá unos minutos y volvé a probar." };
   const auth = await obtenerAuth();
   try {
     await auth.api.resetPasswordEmailOTP({

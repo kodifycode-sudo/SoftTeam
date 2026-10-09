@@ -412,7 +412,11 @@ Las barras de uso muestran lo que queda y se pintan con el mismo criterio
 - **Validación con Zod** en todos los bordes: formularios, acciones y API.
 - **Auditoría** de cambios sensibles: precios, bonificaciones, fechas, estados,
   roles. Actor, antes y después, y motivo.
-- Rate limiting en el login y en la API. Headers de seguridad y CSP. Secretos
+- Rate limiting en la API (por sistema y minuto) y en las acciones públicas
+  de ingreso, alta y códigos por mail, por IP y por mail: ingreso 20/min por
+  IP y 10 cada 15 min por mail; envío de códigos 3 cada 10 min por mail y 10
+  por IP; verificación de códigos y segundo factor 10/min por IP; alta 5 cada
+  10 min por IP. Headers de seguridad y CSP. Secretos
   solo en variables de entorno validadas al arrancar.
 
 ---

@@ -1,5 +1,6 @@
 import "server-only";
-import { claveMaestra } from "@/env";
+import { timingSafeEqual } from "node:crypto";
+import { claveMaestra, secretoCron } from "@/env";
 import { obtenerDb } from "@/server/db";
 import type { Db } from "@/server/db/cliente";
 import { autenticarPeticion } from "@/server/modules/integraciones/autenticacion";
@@ -86,6 +87,13 @@ export async function conApiFirmada(
     console.error("[api] error inesperado", error);
     return problema(500, "Error interno");
   }
+}
+
+/** Pedido del planificador (cron): `Authorization: Bearer <CRON_SECRET>`, comparado en tiempo constante. */
+export function esPedidoDelCron(peticion: Request): boolean {
+  const esperado = Buffer.from(`Bearer ${secretoCron}`);
+  const recibido = Buffer.from(peticion.headers.get("authorization") ?? "");
+  return esperado.length === recibido.length && timingSafeEqual(esperado, recibido);
 }
 
 /** Número de empresa de la ruta ("2001"). */

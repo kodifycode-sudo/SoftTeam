@@ -5,6 +5,7 @@ import { avisoDeVencimiento, estadoDeSaldo } from "@/domain/procesos/calendario"
 import { fechaCorta } from "@/lib/formato";
 import type { Db } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
+import { limpiarIntentos } from "@/server/seguridad/intentos";
 import { auditar } from "../auditoria";
 import { NOMBRE_PRODUCTO, usoDeLimites } from "../configuracion/limites";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
@@ -25,6 +26,8 @@ export interface ResumenDiario {
   alertas: Record<string, number>;
   /** Contadores de uso de la API de más de un día, borrados. */
   usoApiBorrado: number;
+  /** Contadores de intentos de ingreso y códigos de más de un día, borrados. */
+  intentosBorrados: number;
 }
 
 /**
@@ -32,7 +35,7 @@ export interface ResumenDiario {
  * nada ni duplica alertas).
  * 1. Vence las excepciones de pago cuyo plazo terminó.
  * 2. Genera las alertas del día.
- * 3. Borra los contadores viejos del límite de la API.
+ * 3. Borra los contadores viejos del límite de la API y de los intentos.
  */
 export async function procesoDiario(db: Db, hoy: Fecha): Promise<ResumenDiario> {
   const excepcionesVencidas = await vencerExcepciones(db, hoy);
@@ -49,7 +52,8 @@ export async function procesoDiario(db: Db, hoy: Fecha): Promise<ResumenDiario> 
   await alertasDeSaldo(db, porcentajeBajo, contar);
   await alertasDeEmpresa(db, hoy, contar);
   const usoApiBorrado = await limpiarUsoApi(db);
-  return { excepcionesVencidas, alertas, usoApiBorrado };
+  const intentosBorrados = await limpiarIntentos(db);
+  return { excepcionesVencidas, alertas, usoApiBorrado, intentosBorrados };
 }
 
 /** PEND_PAGO_ACTIVO con plazo vencido → PEND_PAGO: deja de sumar a la licencia. */
