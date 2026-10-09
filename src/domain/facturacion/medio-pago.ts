@@ -28,7 +28,7 @@ const HABILITADO_POR_INSTANCIA: Record<Instancia, (m: MedioPago) => boolean> = {
 };
 
 /**
- * Un medio es utilizable solo si pasa TODAS las condiciones. (En la KB, una
+ * Un medio es utilizable solo si pasa TODAS las condiciones. (En SOFTeam, una
  * cadena de If sueltos terminaba en un Else que lo habilitaba igual.)
  */
 export function validarMedioPago(

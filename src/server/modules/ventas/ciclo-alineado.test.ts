@@ -58,7 +58,7 @@ async function empresaAlineada(modoFacturacion: 0 | 1 | 2 | 3 = 0) {
   return { empresa, cliente, contrato };
 }
 
-describe("ciclo mensual alineado (Mejora v2.1, 8.8 a 8.13)", () => {
+describe("ciclo mensual alineado", () => {
   it("adicional: cobra el tramo hasta el vencimiento del cliente y no acepta el trimestral", async () => {
     const { empresa } = await empresaAlineada();
     await agregar(empresa.id, "CW-PRO", "Trimestral inicial");

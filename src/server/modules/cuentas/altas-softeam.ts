@@ -43,7 +43,7 @@ const empresa = z.object({
   tipoInstalacion: z.enum(["SAAS", "ON_PREMISE"]),
 });
 
-/** Modo de facturación del cliente (Mejora v2.1, 7.6). */
+/** Modo de facturación del cliente. */
 export const campoModoFacturacion = z.coerce
   .number({ error: "Elegí el modo de facturación" })
   .int()

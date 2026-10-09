@@ -22,7 +22,7 @@ export type ErrorPlazosContrato = "NO_EXISTE" | "ESTADO_INVALIDO" | "PRORROGA_AN
 
 /**
  * Administración extiende o acorta la tolerancia de pago de un contrato
- * (Mejora v2.1, 7.7): la prórroga de un contrato activo cuya renovación está
+ *: la prórroga de un contrato activo cuya renovación está
  * impaga, o el plazo de uno habilitado sin pago. Rige en el acto para la
  * licencia y queda auditado con su motivo.
  */

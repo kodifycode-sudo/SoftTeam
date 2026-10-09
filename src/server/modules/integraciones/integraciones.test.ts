@@ -23,7 +23,7 @@ beforeAll(async () => {
   actorId = (await db.query.usuarios.findFirst())!.id;
 });
 
-/** Empresa con cupo mensual (BienSeguro: 1.000/mes) y saldo prepago (10.000). */
+/** Empresa con cupo mensual (BienSeguro: 1.000/mes) y saldo prepago. */
 async function empresaConCreditos() {
   const { empresa, orden } = await crearEmpresaDePrueba(db);
   const ctx = { empresaId: empresa.id, ordenId: orden.id };

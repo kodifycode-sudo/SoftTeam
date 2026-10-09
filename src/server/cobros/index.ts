@@ -56,7 +56,7 @@ export function obtenerFacturador(): Facturador | null {
 }
 
 /**
- * Pasarela del emisor de una orden (Mejora v2.1, 5.11): su cuenta de Mercado
+ * Pasarela del emisor de una orden: su cuenta de Mercado
  * Pago o, si no cargó credenciales propias, la del entorno. Sin conexión con
  * Mercado Pago no hay link de pago. Sin emisor (órdenes viejas), la del entorno.
  */

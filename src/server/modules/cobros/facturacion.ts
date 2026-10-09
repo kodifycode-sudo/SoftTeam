@@ -26,7 +26,7 @@ export type ResultadoFactura =
     };
 
 /**
- * Un facturador fijo, o el del emisor de cada orden (Mejora v2.1, 5.11).
+ * Un facturador fijo, o el del emisor de cada orden.
  * `null`: el emisor no tiene Xubio y la factura se registra a mano.
  */
 export type FuenteFacturador =
@@ -34,8 +34,7 @@ export type FuenteFacturador =
   | ((emisorId: string | null) => Promise<Facturador | null>);
 
 /**
- * Pagadas, o pendientes de los modos con factura adelantada (Mejora v2.1,
- * 7.6: modos 1 y 3, la factura se emite al confirmar y el pago llega después).
+ * Pagadas, o pendientes de los modos con factura adelantada (: modos 1 y 3, la factura se emite al confirmar y el pago llega después).
  */
 const facturable = or(
   eq(t.ordenes.estado, "PAGADA"),
@@ -212,7 +211,7 @@ export type ErrorFacturaManual = "NO_EXISTE" | "YA_FACTURADA" | "NO_FACTURABLE";
 
 /**
  * Registra una factura emitida fuera del sistema, directamente en ARCA (emisor
- * sin Xubio, Mejora v2.1 5.11). Vale para las mismas órdenes que se facturan
+ * sin Xubio). Vale para las mismas órdenes que se facturan
  * solas: pagadas, o pendientes con factura adelantada.
  */
 export async function registrarFacturaManual(
@@ -255,7 +254,7 @@ export async function registrarFacturaManual(
 }
 
 /**
- * Historial facturado de un cliente (Mejora v2.1, 5.11): sus órdenes con
+ * Historial facturado de un cliente: sus órdenes con
  * factura, de todos los emisores que tuvo, con el emisor congelado en cada una.
  */
 export function historialFacturado(db: Ejecutor, clienteId: string, limite = 50) {

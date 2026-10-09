@@ -79,7 +79,7 @@ export async function cambiarRenovacionAutomatica(
           eq(t.contratos.empresaId, empresaId),
           // Un delegado solo decide sobre los paquetes de sus oficinas.
           oficinaEnAlcance(t.contratos.oficinaId, alcance),
-          // Temporales por vencimiento; consumibles por saldo (Mejora v2.1, 8.15).
+          // Temporales por vencimiento; consumibles por saldo.
           inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
         ),
       )

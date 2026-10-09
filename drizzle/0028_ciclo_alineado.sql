@@ -1,4 +1,4 @@
--- Ciclo mensual alineado (Mejora v2.1, 8.2 a 8.18): día de vencimiento y tramo
+-- Ciclo mensual alineado: día de vencimiento y tramo
 -- prorrateado de cada contrato; la orden es opcional para las altas a grupo
 -- que esperan la orden colectiva; corridas los días 2 y 11; alerta de
 -- renovaciones a negociar; plan trimestral para el alta inicial.
@@ -9,11 +9,11 @@ ALTER TABLE "contratos" ADD COLUMN "prorrata_hasta" date;--> statement-breakpoin
 ALTER TABLE "contratos" ADD COLUMN "prorrata_dias" smallint DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE "contratos" ADD COLUMN "prorrata_importe" numeric(14, 2) DEFAULT 0 NOT NULL;--> statement-breakpoint
 -- Contratos existentes: 20 si ya vencen ese día; 10 en los demás (se alinean
--- con un tramo en la próxima renovación). Plan de implementación v2.1, Anexo C.
+-- con un tramo en la próxima renovación).
 UPDATE "contratos" SET "dia_venc" = CASE WHEN extract(day from "hasta") = 20 THEN 20 ELSE 10 END
 WHERE "tipo_paquete" = 'TEMPORAL';--> statement-breakpoint
 UPDATE "parametros" SET "valor" = '[2, 11]'::jsonb WHERE "clave" = 'renovacion.dias_corte';--> statement-breakpoint
--- Plan trimestral para el alta inicial (8.18) en los paquetes temporales con
+-- Plan trimestral para el alta inicial en los paquetes temporales con
 -- plan mensual: tres meses al precio de compra mensual. Administración lo ajusta.
 INSERT INTO "alternativas" ("paquete_id", "nombre", "meses", "precio_compra", "precio_renovacion", "orden")
 SELECT DISTINCT ON (a."paquete_id") a."paquete_id", 'Trimestral inicial', 3, a."precio_compra" * 3, a."precio_compra" * 3, -1

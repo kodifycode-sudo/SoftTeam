@@ -103,7 +103,7 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
   const diaPedido = Number(texto(sp.dia)) || undefined;
   const db = await obtenerDb();
   const items = await listarCarrito(db, contexto.empresaId, oficinaId);
-  // Ticket nominado por SOFTeam para la próxima compra (Mejora v2.1, 8.17).
+  // Ticket nominado por SOFTeam para la próxima compra.
   const propuesto =
     escrito || descartado || items.length === 0
       ? null

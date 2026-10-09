@@ -249,7 +249,7 @@ export const documentoOpenApi = {
       get: {
         summary: "Estructura completa de la empresa (EmpresaFull_V1)",
         description:
-          "Empresa, canales, oficinas (con `notifica`: si envía notificaciones, ya combinado con la política de la empresa), usuarios con sus accesos, aseguradoras, productores con sus códigos, políticas, marca blanca (nombre comercial, colores, logo, textos y contacto; `null` si la empresa no la configuró) y tipos de comunicación (`comunicaciones`: medios y reglas de origen, destinos y autorizantes; cada tipo de usuario con su nombre y el código de la KB).",
+          "Empresa, canales, oficinas (con `notifica`: si envía notificaciones, ya combinado con la política de la empresa), usuarios con sus accesos, aseguradoras, productores con sus códigos, políticas, marca blanca (nombre comercial, colores, logo, textos y contacto; `null` si la empresa no la configuró) y tipos de comunicación (`comunicaciones`: medios y reglas de origen, destinos y autorizantes; cada tipo de usuario con su nombre y el código de SOFTeam).",
         parameters: [...cabecerasFirma, numero],
         responses: {
           "200": { description: "EmpresaFull_V1" },

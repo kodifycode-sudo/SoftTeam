@@ -33,7 +33,7 @@ test.describe
 
       await page.goto("/portal/carrito");
       await expect(page.getByText("Prodigal Inicial", { exact: true })).toBeVisible();
-      // El primer alta es un trimestre (Mejora v2.1, 8.18).
+      // El primer alta es un trimestre.
       await expect(page.getByText(/Tu primer alta es por un trimestre/)).toBeVisible();
       await expect(page.getByRole("list", { name: "Día de vencimiento" })).toHaveCount(0);
       // Medio sin ajuste, para verificar el cálculo: 2 × 114.000 + 30.000 = 258.000 + 21 % IVA.

@@ -41,7 +41,7 @@ const entrada = (parcial: Partial<Parameters<typeof evaluarTicket>[0]> = {}) => 
   ...parcial,
 });
 
-describe("evaluarTicket (Mejora v2.1, 9.6)", () => {
+describe("evaluarTicket", () => {
   it("devuelve el porcentaje y el saldo del tope", () => {
     expect(evaluarTicket(entrada())).toEqual({
       ok: true,
@@ -120,7 +120,7 @@ describe("evaluarTicket (Mejora v2.1, 9.6)", () => {
   });
 });
 
-describe("el ticket como saldo en la serie (9.2 y 9.3)", () => {
+describe("el ticket como saldo en la serie", () => {
   it("el saldo es el tope menos lo descontado; tope 0 es sin tope", () => {
     expect(saldoDeTicket(centavos("15000"), centavos("12000"))).toBe(centavos("3000"));
     expect(saldoDeTicket(centavos("15000"), centavos("20000"))).toBe(0n);

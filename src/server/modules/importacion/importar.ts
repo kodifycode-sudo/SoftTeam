@@ -88,7 +88,7 @@ export async function importar(
   }
   resultado.filas = tabla.filas.length;
 
-  // Títulos → campos, por cualquiera de sus nombres (KB o simples).
+  // Títulos → campos, por cualquiera de sus nombres (los de SOFTeam o simples).
   const porAlias = new Map<string, string>();
   for (const c of definicion.columnas) {
     for (const alias of c.alias) porAlias.set(normalizarTitulo(alias), c.campo);

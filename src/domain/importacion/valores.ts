@@ -30,7 +30,7 @@ const ALIAS_CONDICIONES: Record<string, string> = {
   gc: "GRAN_CONTRIBUYENTE",
 };
 
-/** Códigos del dominio IVACod de la KB (Mejora v2.1, 2.9): son los que trae la exportación. */
+/** Códigos del dominio IVACod de SOFTeam: son los que trae la exportación. */
 const CODIGOS_KB: Record<string, string> = {
   "1": "RESPONSABLE_INSCRIPTO",
   "2": "CONSUMIDOR_FINAL",
@@ -41,7 +41,7 @@ const CODIGOS_KB: Record<string, string> = {
 };
 
 /**
- * Condición de IVA: código de la KB (1 a 6), abreviatura (RI, MT, EX, CF,
+ * Condición de IVA: código de SOFTeam (1 a 6), abreviatura (RI, MT, EX, CF,
  * GC), o el código o el nombre de una condición configurada. Solo devuelve
  * condiciones activas.
  */

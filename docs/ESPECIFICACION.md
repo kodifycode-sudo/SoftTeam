@@ -1,11 +1,8 @@
-# STLic — Especificación consolidada
+# STLic — Especificación funcional
 
 Plataforma de cuentas, licencias, consumos y cobranza de SOFTeam.
-Fuente única de verdad del sistema nuevo. Reemplaza a los documentos de GeneXus
-(Especificación Etapa 1 v3, Anexos de Atributos y Paneles, Mejora v2 y la
-presentación conceptual): toma la última versión de cada regla y la mejora
-donde el diseño original tenía un defecto. Cada desvío respecto de los
-documentos está marcado con **[Cambio]** y su motivo.
+Fuente única de verdad del sistema: cada regla de negocio está escrita acá y,
+cuando cambia, se actualiza en este documento.
 
 ---
 
@@ -34,17 +31,17 @@ por oficina) y **Productos** (clientes de la API).
 
 ---
 
-## 2. Decisiones que cierran contradicciones entre documentos
+## 2. Decisiones de diseño
 
-| Tema | Documentos | Decisión |
-|---|---|---|
-| Pasarela | Presentación: WooCommerce. v3: WooCommerce descartado | MercadoPago + Xubio. Sin WooCommerce. |
-| Prórroga | v3: estado `PRORROGADO` automático a +7 o +30 días. Mejora v2: la elimina. **Mejora v2.1 (7.7): vuelve como tolerancia de pago por modo** | **[Cambio 09/10/2026]** Tolerancia de pago según el modo de facturación (ver 4.6). Prorrogado no es un estado guardado: es un contrato `ACTIVO` vencido que sigue sumando hasta `prorroga_hasta` mientras su renovación espera el pago (la vigencia se sigue calculando por fechas, sin depender del proceso diario). Al pagarse la renovación, deja de estar prorrogado. |
-| Tipo de cliente | DIRECTO / CORPORATIVO / GRUPOS / DISTRIBUIDOR. Mejora v2.1: lo reemplaza el modo de facturación del cliente | **[Cambio 09/10/2026]** Tres ejes independientes (Mejora v2.1 cap. 7): **modo de facturación** del cliente (4.6), **grupo económico** (organización y reportes) y **facturación consolidada** (grupo con cliente de facturación + medio de pago de planilla). El tipo DIRECTO/CORPORATIVO de la empresa se eliminó: DIRECTO equivale al modo 0 y CORPORATIVO, al 3. |
-| Detalle de orden | Atributos: `OrdenDetalle`. v3: sin detalle | **[Cambio]** Hay tabla `orden_item`: cada línea congela precio de lista, bonificación, precio final y el total prorrateado. Lo necesita la factura y la orden agrupada, que mezcla empresas. |
-| Carrito | v3: filas `BORRADOR` en PaquetesxEmpresa. KB: sesión web | **[Cambio]** Tabla `carrito_item` persistente por empresa. Los contratos recién existen al confirmar, así no hay filas borrador mezcladas con contratos reales y el carrito sobrevive entre dispositivos. |
-| Licencia por oficina | Presentación: empresa + oficina. v3: empresa | Ver sección 4.3: la licencia es de la **empresa**. Un contrato puede estar **asignado a una oficina**, solo para consumos y para la oficina que compra por su cuenta. |
-| Fecha de inicio | Presentación: 30 días de regalo y la renovación empalma. KB: desde hoy | Alta: **desde el día de activación** (sección 4.2). Renovación: **empalma** con el fin del contrato anterior. Sin días de regalo. |
+| Tema | Decisión |
+|---|---|
+| Pasarela | MercadoPago + Xubio. Sin WooCommerce. |
+| Prórroga | Tolerancia de pago según el modo de facturación (ver 4.6). Prorrogado no es un estado guardado: es un contrato `ACTIVO` vencido que sigue sumando hasta `prorroga_hasta` mientras su renovación espera el pago (la vigencia se sigue calculando por fechas, sin depender del proceso diario). Al pagarse la renovación, deja de estar prorrogado. |
+| Tipo de cliente | Tres ejes independientes: **modo de facturación** del cliente (4.6), **grupo económico** (organización y reportes) y **facturación consolidada** (grupo con cliente de facturación + medio de pago de planilla). No hay un tipo de cliente aparte: el pago directo es el modo 0 y la factura agrupada, el 3. |
+| Detalle de orden | Hay tabla `orden_item`: cada línea congela precio de lista, bonificación, precio final y el total prorrateado. Lo necesita la factura y la orden agrupada, que mezcla empresas. |
+| Carrito | Tabla `carrito_item` persistente por empresa. Los contratos recién existen al confirmar, así no hay filas borrador mezcladas con contratos reales y el carrito sobrevive entre dispositivos. |
+| Licencia por oficina | Ver sección 4.3: la licencia es de la **empresa**. Un contrato puede estar **asignado a una oficina**, solo para consumos y para la oficina que compra por su cuenta. |
+| Fecha de inicio | Alta: **desde el día de activación** (sección 4.2). Renovación: **empalma** con el fin del contrato anterior. Sin días de regalo. |
 
 ---
 
@@ -66,11 +63,10 @@ MedioPago, Ticket ──< TicketPaquete, Parametro, Alerta, JobRun,
 EventoSalida (outbox), ApiCliente, Auditoria
 ```
 
-### 3.1 Recursos genéricos en lugar de columnas fijas — [Cambio]
+### 3.1 Recursos genéricos en lugar de columnas fijas
 
-GeneXus tenía unas 30 columnas fijas por paquete (`ProdigalUsrCant`,
-`CWPresuMesCant`…). Agregar un producto o un límite obligaba a cambiar tablas,
-pantallas y APIs.
+Con columnas fijas por paquete (`ProdigalUsrCant`, `CWPresuMesCant`…),
+agregar un producto o un límite obligaría a cambiar tablas, pantallas y APIs.
 
 Ahora los límites son datos: un catálogo de **recursos**, y cada paquete declara
 cantidades de algunos de ellos.
@@ -93,11 +89,11 @@ Reglas del paquete:
 - **Reglas derivadas** declarativas: por ejemplo, la emisión de CotiWeb se
   habilita con 4 o más usuarios de CotiWeb.
 
-### 3.2 Cantidad — [Cambio]
+### 3.2 Cantidad
 
 Un contrato tiene `cantidad` de unidades. **Multiplica límites y precio, nunca
-la duración.** La KB multiplicaba también los meses: 3 unidades de un plan anual
-daban 36 meses con el triple de usuarios.
+la duración.** Si multiplicara los meses, 3 unidades de un plan anual darían
+36 meses con el triple de usuarios.
 
 ---
 
@@ -106,7 +102,7 @@ daban 36 meses con el triple de usuarios.
 ### 4.1 Estados del contrato
 
 El **estado** refleja la situación de pago. La **vigencia** se calcula por fechas.
-Son dos conceptos separados — **[Cambio]**.
+Son dos conceptos separados.
 
 | Estado | Significado | ¿Suma a la licencia? |
 |---|---|---|
@@ -117,17 +113,16 @@ Son dos conceptos separados — **[Cambio]**.
 | `BAJA` | Dado de baja manualmente antes de tiempo | No |
 
 "Vencido" no es un estado: es `hoy > hasta`. Por eso la licencia es correcta a
-cualquier hora, sin depender de que haya corrido el proceso diario (en la KB, un
-paquete vencido seguía sumando hasta la corrida del día siguiente).
+cualquier hora, sin depender de que haya corrido el proceso diario: un paquete
+vencido deja de sumar en el acto, no en la corrida del día siguiente.
 
 **Vigente(hoy)** =
 - estado `ACTIVO`, o `PEND_PAGO_ACTIVO` con `pendPagoActivoHasta` nula o ≥ hoy; **y**
 - si es temporal: `desde ≤ hoy ≤ hasta`; si es consumible: saldo > 0.
 
-**[Cambio]** `PEND_PAGO_ACTIVO` también exige estar dentro del período. La regla
-del documento v2 solo miraba la fecha límite: un contrato corporativo impago de
-un período ya terminado habría seguido sumando para siempre, encima de su
-renovación. Resultado: licencias duplicadas.
+`PEND_PAGO_ACTIVO` también exige estar dentro del período. Si solo se mirara la
+fecha límite, un contrato impago de un período ya terminado seguiría sumando
+para siempre, encima de su renovación, y duplicaría la licencia.
 
 ### 4.2 Fechas
 
@@ -144,7 +139,7 @@ renovación. Resultado: licencias duplicadas.
 - **Renovación:** empalma con el contrato anterior. No se pierden ni se
   superponen días, aunque se pague tarde.
 
-#### 4.2.1 Ciclo mensual alineado (Mejora v2.1, 8.8 a 8.18) — [Cambio 09/10/2026]
+#### 4.2.1 Ciclo mensual alineado
 
 Los paquetes temporales de un cliente vencen el mismo día del mes, 10 o 20
 (`renovacion.dias_vencimiento`); `hasta` es ese día y el período siguiente
@@ -153,7 +148,7 @@ precio × días / divisor (365 si el plan es anual; 30 por mes en otro caso),
 redondeado a centavos, con la cascada completa (bonificación, ticket, ajuste
 del medio e IVA). Cálculo único en `src/domain/licencias/periodo.ts`.
 
-- **Planes (8.18):** mensual (1), anual (12) y **trimestral inicial** (3). El
+- **Planes:** mensual (1), anual (12) y **trimestral inicial** (3). El
   primer alta temporal de un cliente no agrupado es siempre trimestral, se
   factura completa y nace **sin día de vencimiento**; después, solo mensual o
   anual. El catálogo del portal ofrece lo que corresponde y la cotización lo
@@ -173,13 +168,13 @@ del medio e IVA). Cálculo único en `src/domain/licencias/periodo.ts`.
   clientes agrupados (fijo, `renovacion.dia_vencimiento_grupo`, 10). Una vez
   generada la orden automática, solo Administración puede cancelarla y
   reemitirla con otro día.
-- **Trimestre inicial (8.11):** no se renueva solo ni desde el portal. Lo
+- **Trimestre inicial:** no se renueva solo ni desde el portal. Lo
   negocia Administración (medio, mensual o anual y día) y emite la orden con
   el tramo más el período desde la orden manual de SOFTeam (sección 6). El
   tablero "Para negociar" lista los trimestres del mes y enlaza con esa
   orden. Si no se acuerda a tiempo, sigue las reglas de vencimiento de su
   modo.
-- **Altas a grupo (8.12):** el cliente agrupado que paga por planilla no genera
+- **Altas a grupo:** el cliente agrupado que paga por planilla no genera
   una orden al confirmar. El contrato se graba con su tramo, **sin orden**, y
   la orden colectiva de la próxima corrida lo incorpora junto con las
   renovaciones del grupo (una orden por factura); como vence ese día, la misma
@@ -246,7 +241,7 @@ ya está hecho y probado; habilitarlo es cambiar el parámetro a `true`.
   y rechaza un movimiento de saldo de un recurso que el contrato no tiene.
 - **Cupo mensual:** disponible = cupo del mes − consumido en el mes. **No hay
   proceso de reposición**: el mes nuevo empieza con el consumo en cero. Se elimina
-  un job y su riesgo de no correr — **[Cambio]**.
+  un job y su riesgo de no correr.
 - **Orden de débito:** cupo mensual antes que saldo prepago; contratos de la
   oficina antes que los de la empresa; dentro de cada grupo, el más antiguo
   primero (FIFO).
@@ -263,7 +258,7 @@ ya está hecho y probado; habilitarlo es cambiar el parámetro a `true`.
   `consumibles.espera_ms`; con `NO_ESPERAR` responde `EN_CURSO_REINTENTAR` y el
   producto reintenta con la misma transacción.
 
-#### 4.4.1 Consumibles (Mejora v2.1, 8.15 y 8.16) — [Cambio 09/10/2026]
+#### 4.4.1 Consumibles
 
 - **Quién consume qué:** presupuestos (cotizaciones) solo CotiWeb; los tickets
   de soporte solo STLic, al abrir un pedido. El producto del sistema que pide
@@ -308,7 +303,7 @@ interfaces de los licenciados, avisa qué vence, cuándo y cómo quedaría, para
 que renueve o elija qué dar de baja a tiempo. Una renovación ya vigente para
 esa fecha evita el aviso.
 
-### 4.6 Modo de facturación y tolerancia de pago (Mejora v2.1, 6.5, 7.6 y 7.7) — [Cambio 09/10/2026]
+### 4.6 Modo de facturación y tolerancia de pago
 
 Cada cliente tiene un modo de facturación; en las órdenes agrupadas rige el del
 cliente de facturación del grupo. El comportamiento de cada modo es fijo; la
@@ -338,9 +333,8 @@ Administración.
 - El alta en línea nace en el modo 0. SOFTeam elige el modo en el alta y en la
   edición del cliente; los medios preferidos tienen que estar habilitados para
   ese modo.
-- *Pendiente (fase F4):* la planilla no está habilitada para el alta inicial,
-  así que un cliente nuevo del modo 3 compra su primer paquete como alta a
-  grupo (Mejora v2.1, 8.12).
+- La planilla no está habilitada para el alta inicial: un cliente nuevo del
+  modo 3 que paga por planilla compra su primer paquete como alta a grupo.
 
 ---
 
@@ -367,12 +361,12 @@ prorrateo    = total repartido entre los ítems proporcional a su precioFinal
 
 - **Importes en centavos enteros** (`bigint`). Los porcentajes se guardan en
   centésimos de punto (2 decimales). **Sin punto flotante en ningún cálculo** —
-  **[Cambio]**.
+ .
 - **Redondeo:** en cada paso, a 2 decimales, mitad alejándose de cero.
-- **Prorrateo por restos mayores** — **[Cambio]**. Reparte el redondeo entre los
+- **Prorrateo por restos mayores**. Reparte el redondeo entre los
   ítems con mayor resto, en lugar de cargarlo todo al último. La suma da el total
   exacto también con muchos ítems o con ítems en cero.
-- **Condición frente al IVA (Mejora v2.1, 2.8 a 2.11) — [Cambio 09/10/2026]:**
+- **Condición frente al IVA:**
   la alícuota, el tipo de comprobante y el código ARCA salen de la condición
   del cliente de facturación, configurable por Administración en *Países y
   monedas → Condiciones frente al IVA* (tabla `condiciones_iva`, por país).
@@ -380,7 +374,7 @@ prorrateo    = total repartido entre los ítems proporcional a su precioFinal
   ARCA 1), Monotributo con Factura B o con Factura A (ARCA 6), Exento (B, ARCA
   4), Consumidor Final (B, ARCA 5), todas al 21 %; Cliente del Exterior (E,
   0 %) dada de baja. **El exento paga IVA:** la exención es de sus ventas, no
-  de lo que compra (la v2.0 decía 0 %). No hay condición por defecto: sin
+  de lo que compra. No hay condición por defecto: sin
   condición activa la orden se rechaza (`IVA_COND_INVALIDA`) y el comprobante
   E todavía no se emite (`COMP_NO_HABILITADO`). La orden congela condición,
   código ARCA, comprobante y alícuota: un cambio en la tabla rige para las
@@ -430,7 +424,7 @@ cantidad de reenvíos del link.
 Cualquier cambio de medio de pago, ticket o bonificación mientras está
 `PEND_PAGO` recalcula la orden e invalida el link de pago vigente.
 
-**Órdenes sin importe (Mejora v2.1, 5.9):** si el total da cero (paquetes
+**Órdenes sin importe:** si el total da cero (paquetes
 bonificados al 100 % o un ticket del 100 %), la orden queda `PAGADA` en el
 acto, sus contratos se activan y no se genera link ni factura. Vale para el
 carrito, la renovación automática y la bonificación de SOFTeam.
@@ -440,7 +434,7 @@ carrito, la renovación automática y la bonificación de SOFTeam.
 ## 6. Renovación, tickets y facturación consolidada
 
 - **Generación quincenal** (idempotente, días de corte configurables:
-  `renovacion.dias_corte`, 2 y 11 — [Cambio 09/10/2026], Mejora v2.1 8.2).
+  `renovacion.dias_corte`, 2 y 11).
   El día 2 renueva los contratos que vencen del 3 al 12 del mes (los alineados
   al 10); el día 11, los que vencen del 13 al 2 del mes siguiente (los
   alineados al 20). Los rangos cubren todos los días del mes, porque siguen
@@ -480,7 +474,7 @@ carrito, la renovación automática y la bonificación de SOFTeam.
     de la fecha de cobro.
   - No consolida vencimientos automáticamente. Un contrato marcado **"no
     renovar"** se omite.
-- **Tickets (Mejora v2.1, capítulo 9 y 8.17) — [Cambio 09/10/2026]:**
+- **Tickets:**
   - **El ticket como saldo:** porcentaje con tope (0 = sin tope). El tope se
     consume en toda la serie: la orden donde se aplica y las renovaciones
     automáticas que la siguen heredan el ticket **sin revalidarlo** durante
@@ -500,11 +494,11 @@ carrito, la renovación automática y la bonificación de SOFTeam.
     renovaciones es el mismo uso. Una orden pendiente lo bloquea; cancelada,
     lo libera.
   - Un solo ticket por orden.
-  - **Ticket nominado (8.17):** Administración lo crea para un cliente, con
+  - **Ticket nominado:** Administración lo crea para un cliente, con
     observaciones obligatorias. El carrito del cliente lo propone en su próxima
     compra y el cliente puede quitarlo.
-- **Orden manual de SOFTeam (Mejora v2.1, 8.11, 8.12, 8.17 y 11.8) —
-  [Cambio 09/10/2026]:** Administración la arma desde la ficha del cliente
+- **Orden manual de SOFTeam —
+ ** Administración la arma desde la ficha del cliente
   (*Orden manual*), con la misma cotización que el carrito y además: paquetes
   privados; bonificación por paquete con motivo (recurrente o no); cualquier
   medio de pago habilitado para el país, el modo y el emisor, sin las marcas
@@ -541,7 +535,7 @@ período). Reejecutar un día no duplica nada.
 | Entrega de eventos | Continuo, con reintentos | Envía webhooks desde el outbox, con reintento y backoff |
 | Recordatorios de cobro | Configurable (10, 20 y 28) | Avisos de órdenes impagas y semáforo de antigüedad (10 y 21 días) |
 
-**Tablero de SOFTeam al ingresar (Mejora v2.1, 11.7) — [Cambio 09/10/2026].**
+**Tablero de SOFTeam al ingresar.**
 Cajas con contador que abren la grilla de cada caso: renovaciones a negociar
 (trimestres que vencen hasta fin de mes o ya vencidos, con semáforo: rojo
 vencido, amarillo dentro de `tablero.dias_semaforo` días, verde el resto),
@@ -587,8 +581,7 @@ Las barras de uso muestran lo que queda y se pintan con el mismo criterio
   usuario, en una capa de acceso a datos central.
 - **API para productos:** cada sistema tiene su clave. Las peticiones van firmadas
   con HMAC-SHA256 sobre método, ruta, timestamp y hash del cuerpo, con una
-  ventana anti-replay de 5 minutos. Los webhooks de salida se firman igual. Esto
-  reemplaza la "firma" genérica de los documentos.
+  ventana anti-replay de 5 minutos. Los webhooks de salida se firman igual.
 - **Validación con Zod** en todos los bordes: formularios, acciones y API.
 - **Auditoría** de cambios sensibles: precios, bonificaciones, fechas, estados,
   roles. Actor, antes y después, y motivo.
@@ -630,7 +623,7 @@ Las barras de uso muestran lo que queda y se pintan con el mismo criterio
   simulador en desarrollo. A Xubio se informa la condición congelada en la
   orden (por su código ARCA), no la actual del cliente. Las órdenes sin
   importe no se facturan.
-- **Emisores (Mejora v2.1, 5.11) — [Cambio 09/10/2026]:** SOFTeam factura
+- **Emisores:** SOFTeam factura
   desde más de una sociedad. Administración las carga en *Panel SOFTeam →
   Emisores*: razón social, CUIT, condición (Responsable Inscripto o Gran
   Contribuyente), domicilio, país, punto de venta, preferido (uno por país) y
@@ -650,12 +643,10 @@ Las barras de uso muestran lo que queda y se pintan con el mismo criterio
     (`A-0001-00001234`) y su fecha en la orden.
   - Historial facturado en la ficha del cliente: sus órdenes facturadas con el
     emisor, el comprobante y el importe.
-  - Separación de órdenes (8.19): una orden por cliente de facturación,
+  - Separación de órdenes: una orden por cliente de facturación,
     empresa y medio de pago (la orden agrupada mezcla empresas); se cumple con
     el carrito de una empresa y un medio y con la agrupación de la
-    renovación. *Pendiente:* cambiar el emisor de una orden ya emitida (hoy se
-    cancela y se vuelve a generar) y el control de suscripciones activas al
-    cambiar el emisor del cliente (todavía no hay suscripciones).
+    renovación.
 - **Email:** Resend + React Email (alertas, links de pago, verificación).
 
 ---
@@ -694,19 +685,16 @@ Regla de dependencias: `domain` no importa nada del resto.
 
 ---
 
-## 11. Plan por fases
+## 11. Funcionalidades
 
-1. ✅ **Base:** proyecto, dominio con tests, esquema de datos, auth y roles, layout.
-2. ✅ **Catálogo y cuentas:** paquetes y alternativas (ABM), medios de pago,
+1. **Base:** proyecto, dominio con tests, esquema de datos, auth y roles, layout.
+2. **Catálogo y cuentas:** paquetes y alternativas (ABM), medios de pago,
    clientes y empresas (consulta), oficinas y canales, alta en línea con
    verificación del mail, portal del cliente.
    Edición de los datos del cliente (fiscales, domicilios, contactos, grupo,
    medios de pago, notas) y de la empresa desde SOFTeam, con control de
    concurrencia y auditoría; el CUIT y las bajas, solo Administración.
-   *Pendiente de esta fase:* ver `docs/COMPARACION_KB.md` (grupos
-   económicos, alta de cliente y de empresa por SOFTeam, importación desde
-   CSV, países y productos).
-3. ✅ **Compra:** carrito persistente, checkout con cálculo completo (medio de
+3. **Compra:** carrito persistente, checkout con cálculo completo (medio de
    pago, IVA, ticket), confirmación transaccional e idempotente, vista de
    orden, registro de pago y cancelación desde SOFTeam. El carrito puede
    mezclar paquetes temporales y consumibles. Compra delegada: un
@@ -721,20 +709,18 @@ Regla de dependencias: `domain` no importa nada del resto.
    Renovación manual desde los vencimientos del portal (ver sección 6).
    Bonificación de paquetes por SOFTeam (Administración o Comercial): sobre una
    orden pendiente sin ticket, un porcentaje por paquete con motivo; la orden se
-   recalcula volviendo a tomar la foto fiscal (Mejora v2.1, 2.5: condición
-   frente al IVA vigente del cliente de facturación y ajuste vigente del medio
-   de pago), el link de pago se invalida y queda auditado. Si es recurrente, la renovación la conserva; 0 %
+   recalcula volviendo a tomar la foto fiscal, el link de pago se invalida y queda auditado. Si es recurrente, la renovación la conserva; 0 %
    la quita.
-4. ✅ **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con
+4. **Licencias y consumos:** API firmada (HMAC-SHA256, anti-replay) con
    listado de sincronización, EmpresaFull v1, licencia vigente y consumos
    idempotentes; secretos cifrados (AES-256-GCM); webhooks por outbox con
    reserva de lotes, envío en paralelo y reintentos; contrato OpenAPI;
    pantalla de Integraciones.
-   Límite de pedidos por sistema (29/09/2026): ventana de un minuto contada en
+   Límite de pedidos por sistema: ventana de un minuto contada en
    la base (vale para todas las instancias), 600 por defecto y ajustable en
    Integraciones; al superarlo, 429 con `Retry-After` y cabeceras
    `RateLimit-*`. La pantalla muestra el uso de la última hora.
-5. ✅ **Configuración de la empresa y perfiles:** usuarios de la empresa con
+5. **Configuración de la empresa y perfiles:** usuarios de la empresa con
    accesos a productos y permisos de administración (invitación por mail),
    aseguradoras e interfaces con baja al mes siguiente, productores con sus
    códigos, políticas, límites de la licencia al activar; usuarios SOFTeam por
@@ -755,45 +741,35 @@ Regla de dependencias: `domain` no importa nada del resto.
    solo uso, "confiar en este dispositivo" 30 días, bloqueo de 15 minutos tras
    5 códigos incorrectos; Administración puede quitársela a quien perdió el
    celular (cierra sus sesiones y queda auditado).
-6. ✅ **Procesos:** proceso diario (excepciones de pago vencidas, alertas de
+6. **Procesos:** proceso diario (excepciones de pago vencidas, alertas de
    vencimiento, licencia vencida, saldo bajo o agotado, plazo de pago, empresa
    sin paquetes, límite excedido y aviso anticipado de que la licencia va a
    quedar por debajo de lo configurado), renovación quincenal, recordatorios de
    cobro, envío de avisos por mail, pantalla de procesos y alertas, avisos y
    renovación automática sí/no en el portal. Todo idempotente y registrado en
    `job_run`.
-   *Pendiente:* actualización de la
-   suscripción de MercadoPago (fase 7), vista de la orden agrupada para el
-   cliente agrupador.
-7. ✅ **Cobro:** interfaz propia de pasarela y de facturación, con simulador
+7. **Cobro:** interfaz propia de pasarela y de facturación, con simulador
    para desarrollo; adaptador de Mercado Pago (Checkout Pro y notificaciones
    firmadas); link de pago reutilizable, avisos de pago idempotentes (pago
    rechazado, reintento, importe distinto a revisión), reenvío del link,
-   facturación automática al cobrar con reintento diario, tickets (alta en el
-   panel, solo para paquetes nuevos), orden agrupada visible para el cliente
-   que factura.
+   facturación automática con reintento diario, tickets (alta en el panel),
+   orden agrupada visible para el cliente que factura.
    Adaptador de Xubio (API 1.1): token OAuth2, cliente por código de Xubio o
    CUIT (lo crea si no existe), factura al contado con `externalId` por orden
    (idempotente) y pedido del CAE; se activa con las variables `XUBIO_*`.
-   *Pendiente:* probar Xubio con una cuenta real y Mercado Pago contra su
-   sandbox. Suscripción de Mercado Pago (débito automático): queda para más
-   adelante (decisión 29/09/2026); el medio está desactivado y las
-   renovaciones se pagan con link o transferencia.
-8. ✅ **Pulido:**
+8. **Pulido:**
    - **Reportes** para SOFTeam (cobranza por mes, órdenes impagas por
      antigüedad, vencimientos con estado de renovación, consumos, empresas por
      producto, ventas por paquete, soporte) y **exportación a Excel** (CSV con
      ";" y BOM; protegido contra inyección de fórmulas) de reportes y listados,
      también en el portal (órdenes y consumos).
-   - **Marca blanca** (diapositivas 7 y 18 del documento de concepto:
-     "personalizar imágenes y textos para mostrar la marca del cliente en los
-     productos"): nombre comercial, logo (PNG/JPEG/WebP validado por su
+   - **Marca blanca** (la marca del cliente en los productos): nombre comercial, logo (PNG/JPEG/WebP validado por su
      contenido, hasta 300 KB), colores con control de contraste, textos y
      contacto, con vista previa. Los productos la reciben en EmpresaFull_V1 y
      el logo en `/api/v1/empresas/{numero}/logo` (con ETag).
    - **Tickets de soporte** ("atención de incidentes"): el cliente abre
      pedidos que consumen un ticket de su licencia (cupo mensual y después
-     saldo, diapositivas 37 y 40). **[Cambio 06/10/2026]** Las consultas sobre
+     saldo). Las consultas sobre
      la propia cuenta (producto `stlic`: licencias, pagos y facturación) no
      consumen ticket, así un cliente sin tickets igual puede consultar
      (`src/domain/soporte/tickets.ts`); el portal suma una página de Ayuda con
@@ -803,24 +779,22 @@ Regla de dependencias: `domain` no importa nada del resto.
    - **Notas de SOFTeam** por empresa (las líneas que empiezan con "*" no las
      ve el cliente) e **histórico de actividad** de cada empresa, a partir de
      la auditoría.
-   - **Adjuntos en soporte** (29/09/2026): imágenes (PNG, JPG, WebP) o PDF,
+   - **Adjuntos en soporte:** imágenes (PNG, JPG, WebP) o PDF,
      validados por su contenido; hasta 3 por mensaje, 2 MB cada uno y 3,5 MB
      entre todos. Se guardan en la base con el mensaje; el cliente ve los de
      su pedido (nunca los de una nota interna) y SOFTeam todos. Se sirven con
      `nosniff` y política de contenido restrictiva; el PDF se descarga.
-   *Pendiente:* marca blanca en los mails de STLic.
-9. ✅ **Paridad con la KB GeneXus** (detalle en `docs/COMPARACION_KB.md`):
+9. **Migración y administración:**
    - **Importación de datos** (*Panel SOFTeam → Importar datos*, solo
      Administración): clientes y empresas (conserva el número de empresa),
      canales y oficinas, usuarios, productores, códigos por compañía y
      catálogo de aseguradoras (`Aseguradoras`). Las aseguradoras con las que
      trabaja cada empresa (`STLicAseguradoras`) no se importan: las elige la
-     empresa en *Portal → Aseguradoras* (decisión 29/09/2026). Formato fijo (decisión
-     29/09/2026): primera línea con los nombres de los campos (atributos de
-     la KB o nombres de STLic) y los valores debajo, todo separado por ";"; un
+     empresa en *Portal → Aseguradoras*. Formato fijo: primera línea con los
+     nombres de los campos (atributos de SOFTeam o nombres de STLic) y los valores debajo, todo separado por ";"; un
      archivo con comas o tabuladores se rechaza entero. UTF-8 o Windows-1252.
      La pantalla trae un manual: el formato, el orden de importación y, para
-     cada tipo, la tabla de la KB, la consulta y cómo exportarla (PowerShell
+     cada tipo, la tabla de SOFTeam, la consulta y cómo exportarla (PowerShell
      o Excel). Primero se revisa (sin
      guardar) y después se importa todo o nada; plantilla por tipo y mail de
      acceso opcional a los administradores nuevos.
@@ -837,28 +811,38 @@ Regla de dependencias: `domain` no importa nada del resto.
      ve), validados y auditados, y **factores de los medios de envío**
      (créditos por envío; el mail no se desactiva).
    - **Bonificación de paquetes** por SOFTeam en órdenes pendientes (ver
-     fase 3).
+     punto 3).
    - **Movimientos de saldo de un contrato** para SOFTeam, con el saldo
      después de cada movimiento.
    - **Exportaciones** de aseguradoras y paquetes (SOFTeam) y de usuarios,
      productores y códigos (portal, con los títulos de la importación).
-   - **Tipos de comunicación** (`TipoComunicacion` de la KB, decisión
-     29/09/2026: sigue en STLic): cada empresa define sus comunicaciones con
+   - **Tipos de comunicación:** cada empresa define sus comunicaciones con
      los medios (aviso del sistema, aviso en el portal, mail, SMS, push,
      WhatsApp) y, por tipo de usuario que la origina, a quiénes llega y quién
-     la autoriza. Los tipos de usuario conservan el código de la KB (1
+     la autoriza. Los tipos de usuario conservan el código de SOFTeam (1
      SOFTeam, 7 administrador de empresa, 3 productor, 5 asegurado…). Los
      productos las reciben en EmpresaFull (`comunicaciones`).
-   - **Países, monedas y provincias** (decisión 29/09/2026: configurables y
-     para varios países): *Panel SOFTeam → Países y monedas*. Monedas con
+   - **Países, monedas y provincias** (configurables, para varios países): *Panel SOFTeam → Países y monedas*. Monedas con
      cotización en pesos (el peso es la base), países con su moneda e IVA
      general, provincias por país. Los domicilios y la importación validan la
-     provincia contra la base. **[Cambio 06/10/2026]** El código de una
+     provincia contra la base. El código de una
      provincia nueva lo genera el sistema a partir del nombre (iniciales o
      primeras letras, único dentro del país; `src/domain/catalogo/provincias.ts`)
-     y no cambia al renombrarla; las ya cargadas conservan el suyo. Falta para vender fuera de Argentina: la
-     identificación fiscal y la facturación de cada país.
+     y no cambia al renombrarla; las ya cargadas conservan el suyo.
    - **Recibo provisorio** de cada orden pagada (portal y SOFTeam), imprimible
      o para guardar en PDF: constancia del pago con el detalle de la orden,
      numerado con la orden ("R-10025"). No es comprobante fiscal: la factura
-     se emite al cobrar (decisión 29/09/2026: no hay factura adelantada).
+     se emite según el modo de facturación (4.6).
+
+## 12. Pendientes
+
+- **Mercado Pago:** probar contra su sandbox; suscripción con débito
+  automático y actualización de su monto antes de cada cobro (el medio está
+  desactivado y las renovaciones se pagan con link o transferencia).
+- **Xubio:** probar con una cuenta real.
+- **Emisores:** cambiar el emisor de una orden ya emitida (hoy se cancela y se
+  vuelve a generar) y controlar las suscripciones activas al cambiar el emisor
+  del cliente.
+- **Marca blanca** en los mails de STLic.
+- **Venta fuera de Argentina:** identificación fiscal y facturación de cada
+  país.

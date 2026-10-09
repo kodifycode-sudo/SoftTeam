@@ -7,7 +7,7 @@ import * as t from "@/server/db/schema";
 import { auditar } from "../auditoria";
 
 /*
- * Condiciones frente al IVA (`STLicIVACondiciones`, Mejora v2.1 2.9). Las
+ * Condiciones frente al IVA. Las
  * administra SOFTeam: alícuota, comprobante y código ARCA son datos, así un
  * cambio de criterio fiscal no requiere tocar el sistema.
  */

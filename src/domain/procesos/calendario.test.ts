@@ -7,7 +7,7 @@ import {
   ventanasDeRenovacion,
 } from "./calendario";
 
-describe("ventanasDeRenovacion (Mejora v2.1, 8.2)", () => {
+describe("ventanasDeRenovacion", () => {
   it("antes del primer corte solo quedan las del mes anterior", () => {
     const ventanas = ventanasDeRenovacion(fecha("2026-10-01"));
     expect(ventanas.map((v) => v.clave)).toEqual(["2026-09-C1", "2026-09-C2"]);

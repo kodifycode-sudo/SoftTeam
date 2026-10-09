@@ -39,7 +39,7 @@ export default async function PaquetesDisponibles({ searchParams }: PageProps<"/
     listarPaquetes(db, { hoy: hoy(), tipo: tipoElegido, soloPublicos: true }),
     soloTrimestralInicial(db, contexto.empresaId),
   ]);
-  // El trimestral es solo para el primer alta; después, mensual o anual (8.18).
+  // El trimestral es solo para el primer alta; después, mensual o anual.
   const catalogo = completo
     .map((p) =>
       p.tipo === "TEMPORAL"

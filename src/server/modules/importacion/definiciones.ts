@@ -17,7 +17,7 @@ import { crearAdministradorGeneral, crearCliente, crearEmpresa } from "../cuenta
 import { asegurarUsuario, type UsuarioLogin } from "../cuentas/usuarios";
 
 /*
- * Qué se puede importar y cómo: columnas (con los nombres de la KB GeneXus y
+ * Qué se puede importar y cómo: columnas (con los nombres de SOFTeam y
  * nombres simples) y el alta de cada fila. Cada fila se procesa con su
  * propio punto de guardado; un `ErrorFila` la rechaza con un mensaje para el
  * usuario sin afectar a las demás.
@@ -47,9 +47,9 @@ export interface Columna {
   ayuda?: string;
 }
 
-/** De dónde sale el archivo en el sistema anterior (para el manual del panel). */
+/** De dónde sale el archivo en SOFTeam (para el manual del panel). */
 export interface Origen {
-  /** Tablas de la KB GeneXus. */
+  /** Tablas de SOFTeam. */
   tablas: string[];
   /** Consulta que devuelve las columnas con los nombres de los atributos. */
   consulta: string;
@@ -217,7 +217,7 @@ JOIN STLicEmpresas e ON e.STLicEmpresaCod = ce.STLicEmpresaCod`,
     col("condicionIva", "Condición de IVA", ["STLicClienteFacIVACod", "iva"], {
       requerida: true,
       ayuda:
-        "Código de la KB (1 Inscripto, 2 Consumidor final, 3 Monotributo, 4 Exento, 5 Gran contribuyente, 6 Monotributo con Factura A), abreviatura (RI, CF, MT, EX, GC) o el nombre de una condición configurada.",
+        "Código de SOFTeam (1 Inscripto, 2 Consumidor final, 3 Monotributo, 4 Exento, 5 Gran contribuyente, 6 Monotributo con Factura A), abreviatura (RI, CF, MT, EX, GC) o el nombre de una condición configurada.",
     }),
     col("calle", "Domicilio fiscal", ["STLicClienteFacDomi", "domicilio", "direccion"], {
       requerida: true,
@@ -573,7 +573,7 @@ const productores: Definicion = {
   columnas: [
     col("empresa", "Número de empresa", ["STLicEmpresaCod", "empresaNumero"], { requerida: true }),
     col("idAnterior", "Id del productor", ["STLicProductorId"], {
-      ayuda: "El id del sistema anterior: lo usan los códigos por compañía.",
+      ayuda: "El id de SOFTeam: lo usan los códigos por compañía.",
     }),
     col("nombre", "Nombre", ["STLicProductorNom"], { requerida: true }),
     col("matricula", "Matrícula", ["STLicProductorMatriculaSSN"]),

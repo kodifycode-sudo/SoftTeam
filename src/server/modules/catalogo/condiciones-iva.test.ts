@@ -55,7 +55,7 @@ async function carritoCon(condicionIva: string) {
 }
 
 describe("condiciones frente al IVA configurables", () => {
-  it("la carga inicial de Argentina trae las de la Mejora v2.1", async () => {
+  it("la carga inicial de Argentina trae las condiciones vigentes", async () => {
     const condiciones = await listarCondicionesIva(db, "AR");
     const por = (codigo: string) => condiciones.find((c) => c.codigo === codigo);
     // El exento paga IVA: la exención es de sus ventas, no de lo que compra.

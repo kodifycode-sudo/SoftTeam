@@ -42,7 +42,7 @@ export interface DatosCliente {
   /** Sociedad que le factura. Por defecto, la preferida de su país. */
   emisorId?: string | null;
   activo?: boolean;
-  /** Número que traía el cliente en el sistema anterior (importación). */
+  /** Número que traía el cliente en SOFTeam (importación). */
   numero?: number | null;
 }
 
@@ -89,7 +89,7 @@ export interface DatosEmpresa {
   tipoInstalacion?: "SAAS" | "ON_PREMISE";
   activa?: boolean;
   paisId?: string;
-  /** Número de la empresa en el sistema anterior: lo usan los productos, se conserva. */
+  /** Número de la empresa en SOFTeam: lo usan los productos, se conserva. */
   numero?: number | null;
   /** Datos de la oficina inicial (01-001, "Casa central"). */
   oficina?: { telefono?: string | null; domicilio?: string | null };

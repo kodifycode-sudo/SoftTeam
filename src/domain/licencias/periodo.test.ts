@@ -33,8 +33,8 @@ describe("día de vencimiento", () => {
   });
 });
 
-// Casos de la tabla 8.13 de la Mejora v2.1 (fechas día/mes, días inclusivos).
-describe("renovación con tramo (8.10)", () => {
+// Casos de referencia del ciclo alineado (fechas día/mes, días inclusivos).
+describe("renovación con tramo", () => {
   it("2: vence 22/03, se negocia el 15/03 mensual al 10 → tramo 23/03 a 10/04 (19 días) + mes", () => {
     expect(calcularPeriodo(entrada({}))).toEqual({
       fechaObjetivo: "2026-04-10",
@@ -180,7 +180,7 @@ describe("altas: solo el tramo hasta lo que el cliente ya tiene", () => {
   });
 });
 
-describe("plan permitido según la situación (8.18)", () => {
+describe("plan permitido según la situación", () => {
   it("el primer alta de un cliente directo es trimestral; los grupos no tienen trimestre", () => {
     const base = { agrupado: false, planilla: false, tieneTemporales: false };
     expect(situacionAlta(base)).toBe("TRIMESTRE_INICIAL");
@@ -198,7 +198,7 @@ describe("plan permitido según la situación (8.18)", () => {
   });
 });
 
-describe("semáforo de renovaciones a negociar (11.7)", () => {
+describe("semáforo de renovaciones a negociar", () => {
   it("rojo vencido, amarillo dentro del umbral, verde el resto", () => {
     const hoy = fecha("2026-10-09");
     expect(semaforoNegociacion(fecha("2026-10-08"), hoy, 7)).toBe("ROJO");

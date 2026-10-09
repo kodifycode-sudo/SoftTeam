@@ -3,13 +3,12 @@ import { diasEntre, esPosterior, type Fecha, sumarDias, sumarMeses } from "../fe
 import { periodo } from "./contrato";
 
 /*
- * Período y tramo prorrateado de un paquete temporal (Mejora v2.1, 8.8 a
- * 8.13). Los vencimientos se alinean a un día fijo del mes (10 o 20): el
+ * Período y tramo prorrateado de un paquete temporal. Los vencimientos se alinean a un día fijo del mes (10 o 20): el
  * período que falta hasta esa fecha se cobra proporcional a los días. Es el
  * único lugar donde se calcula; no lee la base.
  */
 
-/** Duración del plan en meses (8.18). El trimestral es solo el alta inicial. */
+/** Duración del plan en meses. El trimestral es solo el alta inicial. */
 export const DURACIONES_PLAN = [1, 3, 12] as const;
 export const TRIMESTRAL_INICIAL = 3;
 
@@ -114,7 +113,7 @@ export function calcularPeriodo(e: EntradaPeriodo): PeriodoCalculado {
 }
 
 /**
- * Situación de un alta de paquetes temporales (8.11, 8.12 y 8.18):
+ * Situación de un alta de paquetes temporales:
  * - TRIMESTRE_INICIAL: primer paquete temporal de un cliente no agrupado; se
  *   factura completo y nace sin día de vencimiento.
  * - ADICIONAL: el cliente ya tiene paquetes temporales; cobra el tramo hasta
@@ -135,7 +134,7 @@ export function situacionAlta(e: {
 }
 
 /**
- * Plan permitido (8.18): el trimestral es solo para el alta inicial de un
+ * Plan permitido: el trimestral es solo para el alta inicial de un
  * cliente no agrupado, que no puede elegir otro; nunca para renovar.
  */
 export function planPermitido(
@@ -151,7 +150,7 @@ export function planPermitido(
 export type Semaforo = "ROJO" | "AMARILLO" | "VERDE";
 
 /**
- * Semáforo de una renovación a negociar (11.7): rojo si ya venció, amarillo
+ * Semáforo de una renovación a negociar: rojo si ya venció, amarillo
  * si vence dentro de `dias` días y verde el resto.
  */
 export function semaforoNegociacion(hasta: Fecha, hoy: Fecha, dias: number): Semaforo {

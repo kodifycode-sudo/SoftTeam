@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Orden manual" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Orden manual de Administración (Mejora v2.1, 8.17 y 11.8): paquetes
+ * Orden manual de Administración: paquetes
  * privados, bonificaciones, la renovación negociada del trimestre inicial,
  * cualquier medio habilitado y el emisor de la orden.
  */

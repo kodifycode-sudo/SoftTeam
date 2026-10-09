@@ -27,7 +27,7 @@ function calcular(entrada: EntradaCalculo) {
   return r.valor;
 }
 
-describe("calcularOrden — ejemplo numérico 2.6 del documento de mejora", () => {
+describe("calcularOrden — ejemplo numérico de referencia", () => {
   const r = calcular({
     moneda: "ARS",
     items: [
@@ -116,7 +116,7 @@ describe("calcularOrden — reglas", () => {
   });
 });
 
-describe("calcularOrden — tramo prorrateado (Mejora v2.1, 8.10)", () => {
+describe("calcularOrden — tramo prorrateado", () => {
   it("una renovación cobra tramo más período; la bonificación alcanza al tramo", () => {
     const r = calcular(
       base({

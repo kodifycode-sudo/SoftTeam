@@ -36,7 +36,7 @@ export default async function PaginaImportar({ searchParams }: PageProps<"/admin
     <>
       <EncabezadoPagina
         titulo="Importar datos"
-        descripcion="Para migrar desde el sistema anterior. Abajo está cómo exportar cada tabla y el formato que se acepta. Primero revisá el archivo: no se guarda nada hasta que no tenga errores."
+        descripcion="Para migrar desde SOFTeam. Abajo está cómo exportar cada tabla y el formato que se acepta. Primero revisá el archivo: no se guarda nada hasta que no tenga errores."
       />
 
       <nav aria-label="Qué importar" className="mb-6 flex flex-wrap gap-2">

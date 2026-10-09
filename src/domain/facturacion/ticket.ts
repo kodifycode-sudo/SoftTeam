@@ -4,7 +4,7 @@ import { exito, type Resultado, rechazo } from "../resultado";
 import type { TipoAccion } from "./calculo-orden";
 import { aceptaTicket, type ModoFacturacion } from "./modo";
 
-/** Cuántas veces se puede usar (Mejora v2.1, 9.5). */
+/** Cuántas veces se puede usar. */
 export type UsoTicket = "UNICO_X_CLIENTE" | "UNICO_ABSOLUTO" | "MULTIPLE";
 export const USOS_TICKET: readonly UsoTicket[] = ["UNICO_X_CLIENTE", "UNICO_ABSOLUTO", "MULTIPLE"];
 
@@ -64,7 +64,7 @@ export function saldoDeTicket(tope: Centavos, consumido: Centavos): Centavos | n
 
 /**
  * Valida un ticket aplicado a mano, desde el carrito o la orden manual de
- * SOFTeam (Mejora v2.1, 9.1 y 9.6). El importe se calcula después, en el
+ * SOFTeam. El importe se calcula después, en el
  * motor de la orden: min(subtotal × %, saldo del tope).
  *
  * `usos`: órdenes manuales no canceladas que ya lo usaron, contadas según su
@@ -135,7 +135,7 @@ export function evaluarTicket(entrada: {
 }
 
 /**
- * Herencia en la serie de renovaciones (9.3): sin revalidar, mientras no
+ * Herencia en la serie de renovaciones: sin revalidar, mientras no
  * pasen 12 meses desde la orden de origen y quede saldo del tope.
  */
 export function ticketHeredable(entrada: {

@@ -166,7 +166,7 @@ export async function guardarCliente(
         columns: { id: true, modosFacturacion: true },
         where: eq(t.mediosPago.id, medio),
       });
-      // Solo medios habilitados para el modo de facturación del cliente (Mejora v2.1, 6.5).
+      // Solo medios habilitados para el modo de facturación del cliente.
       if (!existe?.modosFacturacion.includes(entrada.modoFacturacion)) {
         return { ok: false, error: "MEDIO_INVALIDO" };
       }

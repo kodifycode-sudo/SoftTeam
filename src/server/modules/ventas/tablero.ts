@@ -7,7 +7,7 @@ import { auditar } from "../auditoria";
 import { leerParametroDe } from "../parametros";
 
 /*
- * Tablero de SOFTeam al ingresar (Mejora v2.1, 11.7): cajas con los casos que
+ * Tablero de SOFTeam al ingresar: cajas con los casos que
  * piden una acción. Son consultas sobre datos existentes.
  */
 
@@ -51,7 +51,7 @@ export async function renovacionesANegociar(db: Ejecutor, hoy: Fecha) {
   }));
 }
 
-/** Altas a grupo que esperan la próxima orden colectiva (8.12). */
+/** Altas a grupo que esperan la próxima orden colectiva. */
 export async function altasAGrupoPendientes(db: Ejecutor) {
   return db
     .select({
@@ -86,7 +86,7 @@ export async function cajasTablero(db: Ejecutor, hoy: Fecha) {
       .select({ n: countDistinct(t.ordenes.id) })
       .from(t.ordenes)
       .where(and(eq(t.ordenes.estado, "PEND_PAGO"), eq(t.ordenes.pagoError, true))),
-    // Empresas con pedidos que no alcanzaron el saldo en los últimos 7 días (8.16).
+    // Empresas con pedidos que no alcanzaron el saldo en los últimos 7 días.
     db
       .select({ n: countDistinct(t.alertas.empresaId) })
       .from(t.alertas)
@@ -111,7 +111,7 @@ export async function cajasTablero(db: Ejecutor, hoy: Fecha) {
 }
 
 /**
- * Anula un alta a grupo mientras no la incorporó una orden colectiva (8.12).
+ * Anula un alta a grupo mientras no la incorporó una orden colectiva.
  * Después queda sujeta a las reglas de la orden.
  */
 export async function anularAltaAGrupo(

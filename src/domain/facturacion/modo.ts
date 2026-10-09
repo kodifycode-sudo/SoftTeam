@@ -2,7 +2,7 @@ import { type Fecha, sumarDias } from "../fecha";
 import type { EstadoContrato } from "../licencias/contrato";
 
 /**
- * Modo de facturación del cliente (Mejora v2.1, 7.6 y 7.7). Reemplaza al
+ * Modo de facturación del cliente. Reemplaza al
  * tipo de cliente DIRECTO/CORPORATIVO. El comportamiento de cada modo es fijo;
  * la tolerancia de pago y los medios de pago habilitados son configurables.
  */
@@ -45,7 +45,7 @@ export interface PlazosRenovacion {
 }
 
 /**
- * Tolerancia de pago de una renovación pendiente (7.7). Las fechas de
+ * Tolerancia de pago de una renovación pendiente. Las fechas de
  * facturación no cambian: la renovación empieza siempre al día siguiente del
  * vencimiento anterior.
  * - Modos 0 y 2: el contrato anterior sigue sumando (prórroga) hasta su

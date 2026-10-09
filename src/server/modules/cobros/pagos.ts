@@ -12,7 +12,7 @@ const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export type ErrorLink = "NO_EXISTE" | "NO_PENDIENTE" | "MEDIO_SIN_LINK" | "SIN_PASARELA";
 
-/** Una pasarela fija, o la del emisor de cada orden (Mejora v2.1, 5.11). */
+/** Una pasarela fija, o la del emisor de cada orden. */
 export type FuentePasarela =
   | Pasarela
   | null

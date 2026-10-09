@@ -36,7 +36,7 @@ export function ManualFormato() {
         <ol className="list-decimal space-y-2 pl-5">
           <li>
             <strong>Primera línea: los nombres de los campos</strong>, con el nombre del atributo de
-            la KB (<code className="font-mono text-xs">STLicClienteFacCUIT</code>) o el nombre de
+            SOFTeam (<code className="font-mono text-xs">STLicClienteFacCUIT</code>) o el nombre de
             STLic (<code className="font-mono text-xs">CUIT</code>). No importan mayúsculas, acentos
             ni espacios. Las columnas que no se reconocen se ignoran y se avisan.
           </li>
@@ -88,20 +88,20 @@ export function ManualFormato() {
   );
 }
 
-/** Cómo sacar este archivo del sistema anterior (base de la KB GeneXus). */
+/** Cómo sacar este archivo de SOFTeam. */
 export function ManualExportacion({ tipo }: { tipo: TipoImportacion }) {
   const { origen, etiqueta } = DEFINICIONES[tipo];
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Database className="size-4" /> Cómo exportarlo del sistema anterior
+          <Database className="size-4" /> Cómo exportarlo de SOFTeam
         </CardTitle>
         <CardDescription>
           {etiqueta}: {origen.tablas.length > 1 ? "tablas" : "tabla"}{" "}
-          <span className="font-mono">{origen.tablas.join(", ")}</span> de la base de la KB. Las
-          columnas de la base ya tienen los nombres de los atributos, así que el archivo sale con la
-          primera línea correcta.
+          <span className="font-mono">{origen.tablas.join(", ")}</span> de la base del sistema
+          anterior. Las columnas de la base ya tienen los nombres de los atributos, así que el
+          archivo sale con la primera línea correcta.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5 text-sm">

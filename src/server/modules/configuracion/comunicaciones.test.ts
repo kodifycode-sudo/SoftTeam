@@ -65,7 +65,7 @@ describe("tipos de comunicación", () => {
     expect(entrada().reglas[0]?.destinos).toEqual(["ASEGURADO"]);
   });
 
-  it("numera por empresa, no repite nombres y llega a los productos con los códigos de la KB", async () => {
+  it("numera por empresa, no repite nombres y llega a los productos con los códigos de SOFTeam", async () => {
     const { empresa } = await crearEmpresaDePrueba(db);
     const r1 = await guardarTipoComunicacion(db, empresa.id, entrada(), "admin");
     const r2 = await guardarTipoComunicacion(

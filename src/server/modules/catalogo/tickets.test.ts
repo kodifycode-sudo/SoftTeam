@@ -73,7 +73,7 @@ describe("tickets", () => {
   });
 });
 
-describe("tickets y renovaciones (Mejora v2.1, 9.2 y 9.3)", () => {
+describe("tickets y renovaciones", () => {
   /** Compra con ticket (50 %, ya descontó $10.000) y su renovación automática. */
   async function renovarConTicket(codigo: string, tope: string, emitidaEn = "2026-09-01") {
     const r = await crearTicket(db, entrada(codigo, { tope }), "actor");

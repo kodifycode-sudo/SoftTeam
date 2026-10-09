@@ -20,7 +20,7 @@ const dia = (f: Fecha) => Number(f.slice(8, 10));
 const conDia = (f: Fecha, d: number) => `${f.slice(0, 8)}${String(d).padStart(2, "0")}` as Fecha;
 
 /**
- * Las dos corridas del mes de `mes` (Mejora v2.1, 8.2): la del primer día de
+ * Las dos corridas del mes de `mes`: la del primer día de
  * corte renueva los vencimientos desde el día siguiente hasta el día siguiente
  * al segundo corte (con 2 y 11: del 3 al 12, que incluye los alineados al 10);
  * la del segundo, desde ahí hasta el primer corte del mes siguiente (del 13 al

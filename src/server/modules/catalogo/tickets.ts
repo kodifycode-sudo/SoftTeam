@@ -11,7 +11,7 @@ import { auditar } from "../auditoria";
 /**
  * Tickets con su uso: cuántas compras manuales lo aplicaron y cuánto se
  * descontó en total (órdenes no canceladas, incluidas las renovaciones que lo
- * heredaron). El tope es el saldo de cada serie (Mejora v2.1, 9.2).
+ * heredaron). El tope es el saldo de cada serie.
  */
 export async function listarTickets(db: Ejecutor) {
   const [tickets, paquetes] = await Promise.all([

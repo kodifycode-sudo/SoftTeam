@@ -21,7 +21,7 @@ describe("validarMedioPago", () => {
     expect(validarMedioPago(medio(), ctx).ok).toBe(true);
   });
 
-  // Regresión N1: en la KB el Else final habilitaba estos casos para ALTA_INICIAL.
+  // Regresión N1: en SOFTeam el Else final habilitaba estos casos para ALTA_INICIAL.
   it.each([
     ["inactivo", medio({ activo: false })],
     ["de otro país", medio({ paisId: "UY" })],
@@ -61,7 +61,7 @@ describe("resolverClienteFacturacion", () => {
     ).toBe("c1");
   });
 
-  // Regresión N2: la KB pisaba siempre el cliente con el del grupo.
+  // Regresión N2: SOFTeam pisaba siempre el cliente con el del grupo.
   it("usa el cliente del grupo solo con medio de planilla", () => {
     const grupo = { clienteId: "c1", clienteFacturacionGrupoId: "agrupador" };
     expect(resolverClienteFacturacion({ ...grupo, medio: medio({ planilla: true }) })).toBe(

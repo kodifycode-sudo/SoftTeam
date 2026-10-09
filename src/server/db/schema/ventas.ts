@@ -71,9 +71,9 @@ export const ordenes = pgTable(
     clienteFacturacionId: uuid()
       .notNull()
       .references(() => clientes.id),
-    /** Modo de facturación del cliente de facturación al confirmar (5.10). */
+    /** Modo de facturación del cliente de facturación al confirmar. */
     modoFacturacion: smallint().notNull().default(0),
-    /** Emisor congelado con su CUIT y su razón social (5.11). */
+    /** Emisor congelado con su CUIT y su razón social. */
     emisorId: uuid().references(() => emisores.id),
     emisorCuit: char({ length: 11 }),
     emisorRazonSocial: varchar({ length: 120 }),
@@ -168,8 +168,8 @@ export const contratos = pgTable(
       .notNull()
       .references(() => alternativas.id),
     /**
-     * `null`: alta a un grupo que espera la próxima orden colectiva (Mejora
-     * v2.1, 8.12); la corrida del día de corte la incorpora.
+     * `null`: alta a un grupo que espera la próxima orden colectiva; la
+     * corrida del día de corte la incorpora.
      */
     ordenId: uuid().references(() => ordenes.id),
     contratoAnteriorId: uuid().references((): AnyPgColumn => contratos.id),
@@ -185,11 +185,11 @@ export const contratos = pgTable(
     /** Prórroga: sigue sumando después de `hasta` mientras su renovación espera el pago. */
     prorrogaHasta: fechaCol(),
     /**
-     * Día de vencimiento (10 o 20, Mejora v2.1 8.9). `null` en un temporal: el
+     * Día de vencimiento (10 o 20). `null` en un temporal: el
      * trimestre inicial, cuya continuidad se negocia (no se renueva solo).
      */
     diaVenc: smallint(),
-    /** Tramo prorrateado hasta el día de vencimiento (8.10): fin, días e importe. */
+    /** Tramo prorrateado hasta el día de vencimiento: fin, días e importe. */
     prorrataHasta: fechaCol(),
     prorrataDias: smallint().notNull().default(0),
     prorrataImporte: dinero().notNull().default(sql`0`),

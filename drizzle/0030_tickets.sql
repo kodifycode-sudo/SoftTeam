@@ -1,4 +1,4 @@
--- Tickets (Mejora v2.1, 9.5 y 8.17): tipo de uso, mínimo, moneda, país, cliente
+-- Tickets: tipo de uso, mínimo, moneda, país, cliente
 -- nominado, instancias habilitadas, visibilidad y observaciones. Los existentes
 -- conservan su comportamiento: varios usos.
 ALTER TABLE "tickets" ADD COLUMN "uso" varchar(18) DEFAULT 'UNICO_X_CLIENTE' NOT NULL;--> statement-breakpoint

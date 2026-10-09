@@ -46,7 +46,7 @@ const item = (alternativaId: string, parcial: Record<string, unknown> = {}) =>
 const confirmar = (entrada: EntradaOrdenManual) =>
   confirmarOrdenManual(db, { ...entrada, usuarioId, claveIdempotencia: crypto.randomUUID() }, HOY);
 
-describe("orden manual de SOFTeam (Mejora v2.1, 8.17 y 11.8)", () => {
+describe("orden manual de SOFTeam", () => {
   it("consumible bonificado al 100 % con su saldo: pagado en el acto y sin renovación", async () => {
     const { empresa } = await crearEmpresaDePrueba(db);
     const noti = await alternativa("NOTI-10K", "Pago único");

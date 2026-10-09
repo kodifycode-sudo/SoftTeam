@@ -1,4 +1,4 @@
--- Emisores: sociedades de SOFTeam que facturan (Mejora v2.1, 5.11). El cliente
+-- Emisores: sociedades de SOFTeam que facturan. El cliente
 -- tiene uno (o usa el preferido de su país) y la orden lo congela con su CUIT.
 CREATE TABLE "emisores" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,

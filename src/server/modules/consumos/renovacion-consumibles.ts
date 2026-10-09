@@ -28,7 +28,7 @@ import { cargarSaldos, registrarPago } from "../ventas/ordenes";
 
 const ACTOR = { actorId: null, actorTipo: "job:consumibles" } as const;
 
-/** Recurso de saldo prepago de cada familia que se renueva por saldo (8.15). */
+/** Recurso de saldo prepago de cada familia que se renueva por saldo. */
 const FAMILIA_DE_SALDO = new Map<string, FamiliaConsumo>(
   FAMILIAS.map((f) => [FAMILIAS_CONSUMO[f].saldo, f]),
 );
@@ -92,7 +92,7 @@ async function candidatos(db: Db, empresaId: string | undefined) {
 type Candidato = Awaited<ReturnType<typeof candidatos>>[number];
 
 /**
- * Renueva por saldo los paquetes consumibles (Mejora v2.1, 8.15): cuando a un
+ * Renueva por saldo los paquetes consumibles: cuando a un
  * paquete con renovación automática le queda el porcentaje configurado de
  * saldo o menos, y sigue vivo un producto que lo usa, se genera el mismo
  * paquete con el precio de renovación vigente. Clientes directos: una orden
@@ -201,7 +201,7 @@ async function renovar(db: Db, c: Candidato, hoy: Fecha): Promise<string | null>
       const id = facturableDe(m)?.emisorId;
       return resolverEmisor(id ? emisores.porId.get(id) : undefined, emisores.preferido);
     };
-    // Nunca por suscripción: el importe no es periódico (8.19).
+    // Nunca por suscripción: el importe no es periódico.
     const usable = (m: typeof t.mediosPago.$inferSelect | undefined) => {
       if (!m || m.tipo === "SUSCRIPCION_MP") return false;
       if (!validarMedioPago(m, { paisId: c.empresa.paisId, instancia: "RENOVACION" }).ok) {
@@ -252,7 +252,7 @@ async function renovar(db: Db, c: Candidato, hoy: Fecha): Promise<string | null>
     const linea = k.items[0];
     if (!linea) return "CALCULO";
 
-    // Agrupado por planilla: sin orden, la incorpora la colectiva (8.12).
+    // Agrupado por planilla: sin orden, la incorpora la colectiva.
     const agrupada = medio.planilla && clienteFacturacionGrupoId !== null;
     let orden: { id: string; numero: number } | undefined;
     if (!agrupada) {

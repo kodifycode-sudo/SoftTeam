@@ -78,7 +78,7 @@ export const aseguradoras = pgTable(
     interfazCotiwebDisponible: boolean().notNull().default(false),
     interfazDocumentosDisponible: boolean().notNull().default(false),
     activa: boolean().notNull().default(true),
-    /** Id en el sistema anterior (KB GeneXus): resuelve las referencias al importar. */
+    /** Id en SOFTeam: resuelve las referencias al importar. */
     idAnterior: varchar({ length: 20 }),
     ...marcasTiempo,
   },
@@ -129,7 +129,7 @@ export const productores = pgTable(
     esOrganizador: boolean().notNull().default(false),
     esSubproductor: boolean().notNull().default(false),
     activo: boolean().notNull().default(true),
-    /** Id en el sistema anterior (KB GeneXus): resuelve las referencias al importar. */
+    /** Id en SOFTeam: resuelve las referencias al importar. */
     idAnterior: varchar({ length: 20 }),
     ...marcasTiempo,
   },
@@ -188,7 +188,7 @@ export const tiposComunicacion = pgTable(
     empresaId: uuid()
       .notNull()
       .references(() => empresas.id, { onDelete: "cascade" }),
-    /** Número dentro de la empresa (`TipoComunicacionId` de la KB). */
+    /** Número dentro de la empresa (`TipoComunicacionId` de SOFTeam). */
     codigo: smallint().notNull(),
     nombre: varchar({ length: 80 }).notNull(),
     medios: jsonb().$type<MediosComunicacion>().notNull(),

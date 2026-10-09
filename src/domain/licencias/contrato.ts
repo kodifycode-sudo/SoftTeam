@@ -39,7 +39,7 @@ export interface ContratoVigencia {
   /** Límite de la excepción de pago. `null` = sin límite (modo de facturación 3). */
   readonly pendPagoActivoHasta: Fecha | null;
   /**
-   * Prórroga (Mejora v2.1, 7.7): un contrato ACTIVO sigue sumando después de
+   * Prórroga: un contrato ACTIVO sigue sumando después de
    * `hasta` mientras su renovación espera el pago. `null` = sin prórroga.
    */
   readonly prorrogaHasta?: Fecha | null;

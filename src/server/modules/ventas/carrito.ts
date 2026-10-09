@@ -187,7 +187,7 @@ const renovable = (empresaId: string, oficinaId: string | null, hoy: Fecha) =>
     inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
     isNotNull(t.contratos.hasta),
     gte(t.contratos.hasta, hoy),
-    // El trimestre inicial no se renueva desde acá: su continuidad se negocia (8.11).
+    // El trimestre inicial no se renueva desde acá: su continuidad se negocia.
     isNotNull(t.contratos.diaVenc),
     sql`not exists (select 1 from ${t.contratos} r where r.contrato_anterior_id = ${t.contratos.id} and r.estado <> 'CANCELADO')`,
     sql`not exists (select 1 from ${t.carritoItems} ci where ci.contrato_anterior_id = ${t.contratos.id})`,
@@ -228,7 +228,7 @@ export async function renovablesDeEmpresa(
         inArray(t.alternativas.paqueteId, [...new Set(contratos.map((c) => c.paqueteId))]),
         eq(t.alternativas.activa, true),
         isNotNull(t.alternativas.meses),
-        // El trimestral es solo para el alta inicial (8.18).
+        // El trimestral es solo para el alta inicial.
         ne(t.alternativas.meses, TRIMESTRAL_INICIAL),
       ),
     )

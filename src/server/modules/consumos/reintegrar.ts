@@ -37,7 +37,7 @@ export type RechazoReintegro =
   | "EN_CURSO_REINTENTAR";
 
 /**
- * Devuelve unidades de una solicitud que no se usaron (Mejora v2.1, 8.16).
+ * Devuelve unidades de una solicitud que no se usaron.
  * Solo lo entregado y no reintegrado antes; con el factor de la solicitud.
  * Va primero a los consumibles del alcance, del más nuevo al más viejo, y lo
  * que no entra vuelve a los contratos de los que salió. Idempotente por

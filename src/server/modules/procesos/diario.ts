@@ -109,7 +109,7 @@ async function vencerExcepciones(db: Db, hoy: Fecha): Promise<number> {
 type Contar = (tipo: string, creada: boolean) => void;
 
 /**
- * Trimestres iniciales a negociar (Mejora v2.1, 11.7): una alerta para SOFTeam
+ * Trimestres iniciales a negociar: una alerta para SOFTeam
  * por paquete, una sola vez, desde el comienzo del mes de su vencimiento.
  */
 async function alertasDeNegociacion(db: Db, hoy: Fecha, contar: Contar) {
@@ -240,7 +240,7 @@ async function alertasDePlazoDePago(db: Db, hoy: Fecha, contar: Contar) {
 
 /**
  * Factura agrupada (modo 3) impaga más allá de la tolerancia: no se suspende
- * nunca, se avisa a SOFTeam para que gestione el cobro (Mejora v2.1, 7.7).
+ * nunca, se avisa a SOFTeam para que gestione el cobro.
  */
 async function alertasDeTolerancia(db: Db, hoy: Fecha, contar: Contar) {
   const tolerancia = (await leerParametroDe(db, "facturacion.tolerancia_dias"))[3];

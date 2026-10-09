@@ -174,7 +174,7 @@ function EstadoRenovacionPaquete({
       </p>
     );
   }
-  // Trimestre inicial: la continuidad se acuerda con SOFTeam (Mejora v2.1, 8.11).
+  // Trimestre inicial: la continuidad se acuerda con SOFTeam.
   if (estado.aNegociar) {
     return (
       <p className="mt-1 text-xs text-muted-foreground">

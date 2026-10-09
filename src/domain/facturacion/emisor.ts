@@ -2,7 +2,7 @@ import { exito, type Resultado, rechazo } from "../resultado";
 import type { TipoMedioPago } from "./medio-pago";
 
 /**
- * Emisor: sociedad de SOFTeam que factura (Mejora v2.1, 5.11). Cada cliente
+ * Emisor: sociedad de SOFTeam que factura. Cada cliente
  * tiene uno; la orden lo congela con su CUIT y su razón social, y todo lo que
  * va a Mercado Pago y a la factura usa la cuenta de ese emisor.
  */

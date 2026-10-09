@@ -70,7 +70,7 @@ const saldoDe = async (contratoId: string) =>
 const renovacionDe = (contratoId: string) =>
   db.query.contratos.findFirst({ where: eq(t.contratos.contratoAnteriorId, contratoId) });
 
-describe("servicio de consumibles (Mejora v2.1, 8.16)", () => {
+describe("servicio de consumibles", () => {
   it("cada sistema pide lo suyo y solo con su producto vivo", async () => {
     const { empresa: e } = await empresa();
     expect(
@@ -110,7 +110,7 @@ describe("servicio de consumibles (Mejora v2.1, 8.16)", () => {
   });
 });
 
-describe("renovación por saldo (8.15)", () => {
+describe("renovación por saldo", () => {
   it("con el 10 % o menos genera el mismo paquete en una orden propia, una sola vez", async () => {
     const { empresa: e, prepago } = await empresa();
     // 1.000 del cupo y 9.000 del prepago: le quedan 1.000 (10 %).
@@ -158,7 +158,7 @@ describe("renovación por saldo (8.15)", () => {
   });
 });
 
-describe("reintegro (8.16)", () => {
+describe("reintegro", () => {
   it("vuelve al consumible si tiene lugar y el resto al cupo del que salió", async () => {
     const { empresa: e, cupo, prepago } = await empresa();
     // 1.000 del cupo y 200 del prepago.

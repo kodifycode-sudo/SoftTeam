@@ -10,7 +10,7 @@ import {
   suspende,
 } from "./modo";
 
-describe("modo de facturación (Mejora v2.1, 7.6)", () => {
+describe("modo de facturación", () => {
   it("modos 0 y 2 esperan el pago; 1 y 3 nacen habilitados y facturan al confirmar", () => {
     expect([0, 1, 2, 3].map((m) => estadoInicial(m as 0))).toEqual([
       "PEND_PAGO",
@@ -33,7 +33,7 @@ describe("modo de facturación (Mejora v2.1, 7.6)", () => {
     expect(plazoDeAlta(3, 90, fecha("2026-10-09"))).toBeNull();
   });
 
-  it("tolerancia de una renovación pendiente (7.7)", () => {
+  it("tolerancia de una renovación pendiente", () => {
     const hasta = fecha("2026-10-10");
     const desde = fecha("2026-10-11");
     expect(plazosDeRenovacion(0, 7, hasta, desde)).toEqual({

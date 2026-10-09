@@ -123,7 +123,7 @@ export const mediosPago = pgTable(
     habilitadoRenovacion: boolean().notNull().default(true),
     generaLink: boolean().notNull().default(false),
     planilla: boolean().notNull().default(false),
-    /** Modos de facturación con que se puede usar (Mejora v2.1, 6.5). */
+    /** Modos de facturación con que se puede usar. */
     modosFacturacion: smallint().array().notNull().default(sql`'{0,1,2,3}'`),
     /** Instrucciones al cliente cuando el medio no genera link (datos bancarios, etc.). */
     instrucciones: text(),
@@ -148,7 +148,7 @@ export const tickets = pgTable(
     vigenteDesde: fechaCol().notNull(),
     vigenteHasta: fechaCol().notNull(),
     activo: boolean().notNull().default(true),
-    /** UNICO_X_CLIENTE, UNICO_ABSOLUTO o MULTIPLE (Mejora v2.1, 9.5). */
+    /** UNICO_X_CLIENTE, UNICO_ABSOLUTO o MULTIPLE. */
     uso: varchar({ length: 18 }).notNull().default("UNICO_X_CLIENTE"),
     /** Solo MULTIPLE: usos en total; 0 = sin límite. */
     usosMaximos: integer().notNull().default(0),
@@ -157,7 +157,7 @@ export const tickets = pgTable(
     moneda: varchar({ length: 3 }).notNull().default("ARS"),
     /** `null`: cualquier país. */
     paisId: char({ length: 2 }).references(() => paises.id),
-    /** Ticket nominado (8.17): solo para ese cliente, que lo ve propuesto en su carrito. */
+    /** Ticket nominado: solo para ese cliente, que lo ve propuesto en su carrito. */
     clienteId: uuid().references(() => clientes.id),
     altaInicial: boolean().notNull().default(true),
     adicional: boolean().notNull().default(true),

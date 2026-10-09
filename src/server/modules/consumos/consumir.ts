@@ -165,7 +165,7 @@ async function fuentesDeCredito(
 }
 
 /**
- * Registra un consumo informado por un producto (Mejora v2.1, 8.16).
+ * Registra un consumo informado por un producto.
  * Serializa por empresa, es idempotente por (sistema, transacción) y nunca
  * deja saldos negativos. Si no alcanza, avisa al cliente y a SOFTeam; después
  * revisa si algún consumible quedó para renovar.

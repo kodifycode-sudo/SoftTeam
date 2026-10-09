@@ -23,7 +23,7 @@ export interface ItemEntrada {
   readonly precioRenovacion: Centavos;
   readonly bonifPorcentaje: Porcentaje;
   readonly moneda: string;
-  /** Tramo prorrateado hasta el día de vencimiento, ya por la cantidad (Mejora v2.1, 8.10). */
+  /** Tramo prorrateado hasta el día de vencimiento, ya por la cantidad. */
   readonly prorrata?: Centavos;
   /** `false`: el ítem cobra solo el tramo (altas de adicionales y de grupo). */
   readonly incluyePeriodo?: boolean;

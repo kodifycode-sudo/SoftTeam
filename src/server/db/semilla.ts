@@ -135,7 +135,7 @@ const PARAMETROS: { clave: string; valor: unknown; descripcion: string }[] = [
   },
 ];
 
-/** Carga inicial de Argentina (Mejora v2.1, 2.9). Después la edita Administración. */
+/** Carga inicial de Argentina. Después la edita Administración. */
 const CONDICIONES_IVA_ARGENTINA = (
   [
     ["RESPONSABLE_INSCRIPTO", "IVA Responsable Inscripto", 1, "A", true],
@@ -197,7 +197,7 @@ export async function sembrarDatosBase(db: Ejecutor, opciones: { demo: boolean }
   await db.insert(t.mediosEnvio).values(MEDIOS_ENVIO).onConflictDoNothing();
   await db.insert(t.parametros).values(PARAMETROS).onConflictDoNothing();
 
-  // Medios de pago sugeridos (documento de mejora 6.2). Los ajustes están
+  // Medios de pago sugeridos. Los ajustes están
   // "a definir" por Administración: arrancan en 0 %.
   await db
     .insert(t.mediosPago)

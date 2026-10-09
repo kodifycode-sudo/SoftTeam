@@ -63,7 +63,7 @@ describe("confirmarAlta", () => {
       nombre: "Broker del Sur SRL",
       nombreCorto: "BROKER",
     });
-    // El alta web nace con pago directo (Mejora v2.1, 11.8).
+    // El alta web nace con pago directo.
     const cliente = await db.query.clientes.findFirst({
       where: eq(t.clientes.id, empresa!.clienteId),
     });

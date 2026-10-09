@@ -33,7 +33,7 @@ export interface Contacto {
   telefono: string | null;
 }
 
-/** Moneda (`STLicMonedas` de la KB) con su cotización en pesos. */
+/** Moneda (`STLicMonedas` de SOFTeam) con su cotización en pesos. */
 export const monedas = pgTable(
   "monedas",
   {
@@ -110,7 +110,7 @@ export const condicionesIva = pgTable(
 );
 
 /**
- * Sociedad de SOFTeam que factura (Mejora v2.1, 5.11): cada cliente tiene un
+ * Sociedad de SOFTeam que factura: cada cliente tiene un
  * emisor y la orden lo congela. Cada emisor tiene su propia conexión con Xubio
  * y con Mercado Pago; los secretos se guardan cifrados (AES-256-GCM).
  */
@@ -193,7 +193,7 @@ export const clientes = pgTable(
     medioPagoAltaId: uuid().references((): AnyPgColumn => mediosPago.id),
     medioPagoRenovacionId: uuid().references((): AnyPgColumn => mediosPago.id),
     /**
-     * Modo de facturación (Mejora v2.1, 7.6): 0 pago directo, 1 factura
+     * Modo de facturación: 0 pago directo, 1 factura
      * adelantada, 2 suscripción de Mercado Pago, 3 factura agrupada. Define el
      * estado inicial de los paquetes, la tolerancia de pago y los medios.
      */

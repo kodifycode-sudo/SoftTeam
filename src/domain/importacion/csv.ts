@@ -1,6 +1,6 @@
 /*
  * Lectura de archivos de importación. Formato fijo: la primera línea tiene
- * los nombres de los campos (atributos de la KB o nombres propios) y cada
+ * los nombres de los campos (atributos de SOFTeam o nombres propios) y cada
  * línea siguiente, los valores; todo separado por punto y coma (;). Sigue
  * las reglas habituales del CSV: un valor entre comillas puede tener ";" o
  * saltos de línea, y "" dentro de comillas es una comilla.

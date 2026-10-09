@@ -95,7 +95,7 @@ describe("períodos", () => {
   });
 });
 
-describe("prórroga (Mejora v2.1, 7.7)", () => {
+describe("prórroga", () => {
   it("un contrato activo sigue sumando después del vencimiento hasta el fin de la prórroga", () => {
     const c = temporal({
       estado: "ACTIVO",

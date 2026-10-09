@@ -1,7 +1,7 @@
 import type { FamiliaConsumo } from "./familias";
 
 /*
- * Paquetes consumibles (Mejora v2.1, 8.15 y 8.16): qué sistema puede pedir
+ * Paquetes consumibles: qué sistema puede pedir
  * cada consumible, cuándo se renueva un paquete por saldo y cómo se devuelven
  * las unidades no usadas. Funciones puras.
  */
@@ -48,7 +48,7 @@ export function resultadoPedido(solicitado: number, consumido: number): Resultad
 }
 
 /**
- * Renovación por saldo (8.15): cuando le queda `porcentaje` % o menos de lo
+ * Renovación por saldo: cuando le queda `porcentaje` % o menos de lo
  * que trajo. Los demás controles (marca, renovación previa, producto vivo)
  * los resuelve quien llama.
  */
@@ -70,7 +70,7 @@ export interface AsignacionReintegro {
 }
 
 /**
- * Reparte un reintegro (8.16): primero los consumibles del alcance, del más
+ * Reparte un reintegro: primero los consumibles del alcance, del más
  * nuevo al más viejo, hasta lo que trajo cada uno (`capacidad` = cantidad −
  * saldo); lo que no entra vuelve a los contratos de los que salió la
  * solicitud (`capacidad` = lo que dio − lo ya reintegrado). Un saldo que ya

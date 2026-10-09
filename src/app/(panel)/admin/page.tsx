@@ -123,7 +123,7 @@ export default async function Tablero() {
     tendenciasTablero(db, fechaHoy),
     cajasTablero(db, fechaHoy),
   ]);
-  // Casos que piden una acción (Mejora v2.1, 11.7).
+  // Casos que piden una acción.
   const atender = [
     {
       href: "/admin/pendientes#renovaciones",

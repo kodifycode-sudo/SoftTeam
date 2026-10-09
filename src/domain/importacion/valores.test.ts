@@ -11,7 +11,7 @@ import {
 } from "./valores";
 
 describe("valores de importación", () => {
-  it("condición de IVA por código de la KB, abreviatura o condición configurada", () => {
+  it("condición de IVA por código de SOFTeam, abreviatura o condición configurada", () => {
     const activas = [
       { codigo: "RESPONSABLE_INSCRIPTO", nombre: "IVA Responsable Inscripto" },
       { codigo: "CONSUMIDOR_FINAL", nombre: "Consumidor Final" },
@@ -25,7 +25,7 @@ describe("valores de importación", () => {
     expect(leer("1")).toBe("RESPONSABLE_INSCRIPTO");
     expect(leer("2")).toBe("CONSUMIDOR_FINAL");
     expect(leer("3")).toBe("MONOTRIBUTO");
-    // En la KB el 5 es Gran Contribuyente (no el código de ARCA de consumidor final).
+    // En SOFTeam el 5 es Gran Contribuyente (no el código de ARCA de consumidor final).
     expect(leer("5")).toBe("GRAN_CONTRIBUYENTE");
     expect(leer("Monotributo social")).toBe("MONOTRIBUTO_SOCIAL");
     // Una condición que no está activa no se acepta.

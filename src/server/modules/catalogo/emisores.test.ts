@@ -53,7 +53,7 @@ const entrada = (parcial: Partial<EntradaEmisor> = {}): EntradaEmisor => ({
   ...parcial,
 });
 
-describe("emisores (Mejora v2.1, 5.11)", () => {
+describe("emisores", () => {
   it("guarda las credenciales cifradas y nunca las lista", async () => {
     const r = await guardarEmisor(
       db,

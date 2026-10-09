@@ -265,7 +265,7 @@ export async function empresaCompleta(db: Ejecutor, numero: number, hoy: Fecha =
     politicas: politicas?.politicas ?? POLITICAS_POR_DEFECTO,
     // Marca blanca: cómo se muestra la empresa ante sus asegurados.
     marca: marcaParaApi(marca, `/api/v1/empresas/${empresa.numero}/logo`),
-    // Tipos de comunicación: tipos de usuario con su nombre y el código de la KB.
+    // Tipos de comunicación: tipos de usuario con su nombre y el código de SOFTeam.
     comunicaciones: comunicaciones.map((c) => ({
       codigo: c.codigo,
       nombre: c.nombre,

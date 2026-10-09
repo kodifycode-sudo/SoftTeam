@@ -1,6 +1,6 @@
--- Modo de facturación del cliente (Mejora v2.1, 7.6) en lugar del tipo de
+-- Modo de facturación del cliente en lugar del tipo de
 -- cliente de la empresa. CORPORATIVO (el servicio nunca se corta) pasa al
--- modo 3; DIRECTO, al 0. Prórroga del contrato (7.7) y medios de pago por modo
+-- modo 3; DIRECTO, al 0. Prórroga del contrato y medios de pago por modo
 -- (6.5, valores iniciales editables por Administración).
 ALTER TABLE "medios_pago" ADD COLUMN "modos_facturacion" smallint[] DEFAULT '{0,1,2,3}' NOT NULL;--> statement-breakpoint
 UPDATE "medios_pago" SET "modos_facturacion" = CASE "tipo"

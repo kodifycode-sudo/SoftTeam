@@ -8,7 +8,7 @@ import { cifrar, descifrar } from "@/server/seguridad/cifrado";
 import { auditar } from "../auditoria";
 
 /*
- * Emisores (Mejora v2.1, 5.11): las sociedades de SOFTeam que facturan, con su
+ * Emisores: las sociedades de SOFTeam que facturan, con su
  * conexión propia a Xubio y a Mercado Pago. Los secretos se cifran al guardar,
  * se descifran solo para llamar a la API y nunca salen en listados ni en la
  * auditoría.

@@ -1,8 +1,8 @@
--- Condiciones frente al IVA configurables (Mejora v2.1, 2.8 y 2.9): alícuota,
+-- Condiciones frente al IVA configurables: alícuota,
 -- comprobante y código ARCA pasan de estar fijos en el código a una tabla que
 -- edita Administración. Los códigos actuales se conservan, así que clientes,
--- productores y órdenes no cambian de valor. El exento paga IVA (v2.1 corrige
--- el criterio de la v2.0): la alícuota rige para las órdenes que se confirmen
+-- productores y órdenes no cambian de valor. El exento paga IVA: la alícuota
+-- rige para las órdenes que se confirmen
 -- desde ahora; las ya emitidas conservan la suya.
 CREATE TABLE "condiciones_iva" (
 	"codigo" varchar(30) PRIMARY KEY NOT NULL,

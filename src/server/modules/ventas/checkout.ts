@@ -50,8 +50,7 @@ import { type ItemCarrito, listarCarrito } from "./carrito";
 import { cargarSaldos, registrarPago } from "./ordenes";
 
 /**
- * Lo que agrega Administración a un ítem en la orden manual (Mejora v2.1,
- * 8.17 y 11.8): bonificación del paquete y, en un consumible bonificado al
+ * Lo que agrega Administración a un ítem en la orden manual: bonificación del paquete y, en un consumible bonificado al
  * 100 %, las unidades de su saldo.
  */
 export interface AjusteManual {
@@ -98,7 +97,7 @@ function bonificacionDelContrato(
     const cien = item.manual.bonifPorcentaje >= 10_000n;
     return {
       bonifPorcentaje: item.manual.bonifPorcentaje,
-      // El bonificado al 100 % no se propaga ni se renueva (8.17).
+      // El bonificado al 100 % no se propaga ni se renueva.
       bonifRecurrente: cien ? false : item.manual.bonifRecurrente,
       bonifMotivo: item.manual.bonifMotivo,
       noRenovar: cien,
@@ -172,7 +171,7 @@ async function contextoVenta(db: Ejecutor, empresaId: string, oficinaId: string 
   ]);
   const instancia: Instancia = contratoPrevio ? "ADICIONAL" : "ALTA_INICIAL";
   // Vencimientos de los paquetes temporales no cancelados: de la empresa para
-  // los adicionales y de todo el grupo para las altas a grupo (8.10 y 8.12).
+  // los adicionales y de todo el grupo para las altas a grupo.
   const temporales = await db
     .select({
       empresaId: t.contratos.empresaId,
@@ -228,7 +227,7 @@ type ContextoVenta = NonNullable<Awaited<ReturnType<typeof contextoVenta>>>;
 
 /**
  * Modo con que se cobraría la orden pagando con este medio: el del cliente al
- * que se factura (con planilla, el del grupo; Mejora v2.1, 7.6).
+ * que se factura (con planilla, el del grupo).
  */
 function modoConMedio(ctx: ContextoVenta, medio: MedioPago): ModoFacturacion {
   return ctx.modos.get(facturarA(ctx, medio)) ?? 0;
@@ -242,7 +241,7 @@ const facturarA = (ctx: ContextoVenta, medio: MedioPago) =>
     medio,
   });
 
-/** Emisor de la venta con este medio: el del cliente al que se factura o el preferido (5.11). */
+/** Emisor de la venta con este medio: el del cliente al que se factura o el preferido. */
 const emisorConMedio = (ctx: ContextoVenta, medio: MedioPago) =>
   resolverEmisor(ctx.emisorDe.get(facturarA(ctx, medio)), ctx.emisorPreferido);
 
@@ -250,7 +249,7 @@ const emisorConMedio = (ctx: ContextoVenta, medio: MedioPago) =>
 function medioUsable(
   ctx: ContextoVenta,
   medio: (MedioPago & { modosFacturacion: number[] }) | undefined,
-  /** `null`: orden manual de SOFTeam, cualquier medio habilitado (11.8). */
+  /** `null`: orden manual de SOFTeam, cualquier medio habilitado. */
   instancia: Instancia | null,
 ): medio is MedioPago & { modosFacturacion: number[] } {
   if (!medio) return false;
@@ -291,7 +290,7 @@ export interface LineaCotizada {
   item: ItemCarrito;
   descripcion: string;
   calculo: CalculoOrden["items"][number];
-  /** Paquetes temporales alineados: tramo y vencimiento (Mejora v2.1, 8.10). */
+  /** Paquetes temporales alineados: tramo y vencimiento. */
   periodo: PeriodoCalculado | null;
 }
 
@@ -346,12 +345,12 @@ export async function cotizarCarrito(
     diaVenc?: number | undefined;
     /**
      * Orden manual de SOFTeam: paquetes privados, cualquier medio habilitado,
-     * tickets no públicos y renovación del trimestre inicial (11.8).
+     * tickets no públicos y renovación del trimestre inicial.
      */
     softeam?: boolean;
     /** Ítems de la orden manual; sin ellos, el carrito. */
     items?: ItemCotizable[];
-    /** Emisor elegido por Administración para la orden (5.11). */
+    /** Emisor elegido por Administración para la orden. */
     emisorId?: string | undefined;
     /** Alta a grupo: inicio del tramo (por defecto, hoy). */
     fechaDesde?: Fecha | undefined;
@@ -433,7 +432,7 @@ export async function cotizarCarrito(
   }
   if (!emisor.ok) return rechazo("SIN_EMISOR");
 
-  // Plan y día de vencimiento (Mejora v2.1, 8.9 a 8.18).
+  // Plan y día de vencimiento.
   const empresaTemporales = ctx.temporales.filter((c) => c.empresaId === empresaId);
   const situacion = situacionAlta({
     agrupado: ctx.clienteFacturacionGrupoId !== null,
@@ -695,7 +694,7 @@ export async function confirmarOrden(
     if (!cotizacion.ok) return cotizacion;
     const c = cotizacion.valor;
     const k = c.calculo;
-    // Un alta a grupo no genera orden: la incorpora la orden colectiva (8.12).
+    // Un alta a grupo no genera orden: la incorpora la orden colectiva.
     if (c.situacion === "GRUPO") return rechazo("ALTA_A_GRUPO");
 
     // Renovaciones: el contrato sigue vigente y nadie lo renovó mientras
@@ -799,7 +798,7 @@ export async function confirmarOrden(
               ? periodoAlta(hoy, meses)
               : null;
       const bonificacion = bonificacionDelContrato(item, anterior);
-      // Tolerancia de pago (7.7): prórroga del anterior o plazo del nuevo habilitado.
+      // Tolerancia de pago: prórroga del anterior o plazo del nuevo habilitado.
       const plazos =
         anterior?.hasta && periodo
           ? plazosDeRenovacion(c.modoFacturacion, tolerancia, anterior.hasta, periodo.desde)
@@ -896,7 +895,7 @@ export async function confirmarOrden(
 }
 
 /**
- * Alta a grupo (Mejora v2.1, 8.12): el cliente agrupado que paga por planilla
+ * Alta a grupo: el cliente agrupado que paga por planilla
  * no genera una orden en el momento. Los paquetes se graban con su tramo,
  * sin orden, y la orden colectiva de la próxima corrida los incorpora (una
  * orden por factura). Mientras tanto, Administración puede anularlos.
@@ -1011,7 +1010,7 @@ export async function confirmarAltaAGrupo(
 }
 
 /**
- * Planes temporales que la empresa puede contratar hoy (8.18): solo el
+ * Planes temporales que la empresa puede contratar hoy: solo el
  * trimestral en el primer alta de un cliente no agrupado; después, el resto.
  * Para filtrar el catálogo; la cotización lo vuelve a validar.
  */
@@ -1028,7 +1027,7 @@ export async function soloTrimestralInicial(db: Ejecutor, empresaId: string): Pr
 }
 
 /**
- * Usos de un ticket que cuentan para su límite (Mejora v2.1, 9.3): órdenes
+ * Usos de un ticket que cuentan para su límite: órdenes
  * manuales no canceladas; las renovaciones de la serie son el mismo uso.
  * El de uso único por cliente cuenta solo las de ese cliente.
  */
@@ -1049,7 +1048,7 @@ export async function usosDeTicket(
 }
 
 /**
- * Ticket nominado al cliente para su próxima compra (8.17): vigente y sin
+ * Ticket nominado al cliente para su próxima compra: vigente y sin
  * usar. El carrito lo propone; el cliente puede quitarlo.
  */
 export async function ticketPropuesto(

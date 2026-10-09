@@ -1,11 +1,11 @@
 /*
- * Tipos de comunicación de una empresa (`TipoComunicacion` de la KB): por qué
+ * Tipos de comunicación de una empresa (`TipoComunicacion` de SOFTeam): por qué
  * medios sale cada comunicación y, según quién la origina, a quiénes puede
  * llegar y quién tiene que autorizarla. Los productos de notificaciones
  * (BienSeguro, Boletín) los leen de STLic.
  */
 
-/** Tipos de usuario, con el código que usaba la KB (dominio `TipoUsuario`). */
+/** Tipos de usuario, con el código que usaba SOFTeam (dominio `TipoUsuario`). */
 export const TIPOS_USUARIO = {
   SOFTEAM: { codigo: 1, etiqueta: "Administrador SOFTeam" },
   ADMIN_EMPRESA: { codigo: 7, etiqueta: "Administrador de la empresa" },

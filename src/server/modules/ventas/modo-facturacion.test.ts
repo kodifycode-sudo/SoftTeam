@@ -23,7 +23,7 @@ let usuarioId: string;
 beforeAll(async () => {
   db = await crearDbDePrueba();
   usuarioId = (await db.query.usuarios.findFirst())!.id;
-  // Medios por modo con los valores iniciales de la Mejora v2.1 (6.5).
+  // Medios por modo con los valores iniciales sugeridos.
   for (const [codigo, modos] of [
     ["LINK_MP", [0, 2]],
     ["TRANSF", [1]],
@@ -36,8 +36,8 @@ beforeAll(async () => {
       .set({ modosFacturacion: [...modos] })
       .where(eq(t.mediosPago.codigo, codigo));
   }
-  // La planilla no está habilitada para el alta inicial (6.2): las altas del
-  // modo 3 se resuelven como altas a grupo (8.12, fase F4). Acá se habilita
+  // La planilla no está habilitada para el alta inicial: las altas del
+  // modo 3 se resuelven como altas a grupo. Acá se habilita
   // para probar el modo con una orden.
   await db
     .update(t.mediosPago)
@@ -73,7 +73,7 @@ const confirmar = (empresaId: string, medioPagoId?: string, ticketCodigo?: strin
     HOY,
   );
 
-describe("medios de pago por modo de facturación (Mejora v2.1, 6.5)", () => {
+describe("medios de pago por modo de facturación", () => {
   it("cada modo ofrece solo los medios habilitados para él", async () => {
     const directo = await carritoDe(0);
     const medios = await mediosParaEmpresa(db, directo.empresa.id);
@@ -94,7 +94,7 @@ describe("medios de pago por modo de facturación (Mejora v2.1, 6.5)", () => {
   });
 });
 
-describe("estado inicial y factura según el modo (7.6)", () => {
+describe("estado inicial y factura según el modo", () => {
   it("modo 0: espera el pago y se factura al cobrar", async () => {
     const { empresa } = await carritoDe(0);
     const r = await confirmar(empresa.id);
@@ -157,7 +157,7 @@ describe("estado inicial y factura según el modo (7.6)", () => {
   });
 });
 
-describe("prórroga de la renovación (7.7)", () => {
+describe("prórroga de la renovación", () => {
   // El 11/10 se generan los vencimientos del 13/10 al 2/11.
   const ventana = ventanasDeRenovacion(fecha("2026-10-11")).at(-1)!;
 
@@ -247,7 +247,7 @@ describe("prórroga de la renovación (7.7)", () => {
   });
 });
 
-describe("factura agrupada impaga (7.7)", () => {
+describe("factura agrupada impaga", () => {
   it("pasada la tolerancia del modo 3 avisa a SOFTeam, sin suspender", async () => {
     const { empresa } = await carritoDe(3);
     const r = await confirmar(empresa.id, (await medio("PLAN_FP")).id);

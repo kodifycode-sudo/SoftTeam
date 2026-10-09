@@ -36,7 +36,7 @@ export type ErrorBonificacion =
 /**
  * SOFTeam bonifica un paquete de una orden pendiente de pago: recalcula la
  * orden con el mismo motor de cálculo y vuelve a tomar la foto fiscal
- * (Mejora v2.1, 2.5): la condición frente al IVA vigente del cliente de
+ *: la condición frente al IVA vigente del cliente de
  * facturación y el ajuste vigente del medio de pago. Actualiza sus líneas y
  * contratos e invalida el link de pago (el importe cambió). No se combina con un ticket. Si es
  * recurrente, la renovación la conserva. Una bonificación de 0 la quita.

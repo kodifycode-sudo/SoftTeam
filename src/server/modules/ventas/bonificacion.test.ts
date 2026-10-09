@@ -173,7 +173,7 @@ describe("bonificación del 100 %", () => {
   });
 });
 
-describe("recálculo con la foto fiscal vigente (Mejora v2.1, 2.5)", () => {
+describe("recálculo con la foto fiscal vigente", () => {
   it("toma la condición frente al IVA y el ajuste del medio vigentes al bonificar", async () => {
     const { ordenId, prodigal } = await ordenPendiente();
     const orden = await db.query.ordenes.findFirst({ where: eq(t.ordenes.id, ordenId) });

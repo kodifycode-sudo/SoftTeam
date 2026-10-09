@@ -17,7 +17,7 @@ import {
 } from "./checkout";
 
 /*
- * Orden manual de Administración SOFTeam (Mejora v2.1, 8.11, 8.12, 8.17 y
+ * Orden manual de Administración SOFTeam ( y
  * 11.8): paquetes privados, bonificación por paquete (el consumible al 100 %
  * con su saldo editable), renovación negociada del trimestre inicial,
  * cualquier medio habilitado, tickets no públicos, "fecha desde" en las altas
@@ -59,7 +59,7 @@ export type OpcionCatalogoManual = Awaited<ReturnType<typeof catalogoOrdenManual
 
 /**
  * Paquetes temporales que Administración puede renovar a mano, incluido el
- * trimestre inicial (8.11), con las alternativas de renovación (no trimestral).
+ * trimestre inicial, con las alternativas de renovación (no trimestral).
  */
 export async function renovablesOrdenManual(db: Ejecutor, empresaId: string) {
   const contratos = await db
@@ -130,7 +130,7 @@ export const esquemaItemManual = z
       .refine((p) => p >= 0n && p <= 10_000n, { error: "Entre 0 y 100 %" }),
     recurrente: z.boolean(),
     motivo: z.string().trim().max(200).optional(),
-    /** Consumible bonificado al 100 %: unidades del saldo (8.17). */
+    /** Consumible bonificado al 100 %: unidades del saldo. */
     cantidadSaldo: z.coerce.number().int().min(1).max(10_000_000).optional(),
   })
   .refine((i) => i.bonificacion === 0n || i.motivo, {
@@ -255,7 +255,7 @@ export async function cotizarOrdenManual(
 /**
  * Confirma la orden manual. Si es un alta a grupo, graba los paquetes sin
  * orden (los incorpora la colectiva). Sin importe (bonificada al 100 %), la
- * orden queda pagada y los paquetes activos, sin link ni factura (5.9).
+ * orden queda pagada y los paquetes activos, sin link ni factura.
  */
 export async function confirmarOrdenManual(
   db: Db,

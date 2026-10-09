@@ -81,11 +81,11 @@ async function candidatos(db: Ejecutor, ventana: VentanaRenovacion) {
         eq(t.contratos.tipoPaquete, "TEMPORAL"),
         or(
           inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
-          // Alta a grupo que espera esta orden colectiva: se cobra con su renovación (8.12).
+          // Alta a grupo que espera esta orden colectiva: se cobra con su renovación.
           and(isNull(t.contratos.ordenId), eq(t.contratos.estado, "PEND_PAGO")),
         ),
         eq(t.contratos.noRenovar, false),
-        // El trimestre inicial no tiene día de vencimiento: su continuidad se negocia (8.11).
+        // El trimestre inicial no tiene día de vencimiento: su continuidad se negocia.
         isNotNull(t.contratos.diaVenc),
         gte(t.contratos.hasta, ventana.desde),
         lte(t.contratos.hasta, ventana.hasta),
@@ -104,9 +104,9 @@ interface Grupo {
   clave: string;
   medio: Medio;
   clienteFacturacionId: string;
-  /** Del cliente de facturación (Mejora v2.1, 7.6). */
+  /** Del cliente de facturación. */
   modoFacturacion: ModoFacturacion;
-  /** Sociedad que factura (5.11). */
+  /** Sociedad que factura. */
   emisor: EmisorDeVenta;
   agrupada: boolean;
   items: Candidato[];
@@ -120,9 +120,9 @@ interface Grupo {
  * - medio de pago de renovación del cliente (o el primero habilitado);
  * - el período empalma con el anterior y termina en su día de vencimiento
  *   (10 o 20): si el anterior no estaba alineado, cobra el tramo hasta ese
- *   día (Mejora v2.1, 8.10);
+ *   día;
  * - planilla: una orden agrupada por cliente de facturación y período, que
- *   incorpora las altas a grupo pendientes (8.12); si no, una orden por
+ *   incorpora las altas a grupo pendientes; si no, una orden por
  *   empresa.
  *
  * Cada orden se crea en su propia transacción, con una clave de idempotencia
@@ -257,7 +257,7 @@ export async function procesoRenovacion(
 }
 
 /**
- * Ticket heredado de la orden de origen (Mejora v2.1, 9.2 y 9.3): sin
+ * Ticket heredado de la orden de origen: sin
  * revalidarlo, mientras no pasen 12 meses desde esa orden y quede saldo del
  * tope (lo descontado en toda la serie, sin las canceladas). Solo en órdenes
  * de una única serie, sin paquetes bonificados y en modos que aceptan tickets.
@@ -470,7 +470,7 @@ async function generarOrden(db: Db, ventana: VentanaRenovacion, grupo: Grupo): P
         desde: periodoRenovacion(anterior.hasta, item.alternativa.meses).desde,
         hasta: calculado.hasta,
       };
-      // Tolerancia de pago (7.7): prórroga del anterior o plazo del nuevo habilitado.
+      // Tolerancia de pago: prórroga del anterior o plazo del nuevo habilitado.
       const plazos = plazosDeRenovacion(
         grupo.modoFacturacion,
         tolerancia,

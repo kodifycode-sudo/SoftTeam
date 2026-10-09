@@ -8,7 +8,7 @@ import {
   saldoParaRenovar,
 } from "./consumibles";
 
-describe("consumibles (Mejora v2.1, 8.15 y 8.16)", () => {
+describe("consumibles", () => {
   it("presupuestos solo para CotiWeb; soporte solo STLic", () => {
     expect(familiaHabilitada("cotizaciones", "cotiweb")).toBe(true);
     expect(familiaHabilitada("cotizaciones", "prodigal")).toBe(false);

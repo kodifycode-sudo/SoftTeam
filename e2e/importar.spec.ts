@@ -56,7 +56,7 @@ test.describe
       await ingresar(page, ADMIN.email, ADMIN.contrasena);
       await page.goto("/admin/importar?tipo=usuarios");
       await expect(page.getByText("Cómo preparar el archivo")).toBeVisible();
-      await expect(page.getByText("Cómo exportarlo del sistema anterior")).toBeVisible();
+      await expect(page.getByText("Cómo exportarlo de SOFTeam")).toBeVisible();
       await expect(page.getByText("SELECT * FROM STLicUsuarios").first()).toBeVisible();
       await expect(page.getByRole("button", { name: "Copiar el comando" })).toBeVisible();
       await capturar(page, "admin-importar-manual");

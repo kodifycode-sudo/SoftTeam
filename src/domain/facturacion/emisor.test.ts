@@ -13,7 +13,7 @@ const emisor = (parcial: Partial<EmisorParaVenta> = {}): EmisorParaVenta => ({
   ...parcial,
 });
 
-describe("emisores (Mejora v2.1, 5.11)", () => {
+describe("emisores", () => {
   it("el emisor es el del cliente o, si no tiene o está dado de baja, el preferido del país", () => {
     const delCliente = emisor({ id: "cliente" });
     const preferido = emisor({ id: "preferido" });

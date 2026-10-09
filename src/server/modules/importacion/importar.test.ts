@@ -26,12 +26,12 @@ const bytes = (texto: string) => new TextEncoder().encode(texto);
 const importarTexto = (tipo: Parameters<typeof importar>[1], texto: string, confirmar = true) =>
   importar(db, tipo, bytes(texto), { confirmar }, "admin");
 
-/** Cabecera de clientes con los títulos de la KB. */
+/** Cabecera de clientes con los títulos de SOFTeam. */
 const CABECERA_CLIENTES =
   "STLicClienteFacCUIT;STLicClienteNom;STLicClienteFacIVACod;STLicClienteFacDomi;STLicClienteFacDomiCiu;STLicClienteFacDomiCP;STLicClienteFacDomiPcia;STLicClienteAdminNom;STLicClienteAdminMail;STLicEmpresaCod;StLicEmpresasTipCliente";
 
 describe("importación", () => {
-  it("revisa sin guardar, e importa conservando el número de empresa de la KB", async () => {
+  it("revisa sin guardar, e importa conservando el número de empresa de SOFTeam", async () => {
     const cuit = cuitValido();
     const archivo = `${CABECERA_CLIENTES}\n${cuit};Broker Importado SA;1;Córdoba 100;Rosario;2000;Santa Fe;Ana Pérez;ana.importada@test.com;7001;Corporativo\n`;
 
