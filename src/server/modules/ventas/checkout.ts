@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
-import type { Centavos } from "@/domain/dinero";
+import type { Centavos, Porcentaje } from "@/domain/dinero";
 import {
   type CalculoOrden,
   calcularOrden,
@@ -21,7 +21,12 @@ import {
   plazoDeAlta,
   plazosDeRenovacion,
 } from "@/domain/facturacion/modo";
-import { evaluarTicket, type RechazoTicket } from "@/domain/facturacion/ticket";
+import {
+  evaluarTicket,
+  type RechazoTicket,
+  saldoDeTicket,
+  type UsoTicket,
+} from "@/domain/facturacion/ticket";
 import { esPosterior, type Fecha, hoy as hoyArgentina, sumarDias } from "@/domain/fecha";
 import { periodoAlta, periodoRenovacion } from "@/domain/licencias/contrato";
 import { cantidadContratada } from "@/domain/licencias/licencia";
@@ -43,6 +48,70 @@ import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { leerParametroDe } from "../parametros";
 import { type ItemCarrito, listarCarrito } from "./carrito";
 import { cargarSaldos, registrarPago } from "./ordenes";
+
+/**
+ * Lo que agrega Administración a un ítem en la orden manual (Mejora v2.1,
+ * 8.17 y 11.8): bonificación del paquete y, en un consumible bonificado al
+ * 100 %, las unidades de su saldo.
+ */
+export interface AjusteManual {
+  bonifPorcentaje: Porcentaje;
+  bonifRecurrente: boolean;
+  bonifMotivo: string | null;
+  cantidadSaldo: number | null;
+}
+
+/** Ítem a cotizar: del carrito o armado por SOFTeam en la orden manual. */
+export type ItemCotizable = ItemCarrito & { manual?: AjusteManual };
+
+/** Recursos que contrata un ítem, con el saldo editado de un bonificado al 100 %. */
+function recursosDelItem(
+  recursos: {
+    paqueteId: string;
+    recursoId: string;
+    cantidad: number;
+    clase: string;
+    agregacion: string;
+  }[],
+  item: ItemCotizable,
+) {
+  return recursos
+    .filter((r) => r.paqueteId === item.paqueteId && r.cantidad > 0)
+    .map((r) => ({
+      recursoId: r.recursoId,
+      clase: r.clase as "CAPACIDAD" | "FUNCION" | "CUPO_MENSUAL" | "SALDO",
+      cantidad:
+        r.clase === "SALDO" && item.manual?.cantidadSaldo != null
+          ? item.manual.cantidadSaldo
+          : cantidadContratada(r.cantidad, item.cantidad, r.agregacion as never),
+    }));
+}
+
+/** Bonificación que se graba en el contrato nuevo. */
+function bonificacionDelContrato(
+  item: ItemCotizable,
+  anterior:
+    | { bonifRecurrente: boolean; bonifPorcentaje: Porcentaje; bonifMotivo: string | null }
+    | undefined,
+) {
+  if (item.manual) {
+    const cien = item.manual.bonifPorcentaje >= 10_000n;
+    return {
+      bonifPorcentaje: item.manual.bonifPorcentaje,
+      // El bonificado al 100 % no se propaga ni se renueva (8.17).
+      bonifRecurrente: cien ? false : item.manual.bonifRecurrente,
+      bonifMotivo: item.manual.bonifMotivo,
+      noRenovar: cien,
+    };
+  }
+  const recurrente = anterior?.bonifRecurrente ?? false;
+  return {
+    bonifPorcentaje: recurrente && anterior ? anterior.bonifPorcentaje : 0n,
+    bonifRecurrente: recurrente,
+    bonifMotivo: recurrente && anterior ? anterior.bonifMotivo : null,
+    noRenovar: false,
+  };
+}
 
 export type RechazoCompra =
   | RechazoCalculo
@@ -181,9 +250,15 @@ const emisorConMedio = (ctx: ContextoVenta, medio: MedioPago) =>
 function medioUsable(
   ctx: ContextoVenta,
   medio: (MedioPago & { modosFacturacion: number[] }) | undefined,
-  instancia: Instancia,
+  /** `null`: orden manual de SOFTeam, cualquier medio habilitado (11.8). */
+  instancia: Instancia | null,
 ): medio is MedioPago & { modosFacturacion: number[] } {
-  if (!medio || !validarMedioPago(medio, { paisId: ctx.paisId, instancia }).ok) return false;
+  if (!medio) return false;
+  if (instancia === null) {
+    if (!medio.activo || (medio.paisId !== null && medio.paisId !== ctx.paisId)) return false;
+  } else if (!validarMedioPago(medio, { paisId: ctx.paisId, instancia }).ok) {
+    return false;
+  }
   const emisor = emisorConMedio(ctx, medio);
   return (
     medioPermitidoParaModo(medio.modosFacturacion, modoConMedio(ctx, medio)) &&
@@ -269,13 +344,25 @@ export async function cotizarCarrito(
     oficinaId?: string | null;
     /** Día de vencimiento elegido (único por orden). */
     diaVenc?: number | undefined;
+    /**
+     * Orden manual de SOFTeam: paquetes privados, cualquier medio habilitado,
+     * tickets no públicos y renovación del trimestre inicial (11.8).
+     */
+    softeam?: boolean;
+    /** Ítems de la orden manual; sin ellos, el carrito. */
+    items?: ItemCotizable[];
+    /** Emisor elegido por Administración para la orden (5.11). */
+    emisorId?: string | undefined;
+    /** Alta a grupo: inicio del tramo (por defecto, hoy). */
+    fechaDesde?: Fecha | undefined;
   } = {},
   hoy: Fecha = hoyArgentina(),
 ): Promise<Resultado<Cotizacion, RechazoCompra>> {
   const ctx = await contextoVenta(db, empresaId, opciones.oficinaId ?? null);
   if (!ctx) return rechazo("EMPRESA_INEXISTENTE");
 
-  const items = await listarCarrito(db, empresaId, opciones.oficinaId ?? null);
+  const items: ItemCotizable[] =
+    opciones.items ?? (await listarCarrito(db, empresaId, opciones.oficinaId ?? null));
   if (items.length === 0) return rechazo("SIN_ITEMS");
 
   // Lo nuevo tiene que seguir a la venta hoy (público y vigente). Una
@@ -304,7 +391,8 @@ export async function cotizarCarrito(
           t.alternativas.id,
           items.filter((i) => i.tipoAccion === "ALTA").map((i) => i.alternativaId),
         ),
-        eq(t.paquetes.privado, false),
+        // Los privados solo los vende SOFTeam.
+        opciones.softeam ? undefined : eq(t.paquetes.privado, false),
         vendibleHoy(hoy),
       ),
     );
@@ -320,19 +408,29 @@ export async function cotizarCarrito(
     return rechazo("SIN_EMISOR");
   }
   const instancia = instanciaDe(items, ctx.instancia);
+  const instanciaMedio = opciones.softeam ? null : instancia;
   const medioPreferido =
     instancia === "RENOVACION"
       ? (ctx.medioPagoRenovacionId ?? ctx.medioPagoAltaId)
       : ctx.medioPagoAltaId;
   const candidatos = await db.select().from(t.mediosPago).orderBy(asc(t.mediosPago.orden));
-  const validos = candidatos.filter((m) => medioUsable(ctx, m, instancia));
+  const validos = candidatos.filter((m) => medioUsable(ctx, m, instanciaMedio));
   const medioId =
     opciones.medioPagoId ??
     (validos.some((m) => m.id === medioPreferido) ? medioPreferido : undefined);
   const medio = medioId ? candidatos.find((m) => m.id === medioId) : validos[0];
-  if (!medioUsable(ctx, medio, instancia)) return rechazo("MEDIO_NO_HABILITADO");
+  if (!medioUsable(ctx, medio, instanciaMedio)) return rechazo("MEDIO_NO_HABILITADO");
   const modoFacturacion = modoConMedio(ctx, medio);
-  const emisor = emisorConMedio(ctx, medio);
+  let emisor = emisorConMedio(ctx, medio);
+  if (opciones.emisorId) {
+    const elegido = (await emisoresParaVenta(db, [opciones.emisorId], ctx.paisId)).porId.get(
+      opciones.emisorId,
+    );
+    emisor = resolverEmisor(elegido, undefined);
+    if (emisor.ok && !medioDisponibleParaEmisor(medio.tipo, emisor.valor)) {
+      return rechazo("MEDIO_NO_HABILITADO");
+    }
+  }
   if (!emisor.ok) return rechazo("SIN_EMISOR");
 
   // Plan y día de vencimiento (Mejora v2.1, 8.9 a 8.18).
@@ -355,8 +453,11 @@ export async function cotizarCarrito(
     leerParametroDe(db, "renovacion.minimo_dias_tramo"),
     leerParametroDe(db, "renovacion.dias_corte"),
   ]);
+  // Renovar el trimestre inicial (lo negocia SOFTeam) fija el día de vencimiento.
+  const hayRenovaciones = items.some((i) => i.tipoAccion === "RENOVACION");
   const enTrimestre =
     situacion === "ADICIONAL" &&
+    !hayRenovaciones &&
     empresaTemporales.length > 0 &&
     empresaTemporales.every((c) => c.diaVenc === null);
   const fijo = ctx.clienteFacturacionGrupoId !== null;
@@ -399,7 +500,7 @@ export async function cotizarCarrito(
       return calcularPeriodo({
         ...base,
         tipo: "ALTA_GRUPO",
-        desde: hoy,
+        desde: opciones.fechaDesde ?? hoy,
         diaVenc,
         mayorHasta: mayorHasta(diaVenc, ctx.temporales),
         diaCorteColectiva: diasCorte[0],
@@ -428,10 +529,34 @@ export async function cotizarCarrito(
   const fiscal = condicionParaFacturar(await condicionFiscal(db, facturacion.condicionIva));
   if (!fiscal.ok) return fiscal;
 
+  const itemsCalculo = items.map((i, n) => ({
+    clave: i.id,
+    paqueteId: i.paqueteId,
+    tipoAccion: i.tipoAccion,
+    cantidad: i.cantidad,
+    precioCompra: i.precioCompra,
+    precioRenovacion: i.precioRenovacion,
+    // La de SOFTeam en la orden manual; si no, la recurrente del contrato que se renueva.
+    bonifPorcentaje:
+      i.manual?.bonifPorcentaje ?? (i.tipoAccion === "RENOVACION" ? i.bonifRenovacion : 0n),
+    moneda: ctx.moneda,
+    prorrata: periodos[n]?.prorrataImporte,
+    incluyePeriodo: periodos[n]?.incluyePeriodo,
+  }));
+  const base = {
+    moneda: ctx.moneda,
+    items: itemsCalculo,
+    ajustePagoPorcentaje: medio.ajustePorcentaje,
+    alicuotaIva: fiscal.valor.alicuota,
+  };
+
   let ticket: Cotizacion["ticket"] = null;
   let ticketAplicable: Parameters<typeof calcularOrden>[0]["ticket"];
   const codigo = opciones.ticketCodigo?.trim().toUpperCase();
   if (codigo) {
+    // El mínimo del ticket se compara con el subtotal antes del descuento.
+    const sinTicket = calcularOrden(base);
+    if (!sinTicket.ok) return sinTicket;
     const fila = await db.query.tickets.findFirst({ where: eq(t.tickets.codigo, codigo) });
     const habilitados = fila
       ? await db
@@ -440,39 +565,32 @@ export async function cotizarCarrito(
           .where(eq(t.ticketPaquetes.ticketId, fila.id))
       : [];
     const evaluado = evaluarTicket({
-      ticket: fila && { ...fila, paquetesHabilitados: habilitados.map((h) => h.paqueteId) },
+      ticket: fila && {
+        ...fila,
+        uso: fila.uso as UsoTicket,
+        paquetesHabilitados: habilitados.map((h) => h.paqueteId),
+      },
       hoy,
       modoFacturacion,
-      items: items.map((i) => ({
-        paqueteId: i.paqueteId,
-        tipoAccion: i.tipoAccion,
-        bonifPorcentaje: i.tipoAccion === "RENOVACION" ? i.bonifRenovacion : 0n,
-      })),
+      items: itemsCalculo,
+      contexto: {
+        softeam: opciones.softeam ?? false,
+        clienteId: ctx.clienteId,
+        paisId: ctx.paisId,
+        moneda: ctx.moneda,
+        altaInicial: ctx.instancia === "ALTA_INICIAL",
+        subtotal: sinTicket.valor.subtotal,
+      },
+      usos: fila ? await usosDeTicket(db, fila, ctx.clienteId) : 0,
+      // Una orden manual empieza una serie nueva: el tope entero.
+      saldo: fila ? saldoDeTicket(fila.tope, 0n as Centavos) : null,
     });
     if (!evaluado.ok) return evaluado;
     ticket = fila ? { id: fila.id, codigo: fila.codigo } : null;
     ticketAplicable = evaluado.valor;
   }
 
-  const calculo = calcularOrden({
-    moneda: ctx.moneda,
-    items: items.map((i, n) => ({
-      clave: i.id,
-      paqueteId: i.paqueteId,
-      tipoAccion: i.tipoAccion,
-      cantidad: i.cantidad,
-      precioCompra: i.precioCompra,
-      precioRenovacion: i.precioRenovacion,
-      // La bonificación recurrente del contrato se propaga a su renovación.
-      bonifPorcentaje: i.tipoAccion === "RENOVACION" ? i.bonifRenovacion : 0n,
-      moneda: ctx.moneda,
-      prorrata: periodos[n]?.prorrataImporte,
-      incluyePeriodo: periodos[n]?.incluyePeriodo,
-    })),
-    ajustePagoPorcentaje: medio.ajustePorcentaje,
-    alicuotaIva: fiscal.valor.alicuota,
-    ticket: ticketAplicable,
-  });
+  const calculo = calcularOrden({ ...base, ticket: ticketAplicable });
   if (!calculo.ok) return calculo;
 
   return exito({
@@ -517,7 +635,23 @@ export interface EntradaConfirmacion {
   diaVenc?: number | undefined;
   /** Generada al mostrar el checkout: un doble envío no crea dos órdenes. */
   claveIdempotencia: string;
+  /** Orden manual de SOFTeam (ver `cotizarCarrito`). */
+  softeam?: boolean;
+  items?: ItemCotizable[];
+  emisorId?: string | undefined;
+  fechaDesde?: Fecha | undefined;
 }
+
+const opcionesDeCotizacion = (entrada: Omit<EntradaConfirmacion, "claveIdempotencia">) => ({
+  medioPagoId: entrada.medioPagoId,
+  ticketCodigo: entrada.ticketCodigo,
+  oficinaId: entrada.oficinaId ?? null,
+  diaVenc: entrada.diaVenc,
+  softeam: entrada.softeam,
+  items: entrada.items,
+  emisorId: entrada.emisorId,
+  fechaDesde: entrada.fechaDesde,
+});
 
 /** Tramo prorrateado que se graba en el contrato. */
 const datosProrrata = (p: PeriodoCalculado | null) => ({
@@ -555,12 +689,7 @@ export async function confirmarOrden(
     const cotizacion = await cotizarCarrito(
       tx,
       entrada.empresaId,
-      {
-        medioPagoId: entrada.medioPagoId,
-        ticketCodigo: entrada.ticketCodigo,
-        oficinaId: entrada.oficinaId ?? null,
-        diaVenc: entrada.diaVenc,
-      },
+      opcionesDeCotizacion(entrada),
       hoy,
     );
     if (!cotizacion.ok) return cotizacion;
@@ -669,7 +798,7 @@ export async function confirmarOrden(
             : habilitado && temporal && meses
               ? periodoAlta(hoy, meses)
               : null;
-      const recurrente = anterior?.bonifRecurrente ?? false;
+      const bonificacion = bonificacionDelContrato(item, anterior);
       // Tolerancia de pago (7.7): prórroga del anterior o plazo del nuevo habilitado.
       const plazos =
         anterior?.hasta && periodo
@@ -704,30 +833,21 @@ export async function confirmarOrden(
           diaVenc: temporal ? c.diaVenc : null,
           ...datosProrrata(alineado),
           precioLista: calculo.precioLista,
-          bonifPorcentaje: recurrente && anterior ? anterior.bonifPorcentaje : 0n,
-          bonifRecurrente: recurrente,
-          bonifMotivo: recurrente && anterior ? anterior.bonifMotivo : null,
+          ...bonificacion,
           precioFinal: calculo.precioFinal,
         })
         .returning({ id: t.contratos.id });
       if (!contrato) throw new Error("No se pudo crear el contrato");
 
-      const recursos = recursosPorPaquete.filter(
-        (r) => r.paqueteId === item.paqueteId && r.cantidad > 0,
-      );
+      const recursos = recursosDelItem(recursosPorPaquete, item);
       if (recursos.length) {
-        await tx.insert(t.contratoRecursos).values(
-          recursos.map((r) => ({
-            contratoId: contrato.id,
-            recursoId: r.recursoId,
-            clase: r.clase,
-            cantidad: cantidadContratada(r.cantidad, item.cantidad, r.agregacion),
-          })),
-        );
+        await tx
+          .insert(t.contratoRecursos)
+          .values(recursos.map((r) => ({ contratoId: contrato.id, ...r })));
       }
       // El saldo de una renovación es del período siguiente: se acredita al pagarla.
       if (habilitado && !anterior) {
-        await cargarSaldos(tx, contrato.id, recursos, item.cantidad, "Carga inicial");
+        await cargarSaldos(tx, contrato.id, recursos, 1, "Carga inicial");
       }
 
       await tx.insert(t.ordenItems).values({
@@ -741,12 +861,14 @@ export async function confirmarOrden(
       });
     }
 
-    await tx.delete(t.carritoItems).where(
-      inArray(
-        t.carritoItems.id,
-        c.lineas.map((l) => l.item.id),
-      ),
-    );
+    if (!entrada.items) {
+      await tx.delete(t.carritoItems).where(
+        inArray(
+          t.carritoItems.id,
+          c.lineas.map((l) => l.item.id),
+        ),
+      );
+    }
     // Un corporativo cambia su licencia en el acto: se avisa a los productos.
     if (habilitado) await registrarCambioEmpresa(tx, [entrada.empresaId]);
     await tx.insert(t.auditoria).values({
@@ -762,6 +884,7 @@ export async function confirmarOrden(
         medio: c.medio.id,
         estadoContratos: estado,
         ...(entrada.oficinaId ? { oficinaId: entrada.oficinaId } : {}),
+        ...(entrada.items ? { ordenManual: true } : {}),
       },
     });
     // Sin importe (paquetes bonificados al 100 %): queda pagada en el acto, sin link ni factura.
@@ -792,7 +915,7 @@ export async function confirmarAltaAGrupo(
     const cotizacion = await cotizarCarrito(
       tx,
       entrada.empresaId,
-      { medioPagoId: entrada.medioPagoId, oficinaId: entrada.oficinaId ?? null },
+      { ...opcionesDeCotizacion(entrada), ticketCodigo: undefined },
       hoy,
     );
     if (!cotizacion.ok) return cotizacion;
@@ -840,40 +963,35 @@ export async function confirmarAltaAGrupo(
           meses: temporal ? item.meses : null,
           estado,
           pendPagoActivoHasta: habilitado ? plazoDeAlta(c.modoFacturacion, tolerancia, hoy) : null,
-          desde: temporal || habilitado ? hoy : null,
+          desde: temporal || habilitado ? (entrada.fechaDesde ?? hoy) : null,
           hasta: periodo?.hasta ?? null,
           diaVenc: temporal ? c.diaVenc : null,
           ...datosProrrata(periodo),
           precioLista: calculo.precioLista,
-          bonifPorcentaje: 0n,
+          ...bonificacionDelContrato(item, undefined),
           precioFinal: calculo.precioFinal,
         })
         .returning({ id: t.contratos.id });
       if (!contrato) throw new Error("No se pudo crear el contrato");
-      const recursos = recursosPorPaquete.filter(
-        (r) => r.paqueteId === item.paqueteId && r.cantidad > 0,
-      );
+      const recursos = recursosDelItem(recursosPorPaquete, item);
       if (recursos.length) {
-        await tx.insert(t.contratoRecursos).values(
-          recursos.map((r) => ({
-            contratoId: contrato.id,
-            recursoId: r.recursoId,
-            clase: r.clase,
-            cantidad: cantidadContratada(r.cantidad, item.cantidad, r.agregacion),
-          })),
-        );
+        await tx
+          .insert(t.contratoRecursos)
+          .values(recursos.map((r) => ({ contratoId: contrato.id, ...r })));
       }
       if (habilitado) {
-        await cargarSaldos(tx, contrato.id, recursos, item.cantidad, "Carga inicial");
+        await cargarSaldos(tx, contrato.id, recursos, 1, "Carga inicial");
       }
     }
 
-    await tx.delete(t.carritoItems).where(
-      inArray(
-        t.carritoItems.id,
-        c.lineas.map((l) => l.item.id),
-      ),
-    );
+    if (!entrada.items) {
+      await tx.delete(t.carritoItems).where(
+        inArray(
+          t.carritoItems.id,
+          c.lineas.map((l) => l.item.id),
+        ),
+      );
+    }
     if (habilitado) await registrarCambioEmpresa(tx, [entrada.empresaId]);
     await tx.insert(t.auditoria).values({
       actorId: entrada.usuarioId,
@@ -907,4 +1025,52 @@ export async function soloTrimestralInicial(db: Ejecutor, empresaId: string): Pr
       tieneTemporales: ctx.temporales.some((c) => c.empresaId === empresaId),
     }) === "TRIMESTRE_INICIAL"
   );
+}
+
+/**
+ * Usos de un ticket que cuentan para su límite (Mejora v2.1, 9.3): órdenes
+ * manuales no canceladas; las renovaciones de la serie son el mismo uso.
+ * El de uso único por cliente cuenta solo las de ese cliente.
+ */
+export async function usosDeTicket(
+  db: Ejecutor,
+  ticket: { id: string; uso: string },
+  clienteId: string,
+): Promise<number> {
+  return db.$count(
+    t.ordenes,
+    and(
+      eq(t.ordenes.ticketId, ticket.id),
+      ne(t.ordenes.estado, "CANCELADA"),
+      eq(t.ordenes.tipoGeneracion, "MANUAL"),
+      ticket.uso === "UNICO_X_CLIENTE" ? eq(t.ordenes.clienteId, clienteId) : undefined,
+    ),
+  );
+}
+
+/**
+ * Ticket nominado al cliente para su próxima compra (8.17): vigente y sin
+ * usar. El carrito lo propone; el cliente puede quitarlo.
+ */
+export async function ticketPropuesto(
+  db: Ejecutor,
+  clienteId: string,
+  hoy: Fecha = hoyArgentina(),
+): Promise<string | null> {
+  const nominados = await db
+    .select({ id: t.tickets.id, codigo: t.tickets.codigo, uso: t.tickets.uso })
+    .from(t.tickets)
+    .where(
+      and(
+        eq(t.tickets.clienteId, clienteId),
+        eq(t.tickets.activo, true),
+        eq(t.tickets.publico, true),
+        sql`${t.tickets.vigenteDesde} <= ${hoy} and ${t.tickets.vigenteHasta} >= ${hoy}`,
+      ),
+    )
+    .orderBy(asc(t.tickets.vigenteHasta));
+  for (const n of nominados) {
+    if ((await usosDeTicket(db, n, clienteId)) === 0) return n.codigo;
+  }
+  return null;
 }

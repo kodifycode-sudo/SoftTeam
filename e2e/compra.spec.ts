@@ -201,3 +201,31 @@ test.describe
       ).toHaveCount(0);
     });
   });
+
+test.describe
+  .serial("orden manual de SOFTeam", () => {
+    test("Administración carga un consumible bonificado al 100 % con su saldo", async ({
+      page,
+    }) => {
+      await ingresar(page, ADMIN.email, ADMIN.contrasena);
+      await page.goto(`/admin/clientes?q=${encodeURIComponent(razonSocial)}`);
+      await page.getByRole("link", { name: razonSocial }).first().click();
+      await page.getByRole("link", { name: "Orden manual" }).click();
+      await expect(page.getByRole("heading", { name: "Orden manual" })).toBeVisible();
+
+      await page
+        .getByLabel("Paquete a agregar")
+        .selectOption({ label: "Notificaciones 10.000 · Pago único · $ 30.000,00" });
+      await page.getByRole("button", { name: "Agregar" }).click();
+      await page.getByLabel("Bonificación (%)").fill("100");
+      await page.getByLabel("Motivo").fill("Reclamo por envíos demorados");
+      await page.getByLabel("Unidades de saldo").fill("2500");
+      await page.getByRole("button", { name: "Calcular" }).click();
+      await expect(page.getByText(/Sin importe: queda pagada en el acto/)).toBeVisible();
+      await capturar(page, "admin-orden-manual");
+      await page.getByRole("button", { name: "Confirmar" }).click();
+
+      await expect(page).toHaveURL(/\/admin\/ordenes\/[0-9a-f-]{36}/);
+      await expect(page.getByText("Pagada", { exact: true })).toBeVisible();
+    });
+  });

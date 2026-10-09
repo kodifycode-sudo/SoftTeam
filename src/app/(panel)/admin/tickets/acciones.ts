@@ -13,9 +13,20 @@ export async function crearTicketAccion(
 ): Promise<EstadoFormulario> {
   const { user } = await requerirSofteam(["ADMINISTRACION"]);
   const valores = valoresDe(formData);
+  const marcado = (campo: string) => valores[campo] === "on";
   const datos = esquemaTicket.safeParse({
     ...valores,
     descripcion: valores.descripcion || undefined,
+    tope: valores.tope || "0",
+    minimo: valores.minimo || "0",
+    usosMaximos: valores.usosMaximos || "0",
+    paisId: valores.paisId || undefined,
+    cliente: valores.cliente || undefined,
+    observaciones: valores.observaciones || undefined,
+    altaInicial: marcado("altaInicial"),
+    adicional: marcado("adicional"),
+    renovacion: marcado("renovacion"),
+    publico: marcado("publico"),
     paquetes: formData.getAll("paquetes").map(String),
   });
   if (!datos.success) {
@@ -27,9 +38,13 @@ export async function crearTicketAccion(
   }
   const resultado = await crearTicket(await obtenerDb(), datos.data, user.id);
   if (!resultado.ok) {
-    return resultado.error === "CODIGO_EXISTENTE"
-      ? { errores: { codigo: ["Ya existe un ticket con ese código."] }, valores }
-      : { mensaje: "Alguno de los paquetes elegidos ya no existe.", valores };
+    if (resultado.error === "CODIGO_EXISTENTE") {
+      return { errores: { codigo: ["Ya existe un ticket con ese código."] }, valores };
+    }
+    if (resultado.error === "CLIENTE_INEXISTENTE") {
+      return { errores: { cliente: ["No hay un cliente con ese CUIT o número."] }, valores };
+    }
+    return { mensaje: "Alguno de los paquetes elegidos ya no existe.", valores };
   }
   revalidatePath("/admin/tickets");
   return { ok: true, mensaje: `Ticket ${datos.data.codigo} creado.` };

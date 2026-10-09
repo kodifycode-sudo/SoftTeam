@@ -4,7 +4,6 @@ import { ADMIN, capturar, expect, ingresar, test } from "./utilidades";
 const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const n = Date.now();
 const codigoMoneda = `Q${letras[n % 26]}${letras[Math.floor(n / 26) % 26]}`;
-const codigoPais = `Q${letras[Math.floor(n / 676) % 26]}`;
 
 test("Administración configura una moneda, un país y sus provincias", async ({ page }) => {
   await ingresar(page, ADMIN.email, ADMIN.contrasena);
@@ -36,6 +35,19 @@ test("Administración configura una moneda, un país y sus provincias", async ({
   await expect(
     page.getByRole("row", { name: new RegExp(codigoMoneda) }).getByRole("cell", { name: "25,5" }),
   ).toBeVisible();
+
+  // El país tiene solo dos letras: se elige uno que no hayan dejado corridas anteriores.
+  const usados = new Set(
+    await page
+      .locator('[aria-label^="Provincias de País "]')
+      .evaluateAll((enlaces) =>
+        enlaces.map((e) => e.getAttribute("aria-label")?.slice(19, 21) ?? ""),
+      ),
+  );
+  const codigoPais = ["Q", "X", "Z", "J", "W"]
+    .flatMap((a) => [...letras].map((b) => `${a}${b}`))
+    .find((c) => !usados.has(c));
+  if (!codigoPais) throw new Error("No quedan códigos de país de prueba libres");
 
   await page.getByRole("button", { name: "Nuevo país" }).click();
   dialogo = page.getByRole("dialog");

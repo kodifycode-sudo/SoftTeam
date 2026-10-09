@@ -24,6 +24,7 @@ import { fechaCorta, pesos, porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { listarPaises } from "@/server/modules/catalogo/paises";
 import { paquetesActivos } from "@/server/modules/catalogo/paquetes";
 import { listarTickets } from "@/server/modules/catalogo/tickets";
 import { cambiarEstadoTicketAccion } from "./acciones";
@@ -31,19 +32,37 @@ import { NuevoTicket } from "./nuevo-ticket";
 
 export const metadata: Metadata = { title: "Tickets" };
 
+const USOS = {
+  UNICO_X_CLIENTE: "Una vez por cliente",
+  UNICO_ABSOLUTO: "Una sola vez",
+  MULTIPLE: "Varias veces",
+} as const;
+
 export default async function PaginaTickets() {
   const { rol } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
   const db = await obtenerDb();
   const fechaHoy = hoy();
-  const [tickets, paquetes] = await Promise.all([listarTickets(db), paquetesActivos(db)]);
+  const [tickets, paquetes, paises] = await Promise.all([
+    listarTickets(db),
+    paquetesActivos(db),
+    listarPaises(db),
+  ]);
   const administra = rol === "ADMINISTRACION";
 
   return (
     <>
       <EncabezadoPagina
         titulo="Tickets"
-        descripcion="Códigos de descuento para compras de paquetes nuevos (no aplican a renovaciones). El descuento de cada compra no supera el tope."
-        acciones={administra && <NuevoTicket paquetes={paquetes} hoy={fechaHoy} />}
+        descripcion="Códigos de descuento. El tope funciona como saldo: la orden y sus renovaciones de los 12 meses siguientes descuentan hasta agotarlo."
+        acciones={
+          administra && (
+            <NuevoTicket
+              paquetes={paquetes}
+              paises={paises.filter((p) => p.activo).map((p) => ({ id: p.id, nombre: p.nombre }))}
+              hoy={fechaHoy}
+            />
+          )
+        }
       />
       {tickets.length === 0 ? (
         <Empty className="border border-dashed bg-card">
@@ -65,7 +84,7 @@ export default async function PaginaTickets() {
                 <TableRow>
                   <TableHead className="pl-4">Ticket</TableHead>
                   <TableHead>Descuento</TableHead>
-                  <TableHead className="text-right">Tope por compra</TableHead>
+                  <TableHead className="text-right">Tope</TableHead>
                   <TableHead className="text-right">Descontado</TableHead>
                   <TableHead>Vigencia</TableHead>
                   <TableHead className="text-center">Compras</TableHead>
@@ -82,16 +101,24 @@ export default async function PaginaTickets() {
                           {k.codigo}
                           {!k.activo && <Badge variant="outline">Inactivo</Badge>}
                           {k.activo && vencido && <Badge variant="outline">Vencido</Badge>}
+                          {!k.publico && <Badge variant="secondary">Solo SOFTeam</Badge>}
                         </p>
                         <p className="max-w-64 truncate text-xs text-muted-foreground">
                           {k.descripcion ?? "Sin descripción"}
                           {k.paquetes.length > 0 && ` · Solo: ${k.paquetes.join(", ")}`}
                         </p>
+                        <p className="max-w-64 truncate text-xs text-muted-foreground">
+                          {USOS[k.uso as keyof typeof USOS] ?? k.uso}
+                          {k.uso === "MULTIPLE" && k.usosMaximos > 0 && ` (hasta ${k.usosMaximos})`}
+                          {k.cliente && ` · Para ${k.cliente}`}
+                        </p>
                       </TableCell>
                       <TableCell className="tabular-nums">
                         {porcentajeTexto(k.porcentaje)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{pesos(k.tope)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {k.tope > 0n ? pesos(k.tope) : "Sin tope"}
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {pesos(k.descontado)}
                       </TableCell>

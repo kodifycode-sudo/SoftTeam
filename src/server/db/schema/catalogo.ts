@@ -12,7 +12,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import { paises } from "./cuentas";
+import { clientes, paises } from "./cuentas";
 import { agregacionRecurso, claseRecurso, tipoMedioPago, tipoPaquete } from "./enums";
 import { dinero, fechaCol, marcasTiempo, pct } from "./tipos";
 
@@ -148,10 +148,30 @@ export const tickets = pgTable(
     vigenteDesde: fechaCol().notNull(),
     vigenteHasta: fechaCol().notNull(),
     activo: boolean().notNull().default(true),
+    /** UNICO_X_CLIENTE, UNICO_ABSOLUTO o MULTIPLE (Mejora v2.1, 9.5). */
+    uso: varchar({ length: 18 }).notNull().default("UNICO_X_CLIENTE"),
+    /** Solo MULTIPLE: usos en total; 0 = sin límite. */
+    usosMaximos: integer().notNull().default(0),
+    /** Subtotal mínimo de la orden; 0 = sin mínimo. */
+    minimo: dinero().notNull().default(sql`0`),
+    moneda: varchar({ length: 3 }).notNull().default("ARS"),
+    /** `null`: cualquier país. */
+    paisId: char({ length: 2 }).references(() => paises.id),
+    /** Ticket nominado (8.17): solo para ese cliente, que lo ve propuesto en su carrito. */
+    clienteId: uuid().references(() => clientes.id),
+    altaInicial: boolean().notNull().default(true),
+    adicional: boolean().notNull().default(true),
+    renovacion: boolean().notNull().default(true),
+    /** `false`: solo lo aplica SOFTeam en la orden manual. */
+    publico: boolean().notNull().default(true),
+    /** Situación que lo origina; uso interno. */
+    observaciones: varchar({ length: 500 }),
     ...marcasTiempo,
   },
   (t) => [
     check("porcentaje_rango", sql`${t.porcentaje} > 0 and ${t.porcentaje} <= 100`),
+    check("uso_ticket", sql`${t.uso} in ('UNICO_X_CLIENTE', 'UNICO_ABSOLUTO', 'MULTIPLE')`),
+    index().on(t.clienteId),
     check("vigencia_rango", sql`${t.vigenteHasta} >= ${t.vigenteDesde}`),
   ],
 );

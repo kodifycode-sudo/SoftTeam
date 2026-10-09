@@ -175,9 +175,10 @@ del medio e IVA). Cálculo único en `src/domain/licencias/periodo.ts`.
   reemitirla con otro día.
 - **Trimestre inicial (8.11):** no se renueva solo ni desde el portal. Lo
   negocia Administración (medio, mensual o anual y día) y emite la orden con
-  el tramo más el período. Hasta tener la orden manual de SOFTeam (fase F6),
-  queda en el tablero "Para negociar". Si no se acuerda a tiempo, sigue las
-  reglas de vencimiento de su modo.
+  el tramo más el período desde la orden manual de SOFTeam (sección 6). El
+  tablero "Para negociar" lista los trimestres del mes y enlaza con esa
+  orden. Si no se acuerda a tiempo, sigue las reglas de vencimiento de su
+  modo.
 - **Altas a grupo (8.12):** el cliente agrupado que paga por planilla no genera
   una orden al confirmar. El contrato se graba con su tramo, **sin orden**, y
   la orden colectiva de la próxima corrida lo incorpora junto con las
@@ -479,18 +480,41 @@ carrito, la renovación automática y la bonificación de SOFTeam.
     de la fecha de cobro.
   - No consolida vencimientos automáticamente. Un contrato marcado **"no
     renovar"** se omite.
-- **Tickets:**
-  - **Solo para paquetes nuevos — [Cambio]:** no aplican a renovaciones, ni a
-    la automática ni a una renovación comprada a mano. Se decidió no
-    arrastrar descuentos de promoción a los períodos siguientes.
-  - Porcentaje con tope: el descuento de la compra es
-    min(subtotal × porcentaje, tope).
+- **Tickets (Mejora v2.1, capítulo 9 y 8.17) — [Cambio 09/10/2026]:**
+  - **El ticket como saldo:** porcentaje con tope (0 = sin tope). El tope se
+    consume en toda la serie: la orden donde se aplica y las renovaciones
+    automáticas que la siguen heredan el ticket **sin revalidarlo** durante
+    12 meses desde la orden de origen, mientras quede saldo
+    (tope − lo descontado en la serie, sin las canceladas). El último período
+    aplica el remanente. Reemplaza la regla anterior de "solo paquetes nuevos".
+    La herencia no aplica a órdenes agrupadas ni a las que mezclan series.
+  - Validación al aplicarlo a mano (carrito u orden manual), en este orden:
+    activo y vigente; público o aplicado por SOFTeam; no en la factura
+    agrupada (modo 3); ningún paquete bonificado (en ninguno de los dos
+    sentidos); misma moneda; país del ticket (si tiene); cliente nominado (si
+    tiene); paquetes habilitados (todos los ítems deben serlo); instancias
+    habilitadas (primer alta, adicional, renovación); subtotal mínimo; usos y
+    saldo.
+  - **Usos:** una vez por cliente, una sola vez en total o varias (con máximo
+    opcional). Cuentan solo las órdenes manuales no canceladas: la serie de
+    renovaciones es el mismo uso. Una orden pendiente lo bloquea; cancelada,
+    lo libera.
   - Un solo ticket por orden.
-  - No aplica si algún ítem tiene bonificación (en ninguno de los dos sentidos),
-    ni al modo de facturación 3 (factura agrupada).
-  - Si el ticket está restringido a paquetes, **todos** los ítems deben ser de
-    esos paquetes.
-  - El conteo de usos cuenta solo órdenes de generación manual.
+  - **Ticket nominado (8.17):** Administración lo crea para un cliente, con
+    observaciones obligatorias. El carrito del cliente lo propone en su próxima
+    compra y el cliente puede quitarlo.
+- **Orden manual de SOFTeam (Mejora v2.1, 8.11, 8.12, 8.17 y 11.8) —
+  [Cambio 09/10/2026]:** Administración la arma desde la ficha del cliente
+  (*Orden manual*), con la misma cotización que el carrito y además: paquetes
+  privados; bonificación por paquete con motivo (recurrente o no); cualquier
+  medio de pago habilitado para el país, el modo y el emisor, sin las marcas
+  de instancia; tickets no públicos; el emisor de la orden; la "fecha desde"
+  de un alta a grupo; y la **renovación negociada del trimestre inicial**
+  (elige mensual o anual y el día de vencimiento, y cobra el tramo más el
+  período). Un **consumible bonificado al 100 %** permite editar las unidades
+  de su saldo, exige motivo y nace sin renovación automática ni bonificación
+  recurrente: la orden queda pagada en el acto, sin link ni factura. La grilla
+  *Para negociar* enlaza cada trimestre con su orden manual.
 - **Orden agrupada** (planilla): solo la ven el cliente agrupador y los roles
   SOFTeam. En "Mis paquetes" del cliente agrupado aparece como "Incluido en
   facturación corporativa".

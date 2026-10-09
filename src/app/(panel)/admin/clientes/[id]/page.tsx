@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import {
   Building2,
   CircleCheck,
+  FilePlus,
   Mail,
   MapPin,
   Pencil,
@@ -156,6 +157,14 @@ export default async function PaginaCliente({
         descripcion={`Alta el ${fechaCorta(cliente.creadoEn)}`}
         acciones={
           <>
+            {rol === "ADMINISTRACION" && cliente.activo && (
+              <Link
+                href={`/admin/clientes/${cliente.id}/orden-manual`}
+                className={buttonVariants()}
+              >
+                <FilePlus data-icon="inline-start" /> Orden manual
+              </Link>
+            )}
             {edita && (
               <Link
                 href={`/admin/clientes/${cliente.id}/editar`}

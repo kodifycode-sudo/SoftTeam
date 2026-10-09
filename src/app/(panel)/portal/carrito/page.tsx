@@ -39,7 +39,11 @@ import { cn } from "@/lib/utils";
 import { oficinaDeCompra, requerirContratacion } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarCarrito } from "@/server/modules/ventas/carrito";
-import { cotizarCarrito, mediosParaEmpresa } from "@/server/modules/ventas/checkout";
+import {
+  cotizarCarrito,
+  mediosParaEmpresa,
+  ticketPropuesto,
+} from "@/server/modules/ventas/checkout";
 import { cambiarCantidadAccion } from "../compra/acciones";
 import { esRechazoDeTicket, mensajeRechazoCompra } from "../compra/mensajes";
 import { SelectorOficinaCompra } from "../compra/selector-oficina";
@@ -93,10 +97,18 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
   const oficinaId = oficinaDeCompra(contexto);
   const sp = await searchParams;
   const medioElegido = texto(sp.medio);
-  const ticketPedido = texto(sp.ticket)?.trim().toUpperCase() || undefined;
+  // "-": el cliente quitó el ticket propuesto; no se vuelve a proponer.
+  const descartado = texto(sp.ticket) === "-";
+  const escrito = descartado ? undefined : texto(sp.ticket)?.trim().toUpperCase() || undefined;
   const diaPedido = Number(texto(sp.dia)) || undefined;
   const db = await obtenerDb();
   const items = await listarCarrito(db, contexto.empresaId, oficinaId);
+  // Ticket nominado por SOFTeam para la próxima compra (Mejora v2.1, 8.17).
+  const propuesto =
+    escrito || descartado || items.length === 0
+      ? null
+      : await ticketPropuesto(db, contexto.clienteId);
+  const ticketPedido = escrito ?? propuesto ?? undefined;
   if (items.length === 0) {
     return (
       <>
@@ -154,7 +166,8 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
     });
   }
   if (!cotizacion.ok && esRechazoDeTicket(cotizacion.error)) {
-    errorTicket = mensajeRechazoCompra(cotizacion.error);
+    // Un ticket propuesto que no aplica a esta compra no se muestra como error.
+    if (!propuesto) errorTicket = mensajeRechazoCompra(cotizacion.error);
     cotizacion = await cotizarCarrito(db, contexto.empresaId, {
       medioPagoId: medioElegido,
       oficinaId,
@@ -164,7 +177,7 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
   if (!cotizacion.ok && cotizacion.error === "MEDIO_NO_HABILITADO" && medioElegido) {
     aviso = mensajeRechazoCompra(cotizacion.error);
     cotizacion = await cotizarCarrito(db, contexto.empresaId, {
-      ticketCodigo: errorTicket ? undefined : ticketPedido,
+      ticketCodigo: errorTicket || propuesto ? undefined : ticketPedido,
       oficinaId,
       diaVenc: diaPedido,
     });
@@ -174,6 +187,8 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
   const c = cotizacion.ok ? cotizacion.valor : null;
   const medioActual = c?.medio.id;
   const ticketActual = c?.ticket?.codigo;
+  // Los enlaces conservan el ticket aplicado o la decisión de quitarlo.
+  const ticketEnlace = ticketActual ?? (descartado || propuesto ? "-" : undefined);
   const diaActual = c?.diasVenc.length ? c.diaVenc : null;
   const altaAGrupo = c?.situacion === "GRUPO";
 
@@ -301,7 +316,7 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
                   return (
                     <li key={m.id}>
                       <Link
-                        href={urlCarrito(m.id, ticketActual, diaActual)}
+                        href={urlCarrito(m.id, ticketEnlace, diaActual)}
                         aria-current={elegido ? "true" : undefined}
                         scroll={false}
                         className={cn(
@@ -364,7 +379,7 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
                     return (
                       <li key={dia}>
                         <Link
-                          href={urlCarrito(medioActual, ticketActual, dia)}
+                          href={urlCarrito(medioActual, ticketEnlace, dia)}
                           aria-current={elegido ? "true" : undefined}
                           scroll={false}
                           className={cn(
@@ -393,10 +408,11 @@ export default async function Carrito({ searchParams }: PageProps<"/portal/carri
                 {ticketActual ? (
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-success/30 bg-success/5 px-3 py-2.5">
                     <span className="text-sm">
-                      Código <strong className="font-mono">{ticketActual}</strong> aplicado
+                      Código <strong className="font-mono">{ticketActual}</strong>{" "}
+                      {ticketActual === propuesto ? "reservado para vos" : "aplicado"}
                     </span>
                     <Link
-                      href={urlCarrito(medioActual, undefined, diaActual)}
+                      href={urlCarrito(medioActual, "-", diaActual)}
                       scroll={false}
                       className={buttonVariants({ variant: "ghost", size: "sm" })}
                     >

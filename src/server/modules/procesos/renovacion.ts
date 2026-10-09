@@ -1,18 +1,20 @@
 import { createHash } from "node:crypto";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
-import { type Centavos, formatearMoneda } from "@/domain/dinero";
+import { type Centavos, centavos, formatearMoneda } from "@/domain/dinero";
 import { calcularOrden, type ItemEntrada } from "@/domain/facturacion/calculo-orden";
 import { medioDisponibleParaEmisor, resolverEmisor } from "@/domain/facturacion/emisor";
 import { condicionParaFacturar } from "@/domain/facturacion/impuestos";
 import { resolverClienteFacturacion, validarMedioPago } from "@/domain/facturacion/medio-pago";
 import {
+  aceptaTicket,
   esModoFacturacion,
   estadoInicial,
   type ModoFacturacion,
   medioPermitidoParaModo,
   plazosDeRenovacion,
 } from "@/domain/facturacion/modo";
-import type { Fecha } from "@/domain/fecha";
+import { saldoDeTicket, ticketHeredable } from "@/domain/facturacion/ticket";
+import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import { periodoRenovacion } from "@/domain/licencias/contrato";
 import { cantidadContratada } from "@/domain/licencias/licencia";
 import { calcularPeriodo } from "@/domain/licencias/periodo";
@@ -254,6 +256,49 @@ export async function procesoRenovacion(
   return resumen;
 }
 
+/**
+ * Ticket heredado de la orden de origen (Mejora v2.1, 9.2 y 9.3): sin
+ * revalidarlo, mientras no pasen 12 meses desde esa orden y quede saldo del
+ * tope (lo descontado en toda la serie, sin las canceladas). Solo en órdenes
+ * de una única serie, sin paquetes bonificados y en modos que aceptan tickets.
+ */
+async function ticketDeLaSerie(
+  tx: Ejecutor,
+  grupo: Grupo,
+  items: readonly ItemEntrada[],
+  hoy: Fecha,
+) {
+  const series = new Set(grupo.items.map((i) => i.ordenOrigenId));
+  const [serie] = series;
+  if (grupo.agrupada || series.size !== 1 || !serie || !aceptaTicket(grupo.modoFacturacion)) {
+    return null;
+  }
+  if (items.some((i) => i.bonifPorcentaje > 0n)) return null;
+  const origen = await tx.query.ordenes.findFirst({
+    columns: { ticketId: true, ticketPorcentaje: true, emitidaEn: true },
+    where: eq(t.ordenes.id, serie),
+  });
+  if (!origen?.ticketId) return null;
+  const ticket = await tx.query.tickets.findFirst({
+    columns: { id: true, tope: true },
+    where: eq(t.tickets.id, origen.ticketId),
+  });
+  if (!ticket) return null;
+  const [consumido] = await tx
+    .select({ total: sql<string>`coalesce(sum(${t.ordenes.ticketDescuento}), 0)::text` })
+    .from(t.ordenes)
+    .where(
+      and(
+        eq(t.ordenes.ticketId, ticket.id),
+        ne(t.ordenes.estado, "CANCELADA"),
+        or(eq(t.ordenes.id, serie), eq(t.ordenes.ordenOrigenId, serie)),
+      ),
+    );
+  const saldo = saldoDeTicket(ticket.tope, centavos(consumido?.total ?? "0"));
+  if (!ticketHeredable({ emitidaOrigen: hoyArgentina(origen.emitidaEn), hoy, saldo })) return null;
+  return { id: ticket.id, aplicable: { porcentaje: origen.ticketPorcentaje, tope: saldo } };
+}
+
 async function generarOrden(db: Db, ventana: VentanaRenovacion, grupo: Grupo): Promise<boolean> {
   const ids = grupo.items.map((i) => i.contrato.id).sort();
   const claveIdempotencia = `renovacion:${createHash("sha256")
@@ -346,11 +391,13 @@ async function generarOrden(db: Db, ventana: VentanaRenovacion, grupo: Grupo): P
         precioListaResuelto: p.contrato.precioLista,
       });
     }
+    const heredado = await ticketDeLaSerie(tx, grupo, items, ventana.corte);
     const calculo = calcularOrden({
       moneda: primero.pais.moneda,
       items,
       ajustePagoPorcentaje: grupo.medio.ajustePorcentaje,
       alicuotaIva: fiscal.valor.alicuota,
+      ticket: heredado?.aplicable,
     });
     if (!calculo.ok) throw new Error(`Cálculo rechazado: ${calculo.error}`);
     const k = calculo.valor;
@@ -384,6 +431,9 @@ async function generarOrden(db: Db, ventana: VentanaRenovacion, grupo: Grupo): P
         alicuotaIva: k.alicuotaIva,
         iva: k.iva,
         total: k.total,
+        ticketId: heredado?.id ?? null,
+        ticketPorcentaje: k.ticketPorcentaje,
+        ticketDescuento: k.ticketDescuento,
         claveIdempotencia,
       })
       .returning({ id: t.ordenes.id, numero: t.ordenes.numero });

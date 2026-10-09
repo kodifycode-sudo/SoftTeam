@@ -61,7 +61,7 @@ export default async function PaginaPendientes() {
           </CardTitle>
           <CardDescription>
             El trimestre inicial no se renueva solo: acordá con el cliente el medio de pago, el
-            período (mensual o anual) y el día de vencimiento.
+            período (mensual o anual) y el día de vencimiento, y emití la orden manual.
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
@@ -96,9 +96,19 @@ export default async function PaginaPendientes() {
                     </TableCell>
                     <TableCell className="tabular-nums">{fechaCorta(n.hasta)}</TableCell>
                     <TableCell className="pr-4">
-                      <Badge variant="outline" className={cn(SEMAFORO[n.semaforo].clase)}>
-                        {SEMAFORO[n.semaforo].texto}
-                      </Badge>
+                      <div className="flex items-center justify-between gap-3">
+                        <Badge variant="outline" className={cn(SEMAFORO[n.semaforo].clase)}>
+                          {SEMAFORO[n.semaforo].texto}
+                        </Badge>
+                        {puedeAnular && (
+                          <Link
+                            href={`/admin/clientes/${n.cliente.id}/orden-manual?empresa=${n.empresa.id}`}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            Renovar
+                          </Link>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

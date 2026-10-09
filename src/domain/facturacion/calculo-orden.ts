@@ -118,7 +118,9 @@ export function calcularOrden(entrada: EntradaCalculo): Resultado<CalculoOrden, 
   const subtotal = sumar(lineas.map((l) => l.precioFinal));
   const ticketPorcentaje = entrada.ticket?.porcentaje ?? 0n;
   const ticketDescuento = entrada.ticket
-    ? minimo(aplicarPorcentaje(subtotal, ticketPorcentaje), entrada.ticket.tope)
+    ? entrada.ticket.tope === null
+      ? aplicarPorcentaje(subtotal, ticketPorcentaje)
+      : minimo(aplicarPorcentaje(subtotal, ticketPorcentaje), entrada.ticket.tope)
     : 0n;
   const baseNeta = maximo(subtotal - ticketDescuento, 0n);
   const ajustePago = aplicarPorcentaje(baseNeta, entrada.ajustePagoPorcentaje);

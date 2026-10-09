@@ -22,6 +22,13 @@ const entrada = (codigo: string, extra: Partial<Record<string, unknown>> = {}) =
     vigenteDesde: "2026-01-01",
     vigenteHasta: "2026-12-31",
     paquetes: [],
+    minimo: "0",
+    uso: "MULTIPLE",
+    usosMaximos: 0,
+    altaInicial: true,
+    adicional: true,
+    renovacion: true,
+    publico: true,
     ...extra,
   });
 
@@ -38,6 +45,18 @@ describe("tickets", () => {
         paquetes: [],
       }).success,
     ).toBe(false);
+    // Nominado: el cliente tiene que existir y la situación quedar escrita.
+    expect(esquemaTicket.safeParse({ ...entrada("NOMINADO"), cliente: "1" }).success).toBe(false);
+    expect(
+      await crearTicket(
+        db,
+        entrada("NOMINADO", { cliente: "999999", observaciones: "x" }),
+        "actor",
+      ),
+    ).toEqual({
+      ok: false,
+      error: "CLIENTE_INEXISTENTE",
+    });
     expect((await crearTicket(db, entrada("bienvenida"), "actor")).ok).toBe(true);
     expect(await crearTicket(db, entrada("BIENVENIDA"), "actor")).toEqual({
       ok: false,
@@ -54,9 +73,10 @@ describe("tickets", () => {
   });
 });
 
-describe("tickets y renovaciones", () => {
-  it("la renovación de una compra hecha con ticket no lleva descuento", async () => {
-    const r = await crearTicket(db, entrada("SOLO-NUEVOS"), "actor");
+describe("tickets y renovaciones (Mejora v2.1, 9.2 y 9.3)", () => {
+  /** Compra con ticket (50 %, ya descontó $10.000) y su renovación automática. */
+  async function renovarConTicket(codigo: string, tope: string, emitidaEn = "2026-09-01") {
+    const r = await crearTicket(db, entrada(codigo, { tope }), "actor");
     if (!r.ok) throw new Error();
     const { empresa, orden } = await crearEmpresaDePrueba(db);
     await db
@@ -65,6 +85,7 @@ describe("tickets y renovaciones", () => {
         ticketId: r.id,
         ticketPorcentaje: porcentaje("50"),
         ticketDescuento: centavos("10000"),
+        emitidaEn: new Date(`${emitidaEn}T15:00:00Z`),
       })
       .where(eq(t.ordenes.id, orden.id));
     const contrato = await crearContratoDePrueba(
@@ -85,15 +106,29 @@ describe("tickets y renovaciones", () => {
     const renovacion = await db.query.ordenes.findFirst({
       where: eq(t.ordenes.id, nuevo!.ordenId!),
     });
+    return { ticketId: r.id, renovacion };
+  }
+
+  it("la renovación hereda el ticket y descuenta del saldo del tope", async () => {
+    const { ticketId, renovacion } = await renovarConTicket("SERIE-1", "30000");
+    // 50 % de $35.000 = $17.500; quedaban $20.000 del tope.
     expect(renovacion).toMatchObject({
-      ticketId: null,
-      ticketDescuento: 0n,
+      ticketId,
+      ticketDescuento: centavos("17500"),
       subtotal: centavos("35000"),
     });
-
-    // El total descontado del ticket es solo el de la compra original.
-    const [listado] = (await listarTickets(db)).filter((k) => k.id === r.id);
-    expect(listado?.descontado).toBe(centavos("10000"));
+    const [listado] = (await listarTickets(db)).filter((k) => k.id === ticketId);
+    expect(listado?.descontado).toBe(centavos("27500"));
+    // La renovación es el mismo uso, no uno nuevo.
     expect(listado?.usos).toBe(1);
+  });
+
+  it("el último período aplica el remanente; agotado o pasado el año, sin descuento", async () => {
+    const remanente = await renovarConTicket("SERIE-2", "12000");
+    expect(remanente.renovacion).toMatchObject({ ticketDescuento: centavos("2000") });
+    const agotado = await renovarConTicket("SERIE-3", "10000");
+    expect(agotado.renovacion).toMatchObject({ ticketId: null, ticketDescuento: 0n });
+    const vencido = await renovarConTicket("SERIE-4", "30000", "2025-09-01");
+    expect(vencido.renovacion).toMatchObject({ ticketId: null, ticketDescuento: 0n });
   });
 });

@@ -5,8 +5,10 @@ import { useActionState, useState } from "react";
 import {
   BotonEnviar,
   Campo,
+  Casilla,
   FormularioConservado,
   MensajeFormulario,
+  Selector,
   useAvisoDeAccion,
 } from "@/components/formulario";
 import { Button } from "@/components/ui/button";
@@ -32,15 +34,18 @@ import {
 import { ESTADO_INICIAL } from "@/lib/formulario";
 import { crearTicketAccion } from "./acciones";
 
+interface Opciones {
+  paquetes: { id: string; nombre: string }[];
+  paises: { id: string; nombre: string }[];
+  hoy: string;
+}
+
 function ContenidoNuevoTicket({
   paquetes,
+  paises,
   hoy,
   cerrar,
-}: {
-  paquetes: { id: string; nombre: string }[];
-  hoy: string;
-  cerrar: () => void;
-}) {
+}: Opciones & { cerrar: () => void }) {
   const [estado, accion] = useActionState(crearTicketAccion, ESTADO_INICIAL);
   useAvisoDeAccion(estado, cerrar);
   return (
@@ -67,10 +72,58 @@ function ContenidoNuevoTicket({
           />
           <Campo
             nombre="tope"
-            etiqueta="Tope por compra ($)"
+            etiqueta="Tope ($)"
             inputMode="decimal"
             placeholder="50000"
-            ayuda="Descuento máximo en una misma compra."
+            ayuda="Descuento máximo acumulado: funciona como saldo en las renovaciones. Vacío o 0, sin tope."
+            estado={estado}
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Selector nombre="uso" etiqueta="Usos" estado={estado} valorInicial="UNICO_X_CLIENTE">
+            <option value="UNICO_X_CLIENTE">Una vez por cliente</option>
+            <option value="UNICO_ABSOLUTO">Una sola vez en total</option>
+            <option value="MULTIPLE">Varias veces</option>
+          </Selector>
+          <Campo
+            nombre="usosMaximos"
+            etiqueta="Máximo de usos (varias veces)"
+            inputMode="numeric"
+            placeholder="0"
+            ayuda="Solo si se usa varias veces. Vacío o 0, sin límite."
+            estado={estado}
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo
+            nombre="minimo"
+            etiqueta="Compra mínima ($)"
+            inputMode="decimal"
+            placeholder="0"
+            ayuda="Subtotal mínimo de la orden. Vacío o 0, sin mínimo."
+            estado={estado}
+          />
+          <Selector nombre="paisId" etiqueta="País" estado={estado} valorInicial="">
+            <option value="">Todos</option>
+            {paises.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </Selector>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo
+            nombre="cliente"
+            etiqueta="Para un cliente (opcional)"
+            placeholder="CUIT o número de cliente"
+            ayuda="Ticket nominado: el carrito del cliente lo propone en su próxima compra."
+            estado={estado}
+          />
+          <Campo
+            nombre="observaciones"
+            etiqueta="Observaciones internas"
+            ayuda="Obligatorias si es para un cliente: la situación que lo origina."
             estado={estado}
           />
         </div>
@@ -85,6 +138,20 @@ function ContenidoNuevoTicket({
           <Campo nombre="vigenteHasta" etiqueta="Hasta" type="date" estado={estado} />
         </div>
       </FieldGroup>
+      <FieldSet>
+        <FieldLegend variant="label">Se puede usar en</FieldLegend>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Casilla nombre="altaInicial" etiqueta="El primer alta" marcada />
+          <Casilla nombre="adicional" etiqueta="Altas adicionales" marcada />
+          <Casilla nombre="renovacion" etiqueta="Renovaciones" marcada />
+        </div>
+        <Casilla
+          nombre="publico"
+          etiqueta="Público: el cliente lo puede ingresar en el carrito"
+          descripcion="Sin marcar, solo lo aplica SOFTeam en la orden manual."
+          marcada
+        />
+      </FieldSet>
       <FieldSet>
         <FieldLegend variant="label">Paquetes</FieldLegend>
         <FieldDescription>
@@ -110,7 +177,7 @@ function ContenidoNuevoTicket({
   );
 }
 
-export function NuevoTicket(props: { paquetes: { id: string; nombre: string }[]; hoy: string }) {
+export function NuevoTicket(props: Opciones) {
   const [abierto, setAbierto] = useState(false);
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
@@ -121,8 +188,8 @@ export function NuevoTicket(props: { paquetes: { id: string; nombre: string }[];
         <DialogHeader>
           <DialogTitle>Nuevo ticket de descuento</DialogTitle>
           <DialogDescription>
-            Un porcentaje con tope, solo para paquetes nuevos: no aplica a renovaciones, a clientes
-            corporativos ni sobre paquetes bonificados.
+            Un porcentaje con tope. Acompaña a las renovaciones de la orden durante 12 meses o hasta
+            agotar el tope. No aplica a la factura agrupada ni sobre paquetes bonificados.
           </DialogDescription>
         </DialogHeader>
         {abierto && <ContenidoNuevoTicket {...props} cerrar={() => setAbierto(false)} />}
