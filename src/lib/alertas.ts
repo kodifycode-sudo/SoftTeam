@@ -16,6 +16,8 @@ export const ETIQUETA_ALERTA = {
   LINK_PAGO_REENVIADO: "Link de pago reenviado",
   TOLERANCIA_PAGO_VENCIDA: "Factura agrupada sin pagar",
   RENOVACION_A_NEGOCIAR: "Renovación a negociar",
+  CONSUMIBLE_SIN_SALDO: "Consumible sin saldo",
+  RENOVACION_CONSUMIBLE: "Renovación de consumible",
   RENOVACION_GENERADA: "Renovación generada",
   RECORDATORIO_PAGO: "Recordatorio de pago",
   SOPORTE_RESPUESTA: "Respuesta de soporte",

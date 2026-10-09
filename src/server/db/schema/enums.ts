@@ -22,7 +22,12 @@ export const tipoMedioPago = pgEnum("tipo_medio_pago", [
   "PLANILLA",
 ]);
 export const tipoComprobante = pgEnum("tipo_comprobante", ["A", "B"]);
-export const tipoMovimiento = pgEnum("tipo_movimiento", ["CARGA", "CONSUMO", "AJUSTE"]);
+export const tipoMovimiento = pgEnum("tipo_movimiento", [
+  "CARGA",
+  "CONSUMO",
+  "AJUSTE",
+  "REINTEGRO",
+]);
 export const rolSofteam = pgEnum("rol_softeam", ["SOPORTE", "COMERCIAL", "ADMINISTRACION"]);
 export const rolProductor = pgEnum("rol_productor", ["PRODUCTOR", "ORGANIZADOR"]);
 export const tipoAlerta = pgEnum("tipo_alerta", [
@@ -45,6 +50,8 @@ export const tipoAlerta = pgEnum("tipo_alerta", [
   "FACTURACION_RESUELTA",
   "TOLERANCIA_PAGO_VENCIDA",
   "RENOVACION_A_NEGOCIAR",
+  "CONSUMIBLE_SIN_SALDO",
+  "RENOVACION_CONSUMIBLE",
 ]);
 export const estadoSolicitud = pgEnum("estado_solicitud", [
   "PENDIENTE",

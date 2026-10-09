@@ -1,4 +1,10 @@
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import {
+  familiaHabilitada,
+  productoDelSistemaVivo,
+  type ResultadoPedido,
+  resultadoPedido,
+} from "@/domain/consumos/consumibles";
 import { type FuenteSaldo, planificarDebito } from "@/domain/consumos/debito";
 import {
   FAMILIAS_CONSUMO,
@@ -11,6 +17,10 @@ import { exito, type Resultado, rechazo } from "@/domain/resultado";
 import type { Db, Ejecutor, Tx } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 import { POLITICAS_POR_DEFECTO } from "@/server/db/schema/configuracion";
+import { licenciaDeEmpresa } from "../licencias/licencia-empresa";
+import { leerParametroDe } from "../parametros";
+import { registrarAlerta } from "../procesos/alertas";
+import { renovarConsumibles } from "./renovacion-consumibles";
 
 export interface PedidoConsumo {
   sistema: string;
@@ -22,6 +32,11 @@ export interface PedidoConsumo {
   /** Oficina que consume, "CCOOO". Sin oficina: consumo de la empresa. */
   oficina?: string | undefined;
   modo: "TODO_O_NADA" | "PARCIAL";
+  /**
+   * Si hay otro pedido de la empresa en curso: ESPERAR (hasta
+   * `consumibles.espera_ms`) o NO_ESPERAR (responde EN_CURSO_REINTENTAR).
+   */
+  espera?: "ESPERAR" | "NO_ESPERAR" | undefined;
   /** Identificador de la operación en el sistema que consume (idempotencia). */
   transaccion: string;
   concepto?: string | undefined;
@@ -33,6 +48,8 @@ export interface ResultadoConsumo {
   consumido: number;
   factor: number;
   completo: boolean;
+  /** OK, PARCIAL (no alcanzó y se entregó lo que había) o SIN_SALDO. */
+  resultado: ResultadoPedido;
   /**
    * Créditos que quedan para esta oficina/empresa después del consumo.
    * `null` en un reintento: se devuelve el resultado original, no se recalcula.
@@ -47,7 +64,39 @@ export type RechazoConsumo =
   | "EMPRESA_INACTIVA"
   | "OFICINA_INEXISTENTE"
   | "OFICINA_SIN_PERMISO"
-  | "MEDIO_INVALIDO";
+  | "MEDIO_INVALIDO"
+  | "TIPO_NO_HABILITADO"
+  | "PRODUCTO_NO_VIVO"
+  | "EN_CURSO_REINTENTAR";
+
+/** Bloqueo no obtenido: otro pedido de la misma empresa está en curso. */
+export function esBloqueoOcupado(error: unknown): boolean {
+  for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause) {
+    if ((e as { code?: string }).code === "55P03") return true;
+  }
+  return false;
+}
+
+/**
+ * Toma el bloqueo de la empresa: serializa sus pedidos para que dos
+ * consumos simultáneos no dejen saldo negativo.
+ */
+export async function bloquearEmpresa(
+  tx: Tx,
+  filtro: ReturnType<typeof eq>,
+  espera: "ESPERAR" | "NO_ESPERAR",
+) {
+  if (espera === "ESPERAR") {
+    const ms = await leerParametroDe(tx, "consumibles.espera_ms");
+    await tx.execute(sql.raw(`set local lock_timeout = ${Math.trunc(ms)}`));
+  }
+  const [empresa] = await tx
+    .select({ id: t.empresas.id, activa: t.empresas.activa })
+    .from(t.empresas)
+    .where(filtro)
+    .for("update", espera === "NO_ESPERAR" ? { noWait: true } : {});
+  return empresa;
+}
 
 /** Inicio del mes en Argentina (UTC−3, sin horario de verano) como instante. */
 const inicioDeMesArgentina = (hoy: Fecha) => new Date(`${hoy.slice(0, 7)}-01T03:00:00Z`);
@@ -116,23 +165,51 @@ async function fuentesDeCredito(
 }
 
 /**
- * Registra un consumo informado por un producto. Serializa por empresa
- * (bloquea su fila) para que dos consumos simultáneos no dejen saldo
- * negativo, y es idempotente por (sistema, transacción).
+ * Registra un consumo informado por un producto (Mejora v2.1, 8.16).
+ * Serializa por empresa, es idempotente por (sistema, transacción) y nunca
+ * deja saldos negativos. Si no alcanza, avisa al cliente y a SOFTeam; después
+ * revisa si algún consumible quedó para renovar.
  */
 export async function consumir(
-  db: Db | Tx,
+  db: Db,
   pedido: PedidoConsumo,
   hoy: Fecha = hoyArgentina(),
 ): Promise<Resultado<ResultadoConsumo, RechazoConsumo>> {
-  return db.transaction(async (tx) => {
-    const [empresa] = await tx
-      .select({ id: t.empresas.id, activa: t.empresas.activa })
-      .from(t.empresas)
-      .where(eq(t.empresas.numero, pedido.empresaNumero))
-      .for("update");
-    if (!empresa) return rechazo("EMPRESA_INEXISTENTE");
+  let empresaId: string | undefined;
+  let resultado: Resultado<ResultadoConsumo, RechazoConsumo>;
+  try {
+    resultado = await db.transaction(async (tx) => {
+      const empresa = await bloquearEmpresa(
+        tx,
+        eq(t.empresas.numero, pedido.empresaNumero),
+        pedido.espera ?? "ESPERAR",
+      );
+      if (!empresa) return rechazo("EMPRESA_INEXISTENTE");
+      empresaId = empresa.id;
+      return registrarConsumo(tx, empresa, pedido, hoy);
+    });
+  } catch (error) {
+    if (esBloqueoOcupado(error)) return rechazo("EN_CURSO_REINTENTAR");
+    throw error;
+  }
+  if (resultado.ok && !resultado.valor.repetido && empresaId) {
+    try {
+      await renovarConsumibles(db, hoy, empresaId);
+    } catch (error) {
+      // El consumo ya quedó registrado; el proceso diario vuelve a revisar.
+      console.error("[consumos] no se pudo revisar la renovación", error);
+    }
+  }
+  return resultado;
+}
 
+async function registrarConsumo(
+  tx: Tx,
+  empresa: { id: string; activa: boolean },
+  pedido: PedidoConsumo,
+  hoy: Fecha,
+): Promise<Resultado<ResultadoConsumo, RechazoConsumo>> {
+  {
     const previo = await tx.query.consumos.findFirst({
       where: and(
         eq(t.consumos.sistema, pedido.sistema),
@@ -146,11 +223,19 @@ export async function consumir(
         consumido: previo.creditosConsumidos,
         factor: previo.factorCentesimos / 100,
         completo: previo.creditosConsumidos === previo.creditosSolicitados,
+        resultado: resultadoPedido(previo.creditosSolicitados, previo.creditosConsumidos),
         disponible: null,
         repetido: true,
       });
     }
     if (!empresa.activa) return rechazo("EMPRESA_INACTIVA");
+    if (!familiaHabilitada(pedido.familia, pedido.sistema)) return rechazo("TIPO_NO_HABILITADO");
+    const licencia = await licenciaDeEmpresa(tx, empresa.id, hoy);
+    if (
+      !productoDelSistemaVivo(pedido.sistema, new Set(licencia.productos.map((p) => p.productoId)))
+    ) {
+      return rechazo("PRODUCTO_NO_VIVO");
+    }
 
     const politicas =
       (
@@ -242,6 +327,7 @@ export async function consumir(
         creditosSolicitados: plan.solicitado,
         creditosConsumidos: plan.consumido,
         concepto: pedido.concepto ?? null,
+        resultado: resultadoPedido(plan.solicitado, plan.consumido),
       })
       .returning({ id: t.consumos.id });
 
@@ -272,6 +358,18 @@ export async function consumir(
         (oficinaId !== null && f.oficinaId === null && politicas.oficinasUsanPozoEmpresa),
     );
     const disponibleAntes = accesibles.reduce((total, f) => total + f.disponible, 0);
+    const resultado = resultadoPedido(plan.solicitado, plan.consumido);
+
+    // No alcanzó: el cliente tiene que ampliar el paquete. Un aviso por día y familia.
+    if (resultado !== "OK") {
+      await registrarAlerta(tx, {
+        tipo: "CONSUMIBLE_SIN_SALDO",
+        clave: `CONSUMIBLE_SIN_SALDO:${empresa.id}:${oficinaId ?? "empresa"}:${pedido.familia}:${hoy}`,
+        mensaje: `No alcanzó el saldo de ${pedido.familia} para un pedido de ${pedido.sistema}: contratá un paquete para seguir usándolo.`,
+        empresaId: empresa.id,
+        oficinaId,
+      });
+    }
 
     return exito({
       transaccion: pedido.transaccion,
@@ -279,8 +377,9 @@ export async function consumir(
       consumido: plan.consumido,
       factor: factorCentesimos / 100,
       completo: plan.consumido === plan.solicitado,
+      resultado,
       disponible: Math.max(disponibleAntes - plan.consumido, 0),
       repetido: false,
     });
-  });
+  }
 }

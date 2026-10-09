@@ -136,6 +136,27 @@ export const PARAMETROS = {
     esquema: z.int(numero).min(1, { error: "Entre 1 y 99." }).max(99, { error: "Entre 1 y 99." }),
     porDefecto: 20,
   },
+  "consumibles.porcentaje_renovacion": {
+    grupo: "Renovación",
+    etiqueta: "Renovación de consumibles (% de saldo)",
+    ayuda:
+      "Un paquete consumible con renovación automática se renueva cuando le queda este porcentaje de saldo o menos.",
+    tipo: "numero",
+    esquema: z.int(numero).min(1, { error: "Entre 1 y 99." }).max(99, { error: "Entre 1 y 99." }),
+    porDefecto: 10,
+  },
+  "consumibles.espera_ms": {
+    grupo: "Renovación",
+    etiqueta: "Espera de un pedido de consumo en curso (ms)",
+    ayuda:
+      "Si otro pedido del mismo cliente se está procesando, cuánto espera el siguiente antes de responder que reintente.",
+    tipo: "numero",
+    esquema: z
+      .int(numero)
+      .min(100, { error: "Entre 100 y 30.000." })
+      .max(30_000, { error: "Entre 100 y 30.000." }),
+    porDefecto: 5000,
+  },
   "oficinas.pedido_facturacion": {
     grupo: "Oficinas",
     etiqueta: "La empresa puede pedir facturar una oficina a otro cliente",

@@ -7,7 +7,7 @@ export interface MovimientoContrato {
   registradoEn: Date;
   recurso: string;
   unidad: string | null;
-  tipo: "CARGA" | "CONSUMO" | "AJUSTE";
+  tipo: "CARGA" | "CONSUMO" | "AJUSTE" | "REINTEGRO";
   creditos: number;
   /** Mes "AAAA-MM" de un cupo mensual; `null` para un saldo. */
   periodo: string | null;

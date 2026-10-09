@@ -250,11 +250,49 @@ ya está hecho y probado; habilitarlo es cambiar el parámetro a `true`.
   oficina antes que los de la empresa; dentro de cada grupo, el más antiguo
   primero (FIFO).
 - **Factor por medio de envío** (tabla configurable): mail 1, SMS 2, WhatsApp 2,5.
-- **Modos:** `TODO_O_NADA` o `PARCIAL`.
+- **Modos:** `TODO_O_NADA` o `PARCIAL`. Cada pedido responde un resultado:
+  `OK`, `PARCIAL` (no alcanzó y se entregó lo que había) o `SIN_SALDO`. Si no
+  alcanza, se registra la alerta `CONSUMIBLE_SIN_SALDO` (una por día, empresa
+  u oficina y familia) para el cliente y para el tablero de SOFTeam.
 - **Idempotencia:** clave única (sistema, id de transacción externa). Un reintento
   del producto no descuenta dos veces.
-- **Concurrencia:** el débito bloquea las filas de saldo de la empresa
-  (`SELECT … FOR UPDATE`). Dos consumos simultáneos no pueden dejar saldo negativo.
+- **Concurrencia:** el débito bloquea la fila de la empresa
+  (`SELECT … FOR UPDATE`). Dos consumos simultáneos no pueden dejar saldo
+  negativo. Con `espera: ESPERAR` (por defecto) el segundo pedido espera hasta
+  `consumibles.espera_ms`; con `NO_ESPERAR` responde `EN_CURSO_REINTENTAR` y el
+  producto reintenta con la misma transacción.
+
+#### 4.4.1 Consumibles (Mejora v2.1, 8.15 y 8.16) — [Cambio 09/10/2026]
+
+- **Quién consume qué:** presupuestos (cotizaciones) solo CotiWeb; los tickets
+  de soporte solo STLic, al abrir un pedido. El producto del sistema que pide
+  tiene que estar vigente para la empresa (`PRODUCTO_NO_VIVO`); las
+  integraciones que no son productos de SOFTeam no se controlan
+  (`TIPO_NO_HABILITADO` si el sistema no usa ese consumible).
+- **Renovación por saldo:** un paquete consumible con renovación automática
+  (marca por paquete, que el cliente cambia en el portal y que la renovación
+  copia) se renueva cuando le queda `consumibles.porcentaje_renovacion` (10 %)
+  o menos de lo que trajo, si no tiene ya una renovación y sigue vivo un
+  producto que lo usa: cualquiera para notificaciones, CotiWeb para
+  presupuestos. Se genera el mismo paquete al precio de renovación vigente, con
+  la bonificación recurrente y el estado inicial del modo de facturación, sin
+  día de vencimiento ni tramo. Cliente directo: una orden propia con el medio
+  de la compra anterior (nunca por suscripción; si ya no sirve, el de
+  renovación del cliente). Agrupado por planilla: sin orden, la incorpora la
+  orden colectiva. Avisa al cliente (`RENOVACION_CONSUMIBLE`). Lo revisa el
+  servicio después de cada consumo y el proceso diario como control. Cada
+  paquete se evalúa por su propio saldo; el renovado se empieza a consumir
+  cuando se agota el anterior (FIFO). Los tickets de soporte no se renuevan
+  por saldo.
+- **Reintegro** (`POST /api/v1/empresas/{numero}/reintegros`): devuelve
+  unidades de una solicitud que no se usaron, con el factor de esa solicitud.
+  Solo lo entregado y no reintegrado antes (`REINTEGRO_EXCEDE`); sistema,
+  empresa y familia tienen que coincidir con la solicitud de origen. Va primero
+  a los consumibles del mismo alcance (empresa u oficina), del más nuevo al más
+  viejo y sin superar lo que trajo cada uno; lo que no entra vuelve a los
+  contratos de los que salió (el cupo, al mes en que se consumió). Mismo
+  bloqueo e idempotencia que los consumos; movimientos de tipo `REINTEGRO`.
+  Un reintegro no anula una renovación ya generada.
 
 ### 4.5 Límites de configuración
 

@@ -163,7 +163,7 @@ export default async function Tablero() {
       icono: CircleAlert,
     },
     {
-      href: "/admin/procesos?tipo=SALDO_AGOTADO",
+      href: "/admin/procesos?tipo=CONSUMIBLE_SIN_SALDO",
       titulo: "Consumibles sin saldo",
       cantidad: cajas.sinSaldo,
       detalle: "Empresas en los últimos 7 días",

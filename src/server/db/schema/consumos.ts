@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   bigint,
   char,
   check,
@@ -39,11 +40,23 @@ export const consumos = pgTable(
     creditosSolicitados: integer().notNull(),
     creditosConsumidos: integer().notNull(),
     concepto: varchar({ length: 200 }),
+    /** SOLICITUD descuenta; REINTEGRO devuelve unidades de una solicitud anterior. */
+    tipo: varchar({ length: 10 }).notNull().default("SOLICITUD"),
+    /** Reintegro: la solicitud que revierte. */
+    consumoOrigenId: uuid().references((): AnyPgColumn => consumos.id),
+    /** OK, PARCIAL o SIN_SALDO (el reintegro siempre OK). */
+    resultado: varchar({ length: 20 }).notNull().default("OK"),
     registradoEn: instante().notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex().on(t.sistema, t.transaccionExterna),
     index().on(t.empresaId, t.registradoEn),
+    index().on(t.consumoOrigenId),
+    check("tipo_consumo", sql`${t.tipo} in ('SOLICITUD', 'REINTEGRO')`),
+    check(
+      "reintegro_con_origen",
+      sql`(${t.tipo} = 'REINTEGRO') = (${t.consumoOrigenId} is not null)`,
+    ),
   ],
 );
 
@@ -79,7 +92,8 @@ export const movimientosSaldo = pgTable(
     check("periodo_segun_clase", sql`(${t.clase} = 'CUPO_MENSUAL') = (${t.periodo} is not null)`),
     check(
       "signo_segun_tipo",
-      sql`${t.tipo} = 'AJUSTE' or (${t.tipo} = 'CARGA') = (${t.creditos} > 0)`,
+      // Como texto: el valor REINTEGRO se agrega en la misma migración que la usa.
+      sql`${t.tipo}::text = 'AJUSTE' or (${t.tipo}::text in ('CARGA', 'REINTEGRO')) = (${t.creditos} > 0)`,
     ),
   ],
 );

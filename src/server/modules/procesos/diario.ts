@@ -9,6 +9,7 @@ import * as t from "@/server/db/schema";
 import { limpiarIntentos } from "@/server/seguridad/intentos";
 import { auditar } from "../auditoria";
 import { NOMBRE_PRODUCTO, usoDeLimites } from "../configuracion/limites";
+import { renovarConsumibles } from "../consumos/renovacion-consumibles";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { limpiarUsoApi } from "../integraciones/limite";
 import { licenciaDeEmpresa } from "../licencias/licencia-empresa";
@@ -25,6 +26,8 @@ const DIAS_AVISO_PLAZO_PAGO = 3;
 
 export interface ResumenDiario {
   excepcionesVencidas: number;
+  /** Consumibles renovados por saldo (control diario). */
+  consumiblesRenovados: number;
   alertas: Record<string, number>;
   /** Contadores de uso de la API de más de un día, borrados. */
   usoApiBorrado: number;
@@ -55,9 +58,17 @@ export async function procesoDiario(db: Db, hoy: Fecha): Promise<ResumenDiario> 
   await alertasDeSaldo(db, porcentajeBajo, contar);
   await alertasDeEmpresa(db, hoy, contar);
   await alertasDeNegociacion(db, hoy, contar);
+  // Control diario de la renovación por saldo (también corre después de cada consumo).
+  const consumibles = await renovarConsumibles(db, hoy);
   const usoApiBorrado = await limpiarUsoApi(db);
   const intentosBorrados = await limpiarIntentos(db);
-  return { excepcionesVencidas, alertas, usoApiBorrado, intentosBorrados };
+  return {
+    excepcionesVencidas,
+    alertas,
+    consumiblesRenovados: consumibles.renovados,
+    usoApiBorrado,
+    intentosBorrados,
+  };
 }
 
 /** PEND_PAGO_ACTIVO con plazo vencido → PEND_PAGO: deja de sumar a la licencia. */

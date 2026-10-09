@@ -10,6 +10,8 @@ const esquema = z.object({
   oficina: z.string().trim().max(6).optional(),
   /** Por defecto no se descuenta nada si no alcanza (el producto decide). */
   modo: z.enum(["TODO_O_NADA", "PARCIAL"]).default("TODO_O_NADA"),
+  /** Si hay otro pedido de la empresa en curso: esperar o responder que reintente. */
+  espera: z.enum(["ESPERAR", "NO_ESPERAR"]).default("ESPERAR"),
   transaccion: z.string().trim().min(1).max(80),
   concepto: z.string().trim().max(200).optional(),
 });
@@ -20,6 +22,12 @@ const RESPUESTAS: Record<RechazoConsumo, [number, string]> = {
   OFICINA_INEXISTENTE: [422, "La oficina no existe o está inactiva"],
   OFICINA_SIN_PERMISO: [403, "La política de la empresa no permite que las oficinas notifiquen"],
   MEDIO_INVALIDO: [422, "Medio de envío inválido"],
+  TIPO_NO_HABILITADO: [403, "El sistema no usa ese consumible"],
+  PRODUCTO_NO_VIVO: [409, "El producto del sistema no está vigente para la empresa"],
+  EN_CURSO_REINTENTAR: [
+    409,
+    "Hay otro pedido de la empresa en curso: reintentá con la misma transacción",
+  ],
 };
 
 /**

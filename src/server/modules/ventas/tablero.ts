@@ -86,13 +86,13 @@ export async function cajasTablero(db: Ejecutor, hoy: Fecha) {
       .select({ n: countDistinct(t.ordenes.id) })
       .from(t.ordenes)
       .where(and(eq(t.ordenes.estado, "PEND_PAGO"), eq(t.ordenes.pagoError, true))),
-    // Empresas con algún consumible agotado en los últimos 7 días.
+    // Empresas con pedidos que no alcanzaron el saldo en los últimos 7 días (8.16).
     db
       .select({ n: countDistinct(t.alertas.empresaId) })
       .from(t.alertas)
       .where(
         and(
-          eq(t.alertas.tipo, "SALDO_AGOTADO"),
+          eq(t.alertas.tipo, "CONSUMIBLE_SIN_SALDO"),
           gte(t.alertas.generadaEn, new Date(`${sumarDias(hoy, -7)}T03:00:00Z`)),
         ),
       ),

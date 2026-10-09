@@ -26,6 +26,7 @@ export async function estadoDeRenovacion(
         id: t.contratos.id,
         noRenovar: t.contratos.noRenovar,
         diaVenc: t.contratos.diaVenc,
+        tipoPaquete: t.contratos.tipoPaquete,
       })
       .from(t.contratos)
       .where(and(eq(t.contratos.empresaId, empresaId), inArray(t.contratos.id, contratoIds))),
@@ -47,7 +48,7 @@ export async function estadoDeRenovacion(
       {
         noRenovar: c.noRenovar,
         ordenRenovacion: ordenDe.get(c.id) ?? null,
-        aNegociar: c.diaVenc === null,
+        aNegociar: c.tipoPaquete === "TEMPORAL" && c.diaVenc === null,
       },
     ]),
   );
@@ -78,7 +79,7 @@ export async function cambiarRenovacionAutomatica(
           eq(t.contratos.empresaId, empresaId),
           // Un delegado solo decide sobre los paquetes de sus oficinas.
           oficinaEnAlcance(t.contratos.oficinaId, alcance),
-          eq(t.contratos.tipoPaquete, "TEMPORAL"),
+          // Temporales por vencimiento; consumibles por saldo (Mejora v2.1, 8.15).
           inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
         ),
       )

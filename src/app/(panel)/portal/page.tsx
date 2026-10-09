@@ -236,10 +236,11 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
   const vencimientos = licencia.contratosVigentes.filter((c) =>
     abarcaOficina(contexto.alcance, c.oficina),
   );
+  // Temporales por vencimiento y consumibles por saldo: los dos tienen renovación automática.
   const renovaciones = await estadoDeRenovacion(
     db,
     contexto.empresaId,
-    vencimientos.filter((c) => c.tipoPaquete === "TEMPORAL").map((c) => c.id),
+    vencimientos.map((c) => c.id),
   );
   const comercial = puedeComprar(contexto);
   const [[diasAviso], porcentajeBajo] = await Promise.all([

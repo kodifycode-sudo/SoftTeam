@@ -86,6 +86,17 @@ const PARAMETROS: { clave: string; valor: unknown; descripcion: string }[] = [
     descripcion: "Tramo mínimo de una renovación: si da menos, se alinea al mes siguiente.",
   },
   {
+    clave: "consumibles.porcentaje_renovacion",
+    valor: 10,
+    descripcion:
+      "Un consumible con renovación automática se renueva con este porcentaje de saldo o menos.",
+  },
+  {
+    clave: "consumibles.espera_ms",
+    valor: 5000,
+    descripcion: "Espera de un pedido de consumo cuando hay otro en curso del mismo cliente.",
+  },
+  {
     clave: "tablero.dias_semaforo",
     valor: 7,
     descripcion: "Renovaciones a negociar: amarillo si vencen dentro de estos días.",

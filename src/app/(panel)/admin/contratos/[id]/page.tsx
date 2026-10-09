@@ -28,7 +28,12 @@ const fechaHora = (d: Date) =>
     timeZone: "America/Argentina/Buenos_Aires",
   }).format(d);
 
-const TIPOS = { CARGA: "Carga", CONSUMO: "Consumo", AJUSTE: "Ajuste" } as const;
+const TIPOS = {
+  CARGA: "Carga",
+  CONSUMO: "Consumo",
+  AJUSTE: "Ajuste",
+  REINTEGRO: "Reintegro",
+} as const;
 
 const ESTADOS: Record<string, string> = {
   PEND_PAGO: "Pendiente de pago",

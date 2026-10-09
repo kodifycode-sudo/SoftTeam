@@ -135,6 +135,13 @@ export const documentoOpenApi = {
             description: "Oficina que consume (CCOOO). Sin oficina, consume la empresa.",
           },
           modo: { type: "string", enum: ["TODO_O_NADA", "PARCIAL"], default: "TODO_O_NADA" },
+          espera: {
+            type: "string",
+            enum: ["ESPERAR", "NO_ESPERAR"],
+            default: "ESPERAR",
+            description:
+              "Si hay otro pedido de la empresa en curso: esperar unos segundos o responder 409 EN_CURSO_REINTENTAR para reintentar con la misma transacción.",
+          },
           transaccion: {
             type: "string",
             maxLength: 80,
@@ -155,10 +162,49 @@ export const documentoOpenApi = {
           consumido: { type: "integer" },
           factor: { type: "number" },
           completo: { type: "boolean" },
+          resultado: {
+            type: "string",
+            enum: ["OK", "PARCIAL", "SIN_SALDO"],
+            description:
+              "PARCIAL: no alcanzó y se entregó lo que había. SIN_SALDO: no se entregó nada; invitar al cliente a ampliar el paquete.",
+          },
           disponible: {
             type: ["integer", "null"],
             description: "Créditos que quedan (null en un reintento).",
           },
+          repetido: { type: "boolean" },
+        },
+      },
+      PedidoReintegro: {
+        type: "object",
+        required: ["familia", "cantidad", "transaccion", "transaccionOrigen"],
+        properties: {
+          familia: { type: "string", enum: ["notificaciones", "cotizaciones"] },
+          cantidad: {
+            type: "integer",
+            minimum: 1,
+            description: "Unidades que no se usaron; se convierten con el factor de la solicitud.",
+          },
+          transaccion: {
+            type: "string",
+            maxLength: 80,
+            description: "Identificador de este reintegro.",
+          },
+          transaccionOrigen: {
+            type: "string",
+            maxLength: 80,
+            description: "La solicitud de consumo que se revierte.",
+          },
+          espera: { type: "string", enum: ["ESPERAR", "NO_ESPERAR"], default: "ESPERAR" },
+        },
+      },
+      ResultadoReintegro: {
+        type: "object",
+        properties: {
+          transaccion: { type: "string" },
+          transaccionOrigen: { type: "string" },
+          cantidad: { type: "integer" },
+          creditos: { type: "integer", description: "Créditos devueltos." },
           repetido: { type: "boolean" },
         },
       },
@@ -269,6 +315,34 @@ export const documentoOpenApi = {
           "401": problema,
           "429": problema,
           "403": problema,
+          "404": problema,
+          "409": problema,
+          "422": problema,
+        },
+      },
+    },
+    "/empresas/{numero}/reintegros": {
+      post: {
+        summary: "Reintegrar unidades no usadas",
+        description:
+          "Devuelve unidades de una solicitud anterior que no se usaron (solo lo entregado y no reintegrado antes). Vuelven al consumible más nuevo de la empresa u oficina; si no entran, a donde salieron.",
+        parameters: [...cabecerasFirma, numero],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/PedidoReintegro" } },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Reintegro registrado",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ResultadoReintegro" } },
+            },
+          },
+          "200": { description: "Transacción ya procesada: se devuelve el resultado original" },
+          "401": problema,
+          "429": problema,
           "404": problema,
           "409": problema,
           "422": problema,
