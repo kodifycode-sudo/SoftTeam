@@ -1,11 +1,13 @@
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import * as t from "@/server/db/schema";
+import { mediosPagoActivos } from "@/server/modules/catalogo/medios-pago";
 import { nombresDeProvincias } from "@/server/modules/catalogo/paises";
+import { opcionesGrupos } from "@/server/modules/cuentas/grupos";
 import { FormularioCliente } from "./formulario";
 
 export const metadata: Metadata = { title: "Editar cliente" };
@@ -17,15 +19,8 @@ export default async function EditarCliente({ params }: PageProps<"/admin/client
   const db = await obtenerDb();
   const [cliente, grupos, medios, provincias] = await Promise.all([
     db.query.clientes.findFirst({ where: eq(t.clientes.id, id) }),
-    db
-      .select({ id: t.gruposEconomicos.id, nombre: t.gruposEconomicos.nombre })
-      .from(t.gruposEconomicos)
-      .orderBy(asc(t.gruposEconomicos.nombre)),
-    db
-      .select({ id: t.mediosPago.id, nombre: t.mediosPago.nombre })
-      .from(t.mediosPago)
-      .where(eq(t.mediosPago.activo, true))
-      .orderBy(asc(t.mediosPago.orden)),
+    opcionesGrupos(db),
+    mediosPagoActivos(db),
     // Hoy todos los clientes son de Argentina; con otros países, la del domicilio fiscal.
     nombresDeProvincias(db, "AR"),
   ]);

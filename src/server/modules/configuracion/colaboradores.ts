@@ -387,3 +387,28 @@ export async function colaboradorDeUsuario(db: Ejecutor, empresaId: string, usua
   });
   return fila?.id;
 }
+
+/**
+ * Usuario de un colaborador activo de la empresa, dentro del alcance de
+ * quien pregunta (para reenviarle el acceso). `undefined` si no existe, es
+ * de otra empresa u oficina, o está dado de baja.
+ */
+export async function usuarioDeColaboradorActivo(
+  db: Ejecutor,
+  empresaId: string,
+  alcance: Alcance,
+  colaboradorId: string,
+) {
+  const [fila] = await db
+    .select({ nombre: t.colaboradores.nombre, activo: t.colaboradores.activo, usuario: t.usuarios })
+    .from(t.colaboradores)
+    .innerJoin(t.usuarios, eq(t.usuarios.id, t.colaboradores.usuarioId))
+    .where(
+      and(
+        eq(t.colaboradores.id, colaboradorId),
+        eq(t.colaboradores.empresaId, empresaId),
+        colaboradorEnAlcance(alcance),
+      ),
+    );
+  return fila?.activo ? { nombre: fila.nombre, usuario: fila.usuario } : undefined;
+}

@@ -13,6 +13,7 @@ import {
 import type { Db } from "@/server/db/cliente";
 import { crearContratoDePrueba, crearDbDePrueba, crearEmpresaDePrueba } from "@/server/db/pruebas";
 import * as t from "@/server/db/schema";
+import { marcarOrdenRevisada } from "../ventas/ordenes";
 import { facturarOrden, facturarPendientes } from "./facturacion";
 import { obtenerLinkDePago, procesarPago, reenviarLinkDePago } from "./pagos";
 
@@ -206,6 +207,15 @@ describe("cobro de una orden", () => {
     expect(revisar).toMatchObject({ estado: "PEND_PAGO", requiereRevision: true });
     const [sigue] = await db.select().from(t.contratos).where(eq(t.contratos.id, contrato.id));
     expect(sigue?.estado).toBe("PEND_PAGO");
+
+    // SOFTeam lo revisa: deja de estar marcada y queda en la auditoría.
+    await marcarOrdenRevisada(db, orden.id, "actor-revision");
+    const [revisada] = await db.select().from(t.ordenes).where(eq(t.ordenes.id, orden.id));
+    expect(revisada?.requiereRevision).toBe(false);
+    const auditoria = await db.query.auditoria.findFirst({
+      where: (a, { and, eq }) => and(eq(a.entidadId, orden.id), eq(a.accion, "revisada")),
+    });
+    expect(auditoria?.actorId).toBe("actor-revision");
   });
 
   it("dos avisos simultáneos del mismo pago no se pisan", async () => {

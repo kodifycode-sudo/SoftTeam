@@ -1,21 +1,20 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
+import { reenvioPermitido } from "@/server/auth/limites";
 import { type ContextoCliente, requerirConfiguracion } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
-import * as t from "@/server/db/schema";
 import {
   type Actor,
   cambiarEstadoColaborador,
   esquemaColaborador,
   guardarColaborador,
   type ResultadoColaborador,
+  usuarioDeColaboradorActivo,
 } from "@/server/modules/configuracion/colaboradores";
 import { NOMBRE_PRODUCTO } from "@/server/modules/configuracion/limites";
-import { colaboradorEnAlcance } from "@/server/modules/cuentas/alcance";
 import { enviarInvitacion } from "@/server/modules/cuentas/invitaciones";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
 
@@ -159,19 +158,16 @@ export async function reenviarInvitacionColaboradorAccion(
   const contexto = await requerirConfiguracion();
   const id = z.uuid().safeParse(formData.get("id"));
   if (!id.success) return { mensaje: "Usuario inválido." };
-  const db = await obtenerDb();
-  const [fila] = await db
-    .select({ nombre: t.colaboradores.nombre, activo: t.colaboradores.activo, usuario: t.usuarios })
-    .from(t.colaboradores)
-    .innerJoin(t.usuarios, eq(t.usuarios.id, t.colaboradores.usuarioId))
-    .where(
-      and(
-        eq(t.colaboradores.id, id.data),
-        eq(t.colaboradores.empresaId, contexto.empresaId),
-        colaboradorEnAlcance(contexto.alcance),
-      ),
-    );
-  if (!fila?.activo) return { mensaje: "Ese usuario no tiene acceso a STLic." };
+  const fila = await usuarioDeColaboradorActivo(
+    await obtenerDb(),
+    contexto.empresaId,
+    contexto.alcance,
+    id.data,
+  );
+  if (!fila) return { mensaje: "Ese usuario no tiene acceso a STLic." };
+  if (!(await reenvioPermitido(`invitacion:${fila.usuario.id}`))) {
+    return { mensaje: "Ya le reenviamos el mail varias veces en la última hora. Probá más tarde." };
+  }
   await enviarInvitacion(
     {
       id: fila.usuario.id,

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
+import { reenvioPermitido } from "@/server/auth/limites";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import {
@@ -78,6 +79,9 @@ export async function reenviarInvitacionAccion(
   const db = await obtenerDb();
   const usuario = await buscarUsuarioPorEmail(db, email.data);
   if (!usuario?.rolSofteam) return { mensaje: MENSAJES.NO_EXISTE };
+  if (!(await reenvioPermitido(`invitacion:${usuario.id}`))) {
+    return { mensaje: "Ya le reenviamos el mail varias veces en la última hora. Probá más tarde." };
+  }
   await enviarInvitacion(
     {
       id: usuario.id,

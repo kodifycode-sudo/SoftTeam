@@ -362,3 +362,12 @@ export async function cambiarActivoPaquete(db: Db, id: string, activo: boolean, 
     });
   });
 }
+
+/** Paquetes activos, para elegir en un formulario. */
+export function paquetesActivos(db: Ejecutor) {
+  return db
+    .select({ id: t.paquetes.id, nombre: t.paquetes.nombre })
+    .from(t.paquetes)
+    .where(eq(t.paquetes.activo, true))
+    .orderBy(asc(t.paquetes.nombre));
+}

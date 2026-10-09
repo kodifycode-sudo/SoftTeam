@@ -272,3 +272,11 @@ export async function eliminarGrupo(
     return { ok: true };
   });
 }
+
+/** Grupos económicos, para elegir en un formulario. */
+export function opcionesGrupos(db: Ejecutor) {
+  return db
+    .select({ id: t.gruposEconomicos.id, nombre: t.gruposEconomicos.nombre })
+    .from(t.gruposEconomicos)
+    .orderBy(asc(t.gruposEconomicos.nombre));
+}

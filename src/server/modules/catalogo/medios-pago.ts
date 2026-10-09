@@ -50,3 +50,12 @@ export async function actualizarMedioPago(
     return true;
   });
 }
+
+/** Medios de pago activos, para elegir en un formulario. */
+export function mediosPagoActivos(db: Ejecutor) {
+  return db
+    .select({ id: t.mediosPago.id, nombre: t.mediosPago.nombre })
+    .from(t.mediosPago)
+    .where(eq(t.mediosPago.activo, true))
+    .orderBy(asc(t.mediosPago.orden));
+}

@@ -48,3 +48,14 @@ export async function intentoPermitido(accion: AccionLimitada, email?: string): 
   ]);
   return usos.every((u) => u.permitido);
 }
+
+const REENVIOS: Limite = { max: 3, ventanaSegundos: 60 * MINUTO };
+
+/**
+ * Reenvíos de un mail al mismo destino (invitación, link de pago): 3 por
+ * hora. Es por destino y no por IP, así que rige también en desarrollo.
+ */
+export async function reenvioPermitido(destino: string): Promise<boolean> {
+  const uso = await registrarIntento(await obtenerDb(), `reenvio:${destino}`, REENVIOS);
+  return uso.permitido;
+}

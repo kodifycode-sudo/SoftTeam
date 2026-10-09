@@ -1,16 +1,14 @@
 "use server";
 
-import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 import { type EstadoFormulario, erroresPorCampo, valoresDe } from "@/lib/formulario";
+import { reenvioPermitido } from "@/server/auth/limites";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerFacturador, obtenerPasarela, urlBase } from "@/server/cobros";
 import { obtenerDb } from "@/server/db";
-import * as t from "@/server/db/schema";
-import { auditar } from "@/server/modules/auditoria";
 import { facturarOrden } from "@/server/modules/cobros/facturacion";
 import { reenviarLinkDePago } from "@/server/modules/cobros/pagos";
 import { programarEntregaDeEventos } from "@/server/modules/integraciones/programar";
@@ -21,7 +19,7 @@ import {
   type ErrorBonificacion,
   esquemaBonificacion,
 } from "@/server/modules/ventas/bonificacion";
-import { cancelarOrden, registrarPago } from "@/server/modules/ventas/ordenes";
+import { cancelarOrden, marcarOrdenRevisada, registrarPago } from "@/server/modules/ventas/ordenes";
 
 const MENSAJES = {
   NO_EXISTE: "La orden ya no existe.",
@@ -90,6 +88,9 @@ export async function reenviarLinkAccion(
   const { user } = await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
   const id = z.uuid().safeParse(formData.get("ordenId"));
   if (!id.success) return { mensaje: "Orden inválida." };
+  if (!(await reenvioPermitido(`link-pago:${id.data}`))) {
+    return { mensaje: "Ya le reenviamos el mail varias veces en la última hora. Probá más tarde." };
+  }
   const db = await obtenerDb();
   const resultado = await reenviarLinkDePago(db, obtenerPasarela(), id.data, user.id, urlBase);
   if (!resultado.ok) {
@@ -137,16 +138,7 @@ export async function marcarRevisadaAccion(formData: FormData): Promise<void> {
   const { user } = await requerirSofteam(["ADMINISTRACION"]);
   const id = z.uuid().safeParse(formData.get("ordenId"));
   if (!id.success) return;
-  const db = await obtenerDb();
-  await db.transaction(async (tx) => {
-    await tx.update(t.ordenes).set({ requiereRevision: false }).where(eq(t.ordenes.id, id.data));
-    await auditar(tx, {
-      actorId: user.id,
-      entidad: "orden",
-      entidadId: id.data,
-      accion: "revisada",
-    });
-  });
+  await marcarOrdenRevisada(await obtenerDb(), id.data, user.id);
   revalidatePath(`/admin/ordenes/${id.data}`);
 }
 

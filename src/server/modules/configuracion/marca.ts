@@ -159,3 +159,12 @@ export function marcaParaApi(marca: Marca | undefined, urlLogo: string) {
     actualizadaEn: marca.actualizadaEn.toISOString(),
   };
 }
+
+/** Logo de la empresa por su número (API de productos). */
+export async function logoDeEmpresaPorNumero(db: Ejecutor, numero: number) {
+  const empresa = await db.query.empresas.findFirst({
+    columns: { id: true },
+    where: eq(t.empresas.numero, numero),
+  });
+  return empresa ? logoDeEmpresa(db, empresa.id) : undefined;
+}

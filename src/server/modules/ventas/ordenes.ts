@@ -7,6 +7,7 @@ import type { Orden, Pagina } from "@/lib/listados";
 import type { Db, Ejecutor, Tx } from "@/server/db/cliente";
 import { ordenarPor, paginar, totalFiltrado } from "@/server/db/listados";
 import * as t from "@/server/db/schema";
+import { auditar } from "../auditoria";
 import { ordenEnAlcance } from "../cuentas/alcance";
 import { registrarCambioEmpresa } from "../integraciones/eventos";
 import { cargarSaldos } from "./checkout";
@@ -306,5 +307,13 @@ export async function cancelarOrden(
       motivo,
     });
     return exito({ ok: true as const });
+  });
+}
+
+/** SOFTeam revisó una orden marcada para revisión (pago que no coincidía, etc.). */
+export async function marcarOrdenRevisada(db: Db, ordenId: string, actorId: string) {
+  await db.transaction(async (tx) => {
+    await tx.update(t.ordenes).set({ requiereRevision: false }).where(eq(t.ordenes.id, ordenId));
+    await auditar(tx, { actorId, entidad: "orden", entidadId: ordenId, accion: "revisada" });
   });
 }

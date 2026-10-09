@@ -416,7 +416,8 @@ Las barras de uso muestran lo que queda y se pintan con el mismo criterio
   de ingreso, alta y códigos por mail, por IP y por mail: ingreso 20/min por
   IP y 10 cada 15 min por mail; envío de códigos 3 cada 10 min por mail y 10
   por IP; verificación de códigos y segundo factor 10/min por IP; alta 5 cada
-  10 min por IP. Headers de seguridad y CSP. Secretos
+  10 min por IP. Los reenvíos de invitaciones y de links de pago, 3 por hora
+  al mismo destino. Headers de seguridad y CSP. Secretos
   solo en variables de entorno validadas al arrancar.
 
 ---

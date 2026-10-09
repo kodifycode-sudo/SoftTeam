@@ -2,7 +2,13 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Db } from "@/server/db/cliente";
 import { crearDbDePrueba, crearEmpresaDePrueba } from "@/server/db/pruebas";
 import { empresaCompleta } from "../integraciones/datos";
-import { esquemaMarca, guardarMarca, leerMarca, logoDeEmpresa } from "./marca";
+import {
+  esquemaMarca,
+  guardarMarca,
+  leerMarca,
+  logoDeEmpresa,
+  logoDeEmpresaPorNumero,
+} from "./marca";
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -47,6 +53,8 @@ describe("marca blanca", () => {
     const logo = await logoDeEmpresa(db, empresa.id);
     expect(logo).toMatchObject({ tipo: "image/png" });
     expect(logo?.bytes.equals(PNG)).toBe(true);
+    expect((await logoDeEmpresaPorNumero(db, empresa.numero))?.hash).toBe(logo?.hash);
+    expect(await logoDeEmpresaPorNumero(db, 999_999_999)).toBeUndefined();
 
     const api = await empresaCompleta(db, empresa.numero);
     expect(api?.marca).toMatchObject({

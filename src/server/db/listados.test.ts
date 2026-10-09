@@ -6,9 +6,10 @@ import { listarOrdenes } from "@/server/modules/ventas/ordenes";
 import { totalDe } from "./listados";
 
 let db: Db;
+const creados: string[] = [];
 beforeAll(async () => {
   db = await crearDbDePrueba();
-  for (let i = 0; i < 23; i++) await crearEmpresaDePrueba(db);
+  for (let i = 0; i < 23; i++) creados.push((await crearEmpresaDePrueba(db)).cliente.nombre);
 });
 
 describe("listados paginados", () => {
@@ -34,11 +35,14 @@ describe("listados paginados", () => {
   });
 
   it("el total respeta el filtro", async () => {
+    // "Cliente 4" de "Cliente 47": entre 23 números seguidos hay una decena
+    // completa. No se fija el texto: la numeración depende de otros archivos.
+    const busqueda = creados[11]!.slice(0, -1);
     const pagina = await listarClientes(db, {
-      busqueda: "Cliente 1",
+      busqueda,
       pagina: { numero: 1, tamano: 2 },
     });
-    const todos = await listarClientes(db, { busqueda: "Cliente 1" });
+    const todos = await listarClientes(db, { busqueda });
     expect(pagina).toHaveLength(2);
     expect(totalDe(pagina)).toBe(todos.length);
   });

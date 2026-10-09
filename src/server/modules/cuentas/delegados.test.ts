@@ -11,6 +11,7 @@ import {
   type EntradaColaborador,
   guardarColaborador,
   listarColaboradores,
+  usuarioDeColaboradorActivo,
 } from "../configuracion/colaboradores";
 import { guardarProductor, listarProductores } from "../configuracion/productores";
 import {
@@ -134,6 +135,27 @@ describe("administradores delegados", () => {
       ok: false,
       error: "NO_EXISTE",
     });
+    // Reenviar el acceso: solo a los de su oficina, de esta empresa y activos
+    // (y con usuario de login, que se crea al darle algún permiso).
+    const conAcceso = (alcance: string) =>
+      guardarColaborador(
+        db,
+        empresa.id,
+        colaborador(alcance, { adminOperativo: true }),
+        general,
+        HOY,
+      );
+    const centroConAcceso = await conAcceso(`oficina:${centro.id}`);
+    const rosarioConAcceso = await conAcceso(`oficina:${rosario.id}`);
+    if (!centroConAcceso.ok || !rosarioConAcceso.ok) throw new Error("no se crearon");
+    const reenvio = (id: string, empresaId = empresa.id) =>
+      usuarioDeColaboradorActivo(db, empresaId, delegado.alcance, id);
+    expect(await reenvio(centroConAcceso.id)).toMatchObject({ nombre: "Persona de prueba" });
+    expect(await reenvio(enCentro.id)).toBeUndefined();
+    expect(await reenvio(rosarioConAcceso.id)).toBeUndefined();
+    expect(await reenvio(centroConAcceso.id, crypto.randomUUID())).toBeUndefined();
+    await cambiarEstadoColaborador(db, empresa.id, centroConAcceso.id, false, general, HOY);
+    expect(await reenvio(centroConAcceso.id)).toBeUndefined();
   });
 
   it("un delegado de canal gestiona las oficinas de su canal", async () => {
