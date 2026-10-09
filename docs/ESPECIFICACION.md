@@ -191,6 +191,10 @@ ya está hecho y probado; habilitarlo es cambiar el parámetro a `true`.
 
 - Cada movimiento (carga, consumo, ajuste) es **una fila inmutable** en
   `movimiento_saldo`. El saldo es la suma de sus movimientos: siempre auditable.
+  Para no sumar todo el historial en cada consumo, el saldo prepago de cada
+  contrato y recurso se guarda acumulado en `contrato_recursos.saldo`; lo
+  actualiza un trigger de la base con cada movimiento, en la misma transacción,
+  y rechaza un movimiento de saldo de un recurso que el contrato no tiene.
 - **Cupo mensual:** disponible = cupo del mes − consumido en el mes. **No hay
   proceso de reposición**: el mes nuevo empieza con el consumo en cero. Se elimina
   un job y su riesgo de no correr — **[Cambio]**.

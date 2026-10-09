@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { centavos, porcentaje } from "@/domain/dinero";
 import { fecha } from "@/domain/fecha";
@@ -225,5 +225,52 @@ describe("esquema de base de datos", () => {
     await expect(
       db.insert(t.movimientosSaldo).values({ ...movimiento, periodo: "2026-09", creditos: 10 }),
     ).rejects.toThrow();
+  });
+
+  it("el saldo prepago del contrato acompaña cada movimiento (trigger)", async () => {
+    const orden = await crearOrden();
+    const [contrato] = await db.insert(t.contratos).values(contratoBase(orden.id)).returning();
+    const contratoId = contrato!.id;
+    await db.insert(t.productos).values({ id: "tickets", nombre: "Tickets" });
+    await db.insert(t.recursos).values([
+      { id: "tickets.saldo", productoId: "tickets", nombre: "Tickets", clase: "SALDO" },
+      { id: "tickets.otro", productoId: "tickets", nombre: "Otro", clase: "SALDO" },
+    ]);
+    await db
+      .insert(t.contratoRecursos)
+      .values({ contratoId, recursoId: "tickets.saldo", clase: "SALDO", cantidad: 100 });
+    const saldo = async () =>
+      (
+        await db.query.contratoRecursos.findFirst({
+          where: eq(t.contratoRecursos.contratoId, contratoId),
+        })
+      )?.saldo;
+    const base = { contratoId, recursoId: "tickets.saldo", clase: "SALDO" } as const;
+
+    await db.insert(t.movimientosSaldo).values([
+      { ...base, tipo: "CARGA", creditos: 100 },
+      { ...base, tipo: "CONSUMO", creditos: -30 },
+    ]);
+    expect(await saldo()).toBe(70);
+
+    // Una corrección o un borrado manual también lo actualizan.
+    const [consumo] = await db
+      .update(t.movimientosSaldo)
+      .set({ creditos: -40 })
+      .where(
+        and(eq(t.movimientosSaldo.contratoId, contratoId), eq(t.movimientosSaldo.tipo, "CONSUMO")),
+      )
+      .returning();
+    expect(await saldo()).toBe(60);
+    await db.delete(t.movimientosSaldo).where(eq(t.movimientosSaldo.id, consumo!.id));
+    expect(await saldo()).toBe(100);
+
+    // Un movimiento de saldo de un recurso que el contrato no tiene no se acepta.
+    await expect(
+      db
+        .insert(t.movimientosSaldo)
+        .values({ ...base, recursoId: "tickets.otro", tipo: "CARGA", creditos: 5 }),
+    ).rejects.toThrow();
+    expect(await saldo()).toBe(100);
   });
 });

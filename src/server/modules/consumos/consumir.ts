@@ -80,7 +80,8 @@ async function fuentesDeCredito(
       clase: t.contratoRecursos.clase,
       cantidad: t.contratoRecursos.cantidad,
       consumidoMes: sql<number>`coalesce((select -sum(m.creditos) from ${t.movimientosSaldo} m where m.contrato_id = ${t.contratos.id} and m.recurso_id = ${t.contratoRecursos.recursoId} and m.periodo = ${hoy.slice(0, 7)}), 0)::int`,
-      saldo: sql<number>`coalesce((select sum(m.creditos) from ${t.movimientosSaldo} m where m.contrato_id = ${t.contratos.id} and m.recurso_id = ${t.contratoRecursos.recursoId} and m.clase = 'SALDO'), 0)::int`,
+      // El saldo prepago lo mantiene un trigger: no se suma el historial.
+      saldo: t.contratoRecursos.saldo,
     })
     .from(t.contratos)
     .innerJoin(t.contratoRecursos, eq(t.contratoRecursos.contratoId, t.contratos.id))
@@ -203,9 +204,12 @@ export async function consumir(
         .innerJoin(t.contratos, eq(t.contratos.id, t.movimientosSaldo.contratoId))
         .where(
           and(
+            // Empresa y fecha del consumo: usa el índice (empresa_id, registrado_en)
+            // de consumos en vez de recorrer todos los movimientos.
+            eq(t.consumos.empresaId, empresa.id),
+            gte(t.consumos.registradoEn, inicioDeMesArgentina(hoy)),
             eq(t.consumos.oficinaId, oficinaId),
             isNull(t.contratos.oficinaId),
-            gte(t.movimientosSaldo.registradoEn, inicioDeMesArgentina(hoy)),
           ),
         );
       topePozoRestante = Math.max(

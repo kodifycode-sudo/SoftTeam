@@ -162,6 +162,13 @@
       "when": 1791340149493,
       "tag": "0022_recodificar_provincias",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791550685352,
+      "tag": "0023_saldo_acumulado",
+      "breakpoints": true
     }
   ]
 }

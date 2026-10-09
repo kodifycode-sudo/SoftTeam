@@ -214,6 +214,12 @@ export const contratoRecursos = pgTable(
       .references(() => recursos.id),
     clase: claseRecurso().notNull(),
     cantidad: integer().notNull(),
+    /**
+     * Saldo prepago (clase SALDO): suma de sus movimientos de saldo. Lo
+     * mantiene un trigger sobre `movimientos_saldo` (migración 0023), así
+     * cada consumo no suma todo el historial. Para CUPO_MENSUAL queda en 0.
+     */
+    saldo: integer().notNull().default(0),
   },
   (t) => [
     primaryKey({ columns: [t.contratoId, t.recursoId] }),

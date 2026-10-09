@@ -74,30 +74,20 @@ export async function licenciaDeEmpresa(
   if (contratos.length === 0) return { productos: [], contratosVigentes: [] };
   const ids = contratos.map((c) => c.id);
 
-  const [recursos, saldos, consumosDelMes] = await Promise.all([
+  const [recursos, consumosDelMes] = await Promise.all([
     db
       .select({
         contratoId: t.contratoRecursos.contratoId,
         recursoId: t.contratoRecursos.recursoId,
         clase: t.contratoRecursos.clase,
         cantidad: t.contratoRecursos.cantidad,
+        // Saldo prepago: lo mantiene un trigger con cada movimiento.
+        saldo: t.contratoRecursos.saldo,
         agregacion: t.recursos.agregacion,
       })
       .from(t.contratoRecursos)
       .innerJoin(t.recursos, eq(t.recursos.id, t.contratoRecursos.recursoId))
       .where(inArray(t.contratoRecursos.contratoId, ids)),
-    // Saldo prepago: suma de todos sus movimientos.
-    db
-      .select({
-        contratoId: t.movimientosSaldo.contratoId,
-        recursoId: t.movimientosSaldo.recursoId,
-        saldo: sql<number>`coalesce(sum(${t.movimientosSaldo.creditos}), 0)::int`,
-      })
-      .from(t.movimientosSaldo)
-      .where(
-        and(inArray(t.movimientosSaldo.contratoId, ids), eq(t.movimientosSaldo.clase, "SALDO")),
-      )
-      .groupBy(t.movimientosSaldo.contratoId, t.movimientosSaldo.recursoId),
     // Cupo mensual: lo consumido en el mes en curso (el cupo se renueva solo).
     db
       .select({
@@ -117,7 +107,7 @@ export async function licenciaDeEmpresa(
   ]);
 
   const clave = (contratoId: string, recursoId: string) => `${contratoId}|${recursoId}`;
-  const saldoPor = new Map(saldos.map((s) => [clave(s.contratoId, s.recursoId), Number(s.saldo)]));
+  const saldoPor = new Map(recursos.map((r) => [clave(r.contratoId, r.recursoId), r.saldo]));
   const consumidoPor = new Map(
     consumosDelMes.map((c) => [clave(c.contratoId, c.recursoId), Number(c.consumido)]),
   );
