@@ -1,7 +1,7 @@
 import { formatearCuit } from "@/domain/cuentas/cuit";
 import { importeCsv } from "@/domain/exportacion/csv";
 import { type ModoFacturacion, NOMBRE_MODO } from "@/domain/facturacion/modo";
-import { hoy } from "@/domain/fecha";
+import { type Fecha, hoy, sumarMeses } from "@/domain/fecha";
 import { rangoDeDias, rangoDeMeses } from "@/domain/reportes/periodos";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
@@ -9,6 +9,15 @@ import { respuestaCsv } from "@/server/exportacion";
 import { listarCatalogoAseguradoras } from "@/server/modules/catalogo/aseguradoras";
 import { listarPaquetes } from "@/server/modules/catalogo/paquetes";
 import { listarClientes } from "@/server/modules/cuentas/consultas";
+import {
+  bonificacionesOtorgadas,
+  consumiblesRenovados,
+  pedidosSinSaldo,
+  renovacionesPorMes,
+  resumenTickets,
+  seriesDeTickets,
+  trimestresIniciales,
+} from "@/server/modules/reportes/comerciales";
 import {
   cobranzaPorMes,
   consumosPorEmpresa,
@@ -30,6 +39,15 @@ const ESTADOS_RENOVACION = {
 } as const;
 
 const ESTADOS_ORDEN = { PEND_PAGO: "Pendiente", PAGADA: "Pagada", CANCELADA: "Cancelada" } as const;
+
+const ESTADOS_SERIE = { VIGENTE: "Vigente", AGOTADA: "Tope agotado", VENCIDA: "Vencida" } as const;
+
+/** Rango de un mes "AAAA-MM" (por defecto, el actual). */
+function delMes(mes: string | null) {
+  const elegido = mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ? mes : hoy().slice(0, 7);
+  const desde = `${elegido}-01` as Fecha;
+  return { desde, hasta: sumarMeses(desde, 1) };
+}
 
 /**
  * GET /admin/reportes/exportar?reporte=…: descarga en CSV (Excel) de cada
@@ -129,6 +147,92 @@ export async function GET(peticion: Request) {
         { titulo: "Estado de la orden", valor: (f) => ESTADOS_ORDEN[f.estado] },
       ]);
     }
+    case "tickets":
+      return respuestaCsv("tickets", await resumenTickets(db, periodo.rango), [
+        { titulo: "Ticket", valor: (f) => f.codigo },
+        { titulo: "Porcentaje", valor: (f) => importeCsv(f.porcentaje) },
+        { titulo: "Tope", valor: (f) => (f.tope > 0n ? importeCsv(f.tope) : "Sin tope") },
+        { titulo: "Compras", valor: (f) => f.usos },
+        { titulo: "Renovaciones", valor: (f) => f.renovaciones },
+        { titulo: "Descontado", valor: (f) => importeCsv(f.descontado) },
+      ]);
+    case "series-tickets":
+      return respuestaCsv("saldo de tickets", await seriesDeTickets(db, periodo.rango, fecha), [
+        { titulo: "Orden", valor: (f) => f.orden },
+        { titulo: "Emitida", valor: (f) => f.emitidaEn },
+        { titulo: "Cliente", valor: (f) => f.cliente },
+        { titulo: "Ticket", valor: (f) => f.codigo },
+        { titulo: "Renovaciones", valor: (f) => f.renovaciones },
+        { titulo: "Descontado", valor: (f) => importeCsv(f.descontado) },
+        { titulo: "Saldo", valor: (f) => (f.saldo === null ? "Sin tope" : importeCsv(f.saldo)) },
+        { titulo: "Vence", valor: (f) => f.vence },
+        { titulo: "Estado", valor: (f) => ESTADOS_SERIE[f.estado] },
+      ]);
+    case "bonificaciones":
+      return respuestaCsv("bonificaciones", await bonificacionesOtorgadas(db, periodo.rango), [
+        { titulo: "Orden", valor: (f) => f.orden },
+        { titulo: "Emitida", valor: (f) => f.emitidaEn },
+        { titulo: "Cliente", valor: (f) => f.cliente },
+        { titulo: "Empresa", valor: (f) => f.empresa },
+        { titulo: "Paquete", valor: (f) => f.paquete },
+        { titulo: "Porcentaje", valor: (f) => importeCsv(f.porcentaje) },
+        { titulo: "Recurrente", valor: (f) => (f.recurrente ? "Sí" : "No") },
+        { titulo: "Motivo", valor: (f) => f.motivo },
+        { titulo: "Otorgada por", valor: (f) => f.otorgadaPor },
+        { titulo: "Bonificado", valor: (f) => importeCsv(f.bonificado) },
+      ]);
+    case "renovaciones":
+      return respuestaCsv("renovaciones por mes", await renovacionesPorMes(db, periodo.meses), [
+        { titulo: "Mes", valor: (f) => f.mes },
+        { titulo: "Órdenes", valor: (f) => f.ordenes },
+        { titulo: "Pagadas", valor: (f) => f.pagadas },
+        { titulo: "Impagas", valor: (f) => f.impagas },
+        { titulo: "Canceladas", valor: (f) => f.canceladas },
+        { titulo: "Emitido", valor: (f) => importeCsv(f.emitido) },
+        { titulo: "Cobrado", valor: (f) => importeCsv(f.cobrado) },
+        { titulo: "Pendiente", valor: (f) => importeCsv(f.pendiente) },
+        { titulo: "Días proporcionales", valor: (f) => f.diasProporcionales },
+        { titulo: "Proporcional", valor: (f) => importeCsv(f.proporcional) },
+      ]);
+    case "trimestres":
+      return respuestaCsv("trimestres iniciales", await trimestresIniciales(db, periodo.rango), [
+        { titulo: "Cliente", valor: (f) => f.cliente },
+        { titulo: "Empresa", valor: (f) => f.empresa },
+        { titulo: "Paquete", valor: (f) => f.paquete },
+        { titulo: "Vence", valor: (f) => f.hasta },
+        {
+          titulo: "Continuidad",
+          valor: (f) =>
+            f.renovacion !== null ? `Negociado (orden ${f.renovacion})` : "Falta negociar",
+        },
+      ]);
+    case "sin-saldo":
+      return respuestaCsv("pedidos sin saldo", await pedidosSinSaldo(db, delMes(p.get("mes"))), [
+        { titulo: "Empresa", valor: (f) => f.empresa },
+        { titulo: "Número de empresa", valor: (f) => f.empresaNumero },
+        { titulo: "Familia", valor: (f) => f.familia },
+        { titulo: "Parciales", valor: (f) => f.parciales },
+        { titulo: "Sin saldo", valor: (f) => f.sinSaldo },
+        { titulo: "Créditos pedidos", valor: (f) => f.solicitado },
+        { titulo: "Créditos entregados", valor: (f) => f.entregado },
+      ]);
+    case "consumibles-renovados":
+      return respuestaCsv(
+        "consumibles renovados",
+        await consumiblesRenovados(db, delMes(p.get("mes"))),
+        [
+          { titulo: "Fecha", valor: (f) => f.creadoEn },
+          { titulo: "Empresa", valor: (f) => f.empresa },
+          { titulo: "Paquete", valor: (f) => f.paquete },
+          { titulo: "Cantidad", valor: (f) => f.cantidad },
+          { titulo: "Orden", valor: (f) => f.orden ?? "Colectiva pendiente" },
+          {
+            titulo: "Estado de la orden",
+            valor: (f) => (f.ordenEstado ? ESTADOS_ORDEN[f.ordenEstado] : ""),
+          },
+          { titulo: "Total", valor: (f) => (f.total === null ? "" : importeCsv(f.total)) },
+        ],
+      );
     case "ventas":
       return respuestaCsv("ventas por paquete", await ventasPorPaquete(db, periodo.rango), [
         { titulo: "Paquete", valor: (f) => f.paquete },

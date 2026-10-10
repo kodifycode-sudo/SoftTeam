@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatearCuit } from "@/domain/cuentas/cuit";
-import { hoy } from "@/domain/fecha";
+import { type Fecha, hoy, sumarMeses } from "@/domain/fecha";
 import { type Rango, rangoDeDias, rangoDeMeses } from "@/domain/reportes/periodos";
 import { fechaCorta, numero, pesos, porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,16 @@ import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { opcionesEmisores } from "@/server/modules/catalogo/emisores";
 import { leerParametroDe } from "@/server/modules/parametros";
+import {
+  bonificacionesOtorgadas,
+  consumiblesRenovados,
+  type EstadoSerie,
+  pedidosSinSaldo,
+  renovacionesPorMes,
+  resumenTickets,
+  seriesDeTickets,
+  trimestresIniciales,
+} from "@/server/modules/reportes/comerciales";
 import {
   cobranzaPorMes,
   consumosPorEmpresa,
@@ -43,6 +53,8 @@ export const metadata: Metadata = { title: "Reportes" };
 const PESTANAS = {
   cobranza: "Cobranza",
   facturacion: "Facturación",
+  comercial: "Tickets y bonificaciones",
+  renovaciones: "Renovaciones",
   vencimientos: "Vencimientos",
   consumos: "Consumos",
   licencias: "Licencias",
@@ -81,7 +93,7 @@ function FiltroMeses({ ver, meses }: { ver: string; meses: string[] }) {
           id="filtro-desde"
           name="desde"
           defaultValue={meses[0]}
-          className="h-9 w-40"
+          className="h-9 w-48"
         />
       </label>
       <label htmlFor="filtro-hasta" className="grid gap-1 text-sm">
@@ -91,7 +103,7 @@ function FiltroMeses({ ver, meses }: { ver: string; meses: string[] }) {
           id="filtro-hasta"
           name="hasta"
           defaultValue={meses.at(-1)}
-          className="h-9 w-40"
+          className="h-9 w-48"
         />
       </label>
       <Button type="submit" variant="secondary" className="h-9">
@@ -160,7 +172,7 @@ export default async function PaginaReportes({ searchParams }: PageProps<"/admin
     <>
       <EncabezadoPagina
         titulo="Reportes"
-        descripcion="Cobranza, facturación, vencimientos, consumos y licencias. Cada reporte se puede exportar a Excel."
+        descripcion="Cobranza, facturación, tickets, bonificaciones, renovaciones, consumos y licencias. Cada reporte se puede exportar a Excel."
       />
       <nav aria-label="Reportes" className="mb-6 flex gap-1 overflow-x-auto border-b">
         {Object.entries(PESTANAS).map(([clave, nombre]) => (
@@ -178,9 +190,10 @@ export default async function PaginaReportes({ searchParams }: PageProps<"/admin
           </Link>
         ))}
       </nav>
-      {(pestana === "cobranza" || pestana === "licencias") && (
-        <FiltroMeses ver={pestana} meses={meses} />
-      )}
+      {(pestana === "cobranza" ||
+        pestana === "licencias" ||
+        pestana === "comercial" ||
+        pestana === "renovaciones") && <FiltroMeses ver={pestana} meses={meses} />}
       {pestana === "cobranza" && <Cobranza fecha={fecha} meses={meses} periodo={periodo} />}
       {pestana === "facturacion" && (
         <Facturacion
@@ -197,6 +210,8 @@ export default async function PaginaReportes({ searchParams }: PageProps<"/admin
       {pestana === "consumos" && (
         <Consumos fecha={fecha} mes={typeof sp.mes === "string" ? sp.mes : fecha.slice(0, 7)} />
       )}
+      {pestana === "comercial" && <Comercial fecha={fecha} rango={rango} periodo={periodo} />}
+      {pestana === "renovaciones" && <Renovaciones meses={meses} rango={rango} periodo={periodo} />}
       {pestana === "licencias" && (
         <Licencias fecha={fecha} rango={rango} periodo={periodo} meses={meses} />
       )}
@@ -481,9 +496,15 @@ const FAMILIAS = [
 async function Consumos({ fecha, mes }: { fecha: ReturnType<typeof hoy>; mes: string }) {
   const db = await obtenerDb();
   const mesElegido = /^\d{4}-\d{2}$/.test(mes) ? mes : fecha.slice(0, 7);
-  const [porMes, porEmpresa] = await Promise.all([
+  const delMes: Rango = {
+    desde: `${mesElegido}-01` as Fecha,
+    hasta: sumarMeses(`${mesElegido}-01` as Fecha, 1),
+  };
+  const [porMes, porEmpresa, renovados, sinSaldo] = await Promise.all([
     consumosPorMes(db, fecha, 6),
     consumosPorEmpresa(db, mesElegido),
+    consumiblesRenovados(db, delMes),
+    pedidosSinSaldo(db, delMes),
   ]);
   const meses = [...new Set(porMes.map((f) => f.mes))];
   const credito = (m: string, familia: string) =>
@@ -592,6 +613,100 @@ async function Consumos({ fecha, mes }: { fecha: ReturnType<typeof hoy>; mes: st
           </div>
         )}
       </Seccion>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Seccion
+          titulo={`Pedidos sin saldo en ${mesCorto(mesElegido)}`}
+          descripcion="Pedidos de los productos que no alcanzaron: parciales (se entregó lo que había) y sin saldo."
+          acciones={<Exportar reporte="sin-saldo" extra={`&mes=${mesElegido}`} />}
+        >
+          {sinSaldo.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Todos los pedidos alcanzaron.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Empresa</TableHead>
+                    <TableHead>Familia</TableHead>
+                    <TableHead className="text-right">Parciales</TableHead>
+                    <TableHead className="text-right">Sin saldo</TableHead>
+                    <TableHead className="text-right">Entregado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sinSaldo.map((p) => (
+                    <TableRow key={`${p.empresaId}-${p.familia}`}>
+                      <TableCell>
+                        {p.empresa}{" "}
+                        <span className="text-xs text-muted-foreground">#{p.empresaNumero}</span>
+                      </TableCell>
+                      <TableCell className="capitalize">{p.familia}</TableCell>
+                      <TableCell className="text-right tabular-nums">{p.parciales}</TableCell>
+                      <TableCell className="text-right tabular-nums">{p.sinSaldo}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {numero(p.entregado)} de {numero(p.solicitado)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Seccion>
+
+        <Seccion
+          titulo={`Consumibles renovados en ${mesCorto(mesElegido)}`}
+          descripcion="Renovaciones automáticas por saldo, con su orden (o la orden colectiva pendiente)."
+          acciones={<Exportar reporte="consumibles-renovados" extra={`&mes=${mesElegido}`} />}
+        >
+          {renovados.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No se renovaron consumibles.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Empresa</TableHead>
+                    <TableHead>Paquete</TableHead>
+                    <TableHead>Orden</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {renovados.map((c) => (
+                    <TableRow key={c.contratoId}>
+                      <TableCell className="whitespace-nowrap">{fechaCorta(c.creadoEn)}</TableCell>
+                      <TableCell>{c.empresa}</TableCell>
+                      <TableCell>
+                        {c.paquete}
+                        {c.cantidad > 1 && ` ×${c.cantidad}`}
+                      </TableCell>
+                      <TableCell>
+                        {c.ordenId ? (
+                          <Link
+                            href={`/admin/ordenes/${c.ordenId}`}
+                            className="text-primary hover:underline"
+                          >
+                            #{c.orden}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">Colectiva pendiente</span>
+                        )}
+                        {c.ordenEstado && (
+                          <span className="block text-xs text-muted-foreground">
+                            {ESTADO_ORDEN[c.ordenEstado]}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Seccion>
+      </div>
     </div>
   );
 }
@@ -908,6 +1023,346 @@ async function Facturacion({
                       </span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{pesos(f.total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Seccion>
+    </div>
+  );
+}
+
+const ESTADO_ORDEN = { PEND_PAGO: "Pendiente", PAGADA: "Pagada", CANCELADA: "Cancelada" } as const;
+
+const ESTADO_SERIE: Record<EstadoSerie, { etiqueta: string; clase: string }> = {
+  VIGENTE: { etiqueta: "Vigente", clase: "border-success/40 text-success" },
+  AGOTADA: { etiqueta: "Tope agotado", clase: "border-muted-foreground/30 text-muted-foreground" },
+  VENCIDA: { etiqueta: "Vencida", clase: "border-muted-foreground/30 text-muted-foreground" },
+};
+
+/** Tickets (resumen y series) y bonificaciones otorgadas en el período. */
+async function Comercial({
+  fecha,
+  rango,
+  periodo,
+}: {
+  fecha: ReturnType<typeof hoy>;
+  rango: Rango;
+  periodo: string;
+}) {
+  const db = await obtenerDb();
+  const [tickets, series, bonificaciones] = await Promise.all([
+    resumenTickets(db, rango),
+    seriesDeTickets(db, rango, fecha),
+    bonificacionesOtorgadas(db, rango),
+  ]);
+  const descontado = tickets.reduce((s, t) => s + t.descontado, 0n);
+  const bonificado = bonificaciones.reduce((s, b) => s + b.bonificado, 0n);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <Indicador titulo="Descontado con tickets" valor={pesos(descontado)} />
+        <Indicador
+          titulo="Compras con ticket"
+          valor={numero(tickets.reduce((s, t) => s + t.usos, 0))}
+          detalle={`${numero(tickets.reduce((s, t) => s + t.renovaciones, 0))} renovaciones lo heredaron`}
+        />
+        <Indicador titulo="Bonificado" valor={pesos(bonificado)} />
+        <Indicador
+          titulo="Paquetes bonificados"
+          valor={numero(bonificaciones.length)}
+          detalle={`${numero(bonificaciones.filter((b) => b.recurrente).length)} recurrentes`}
+        />
+      </div>
+
+      <Seccion
+        titulo="Tickets"
+        descripcion="Órdenes del período con cada ticket: compras donde se aplicó, renovaciones que lo heredaron y lo descontado."
+        acciones={<Exportar reporte="tickets" extra={periodo} />}
+      >
+        {tickets.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No se usaron tickets en el período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ticket</TableHead>
+                  <TableHead className="text-right">Compras</TableHead>
+                  <TableHead className="text-right">Renovaciones</TableHead>
+                  <TableHead className="text-right">Descontado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tickets.map((k) => (
+                  <TableRow key={k.ticketId}>
+                    <TableCell>
+                      <span className="font-mono font-semibold">{k.codigo}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {porcentajeTexto(k.porcentaje)}
+                        {k.tope > 0n ? ` · tope ${pesos(k.tope)}` : " · sin tope"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{k.usos}</TableCell>
+                    <TableCell className="text-right tabular-nums">{k.renovaciones}</TableCell>
+                    <TableCell className="text-right tabular-nums">{pesos(k.descontado)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Seccion>
+
+      <Seccion
+        titulo="Saldo de cada serie"
+        descripcion="Compras con ticket del período y sus renovaciones: lo descontado en toda la serie y lo que queda del tope. La herencia vence a los 12 meses."
+        acciones={<Exportar reporte="series-tickets" extra={periodo} />}
+      >
+        {series.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hay compras con ticket en el período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Orden</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Ticket</TableHead>
+                  <TableHead className="text-right">Descontado</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead>Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {series.map((s) => (
+                  <TableRow key={s.ordenId}>
+                    <TableCell>
+                      <Link
+                        href={`/admin/ordenes/${s.ordenId}`}
+                        className="text-primary hover:underline"
+                      >
+                        #{s.orden}
+                      </Link>
+                      <span className="block text-xs text-muted-foreground">
+                        {fechaCorta(s.emitidaEn)}
+                        {s.renovaciones > 0 && ` · ${s.renovaciones} renovaciones`}
+                      </span>
+                    </TableCell>
+                    <TableCell>{s.cliente}</TableCell>
+                    <TableCell className="font-mono">{s.codigo}</TableCell>
+                    <TableCell className="text-right tabular-nums">{pesos(s.descontado)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {s.saldo === null ? "Sin tope" : pesos(s.saldo)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={ESTADO_SERIE[s.estado].clase}>
+                        {ESTADO_SERIE[s.estado].etiqueta}
+                      </Badge>
+                      {s.estado === "VIGENTE" && (
+                        <span className="block text-xs text-muted-foreground">
+                          hasta el {fechaCorta(s.vence)}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Seccion>
+
+      <Seccion
+        titulo="Bonificaciones otorgadas"
+        descripcion="Paquetes bonificados en órdenes del período: cuánto, por qué, si es recurrente y quién la otorgó."
+        acciones={<Exportar reporte="bonificaciones" extra={periodo} />}
+      >
+        {bonificaciones.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hubo bonificaciones en el período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Orden</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Paquete</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead>Otorgada por</TableHead>
+                  <TableHead className="text-right">Bonificado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bonificaciones.map((b) => (
+                  <TableRow key={b.contratoId}>
+                    <TableCell>
+                      <Link
+                        href={`/admin/ordenes/${b.ordenId}`}
+                        className="text-primary hover:underline"
+                      >
+                        #{b.orden}
+                      </Link>
+                      <span className="block text-xs text-muted-foreground">
+                        {fechaCorta(b.emitidaEn)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {b.cliente}
+                      <span className="block text-xs text-muted-foreground">{b.empresa}</span>
+                    </TableCell>
+                    <TableCell>
+                      {b.paquete}
+                      <span className="block text-xs text-muted-foreground">
+                        {porcentajeTexto(b.porcentaje)}
+                        {b.recurrente && " · recurrente"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-64 text-sm">{b.motivo ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{b.otorgadaPor ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{pesos(b.bonificado)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Seccion>
+    </div>
+  );
+}
+
+/** Renovaciones automáticas por mes y trimestres iniciales que vencen en el período. */
+async function Renovaciones({
+  meses: lista,
+  rango,
+  periodo,
+}: {
+  meses: string[];
+  rango: Rango;
+  periodo: string;
+}) {
+  const db = await obtenerDb();
+  const [meses, trimestres] = await Promise.all([
+    renovacionesPorMes(db, lista),
+    trimestresIniciales(db, rango),
+  ]);
+  const negociados = trimestres.filter((t) => t.renovacion !== null).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <Indicador
+          titulo="Renovaciones generadas"
+          valor={numero(meses.reduce((s, m) => s + m.ordenes, 0))}
+          detalle={pesos(meses.reduce((s, m) => s + m.emitido, 0n))}
+        />
+        <Indicador
+          titulo="Impagas"
+          valor={numero(meses.reduce((s, m) => s + m.impagas, 0))}
+          detalle={pesos(meses.reduce((s, m) => s + m.pendiente, 0n))}
+        />
+        <Indicador
+          titulo="Días proporcionales cobrados"
+          valor={pesos(meses.reduce((s, m) => s + m.proporcional, 0n))}
+          detalle={`${numero(meses.reduce((s, m) => s + m.diasProporcionales, 0))} días`}
+        />
+        <Indicador
+          titulo="Trimestres negociados"
+          valor={`${numero(negociados)} de ${numero(trimestres.length)}`}
+        />
+      </div>
+
+      <Seccion
+        titulo="Renovaciones automáticas por mes"
+        descripcion="Órdenes que generaron las corridas, por mes de emisión: pagadas, impagas, canceladas y días proporcionales para alinear vencimientos."
+        acciones={<Exportar reporte="renovaciones" extra={periodo} />}
+      >
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mes</TableHead>
+                <TableHead className="text-right">Órdenes</TableHead>
+                <TableHead className="text-right">Pagadas</TableHead>
+                <TableHead className="text-right">Impagas</TableHead>
+                <TableHead className="text-right">Canceladas</TableHead>
+                <TableHead className="text-right">Emitido</TableHead>
+                <TableHead className="text-right">Proporcional</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...meses].reverse().map((m) => (
+                <TableRow key={m.mes}>
+                  <TableCell className="capitalize">{mesCorto(m.mes)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{m.ordenes}</TableCell>
+                  <TableCell className="text-right tabular-nums">{m.pagadas}</TableCell>
+                  <TableCell className="text-right tabular-nums">{m.impagas}</TableCell>
+                  <TableCell className="text-right tabular-nums">{m.canceladas}</TableCell>
+                  <TableCell className="text-right tabular-nums">{pesos(m.emitido)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {pesos(m.proporcional)}
+                    {m.diasProporcionales > 0 && (
+                      <span className="block text-xs text-muted-foreground">
+                        {m.diasProporcionales} días
+                      </span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Seccion>
+
+      <Seccion
+        titulo="Trimestres iniciales"
+        descripcion="Primeras altas que vencen en el período: si ya se negoció cómo siguen (con su orden) o si falta negociar."
+        acciones={<Exportar reporte="trimestres" extra={periodo} />}
+      >
+        {trimestres.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No vencen trimestres en el período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Paquete</TableHead>
+                  <TableHead>Vence</TableHead>
+                  <TableHead>Continuidad</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {trimestres.map((t) => (
+                  <TableRow key={t.contratoId}>
+                    <TableCell>
+                      <Link
+                        href={`/admin/clientes/${t.clienteId}`}
+                        className="text-primary hover:underline"
+                      >
+                        {t.cliente}
+                      </Link>
+                      <span className="block text-xs text-muted-foreground">{t.empresa}</span>
+                    </TableCell>
+                    <TableCell>{t.paquete}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {t.hasta ? fechaCorta(t.hasta) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {t.renovacion !== null ? (
+                        <Badge variant="outline" className="border-success/40 text-success">
+                          Negociado · orden #{t.renovacion}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-warning/60 bg-warning/10">
+                          Falta negociar
+                        </Badge>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

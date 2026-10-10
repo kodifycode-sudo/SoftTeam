@@ -222,7 +222,14 @@ test.describe
         true,
       );
 
-      for (const pestana of ["Vencimientos", "Consumos", "Licencias"]) {
+      for (const pestana of [
+        "Facturación",
+        "Tickets y bonificaciones",
+        "Renovaciones",
+        "Vencimientos",
+        "Consumos",
+        "Licencias",
+      ]) {
         const pestanas = page.getByRole("navigation", { name: "Reportes" });
         await pestanas.getByRole("link", { name: pestana }).click();
         await expect(pestanas.getByRole("link", { name: pestana })).toHaveAttribute(
@@ -231,5 +238,13 @@ test.describe
         );
       }
       await expect(page.getByText("Tickets de soporte")).toBeVisible();
+
+      // Libro de ventas: se exporta con el período elegido.
+      await page.goto("/admin/reportes?ver=facturacion");
+      await expect(page.getByText("Libro de ventas")).toBeVisible();
+      const libro = page.waitForEvent("download");
+      await page.getByRole("link", { name: "Exportar a Excel" }).first().click();
+      const csv = readFileSync(await (await libro).path(), "utf8");
+      expect(csv.startsWith("﻿Fecha;Comprobante;Número;Emisor")).toBe(true);
     });
   });

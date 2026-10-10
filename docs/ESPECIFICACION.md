@@ -771,6 +771,17 @@ Regla de dependencias: `domain` no importa nada del resto.
      alícuota, IVA y total, con totales por emisor y comprobante. Sirve para
      conciliar con Xubio; incluye las órdenes canceladas después de facturar,
      marcadas.
+   - **Tickets y bonificaciones:** por ticket, las compras donde se aplicó,
+     las renovaciones que lo heredaron y lo descontado; por serie (la compra y
+     sus renovaciones), lo descontado y el saldo del tope, vigente, agotada o
+     vencida a los 12 meses. Bonificaciones otorgadas en el período: paquete,
+     porcentaje, si es recurrente, motivo, quién la otorgó y lo bonificado.
+   - **Renovaciones:** las automáticas por mes de emisión (pagadas, impagas,
+     canceladas, emitido y días proporcionales cobrados) y los trimestres
+     iniciales que vencen en el período, negociados (con su orden) o no.
+   - **Consumibles** (en Consumos, por mes): los renovados por saldo con su
+     orden o la colectiva pendiente, y los pedidos que no alcanzaron
+     (parciales y sin saldo) por empresa y familia.
    - **Filtros de órdenes** (SOFTeam): estado, búsqueda por número, CUIT o
      nombre del cliente o de la empresa, fechas de emisión, emisor, medio de
      pago y modo de facturación. La exportación usa los mismos filtros.
