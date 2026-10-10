@@ -16,7 +16,7 @@ const PRODUCTOS = [
   { id: "prodigal", nombre: "Prodigal · Gestión", orden: 1 },
   { id: "cotiweb", nombre: "CotiWeb · Cotización", orden: 2 },
   { id: "bienseguro", nombre: "BienSeguro · Portal", orden: 3 },
-  { id: "boletin", nombre: "Boletín C@", orden: 4 },
+  { id: "boletin", nombre: "Boletín@", orden: 4 },
   { id: "notificaciones", nombre: "Notificaciones", orden: 5 },
   { id: "mailing", nombre: "Mail marketing", orden: 6 },
   { id: "soporte", nombre: "Soporte técnico", orden: 7 },

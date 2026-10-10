@@ -5,7 +5,7 @@ import { RESPONSABLE } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Términos y condiciones",
-  description: "Condiciones de uso del portal STLic de SOFTeam Sistemas.",
+  description: "Condiciones de uso del portal de licencias y cuentas de SOFTeam.",
 };
 
 const APARTADOS = [
@@ -32,9 +32,9 @@ export default function Terminos() {
       <Apartado id="servicio" numero={n("servicio")} titulo="El servicio">
         <p>
           STLic permite a brokers, productores y organizaciones de seguros contratar y renovar
-          paquetes de los productos de {RESPONSABLE.marca} (Prodigal, CotiWeb, BienSeguro y Boletín
-          C@), administrar usuarios, oficinas y productores, seguir los consumos y pedir soporte. La
-          licencia de cada empresa es la suma de los paquetes que tiene vigentes.
+          paquetes de los productos de {RESPONSABLE.marca} (Prodigal, CotiWeb, BienSeguro y
+          Boletín@), administrar usuarios, oficinas y productores, seguir los consumos y pedir
+          soporte. La licencia de cada empresa es la suma de los paquetes que tiene vigentes.
         </p>
       </Apartado>
 

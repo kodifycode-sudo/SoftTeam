@@ -110,14 +110,14 @@ export default async function Inicio() {
 
         <div className="relative mx-auto max-w-6xl px-4 pt-12 pb-32 sm:px-6 sm:pt-20 sm:pb-52">
           <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-brand">
-            Portal de clientes de SOFTeam Sistemas
+            Portal de clientes de SOFTeam
           </p>
           <h1 className="max-w-3xl text-4xl leading-[1.1] font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
             Administrá las licencias de tu broker{" "}
             <span className="text-brand">sin llamar a nadie.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-pretty text-navy-foreground/70">
-            Contratá, renová y seguí el uso de Prodigal, CotiWeb, BienSeguro y Boletín C@ desde un
+            Contratá, renová y seguí el uso de Prodigal, CotiWeb, BienSeguro y Boletín@ desde un
             solo lugar.
           </p>
           <div className="mt-10 flex flex-col gap-3 sm:flex-row">

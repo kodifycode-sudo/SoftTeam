@@ -22,6 +22,22 @@ const ASUNTOS = {
   "change-email": "Tu código para confirmar el nuevo mail",
 } as const;
 
+/**
+ * Mails de código que no se pudieron enviar. La librería de autenticación
+ * atrapa el error del envío y solo lo registra, así que la pantalla no se
+ * entera: quien pide un código lo consulta después con `envioFallido`. El
+ * envío se hace dentro del mismo pedido, así que alcanza con memoria.
+ */
+const enviosFallidos = new Map<string, number>();
+
+/** true si el último código pedido para ese mail no se pudo enviar (y lo olvida). */
+export function envioFallido(email: string): boolean {
+  const clave = email.trim().toLowerCase();
+  const fallo = enviosFallidos.has(clave);
+  enviosFallidos.delete(clave);
+  return fallo;
+}
+
 // Solo para desarrollo: en producción `env` exige BETTER_AUTH_SECRET.
 const SECRETO_DESARROLLO = "stlic-desarrollo-no-usar-en-produccion-0123456789";
 
@@ -87,15 +103,22 @@ function crearAuth(db: Db) {
         allowedAttempts: 5,
         storeOTP: "hashed",
         async sendVerificationOTP({ email, otp, type }) {
-          await enviarMail({
-            para: email,
-            asunto: ASUNTOS[type],
-            parrafos: [
-              "Hola,",
-              "Usá este código en STLic. Vence en 10 minutos y sirve una sola vez.",
-            ],
-            codigo: otp,
-          });
+          const clave = email.trim().toLowerCase();
+          try {
+            await enviarMail({
+              para: email,
+              asunto: ASUNTOS[type],
+              parrafos: [
+                "Hola,",
+                "Usá este código en STLic. Vence en 10 minutos y sirve una sola vez.",
+              ],
+              codigo: otp,
+            });
+            enviosFallidos.delete(clave);
+          } catch (error) {
+            enviosFallidos.set(clave, Date.now());
+            throw error;
+          }
         },
       }),
       // Segundo factor con app de autenticación (TOTP) y códigos de respaldo.

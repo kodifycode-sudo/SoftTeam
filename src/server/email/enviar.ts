@@ -33,7 +33,7 @@ function html(mail: Mail): string {
   return `<!doctype html><html lang="es"><body style="margin:0;background:#f0f5fa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1e293b">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 12px">
 <table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:16px;overflow:hidden">
-<tr><td style="background:#0f1b2d;padding:20px 28px;color:#fff;font-weight:700;font-size:18px">SOFTeam <span style="color:#fbc02d">·</span> STLic</td></tr>
+<tr><td style="background:#0f1b2d;padding:20px 28px;color:#fff;font-weight:700;font-size:18px">SOFTeam <span style="color:#fbc02d">-</span> <span style="font-size:13px;font-weight:600;letter-spacing:2px">LICENCIAS Y CUENTAS</span></td></tr>
 <tr><td style="height:4px;background:#fbc02d"></td></tr>
 <tr><td style="padding:28px">${parrafos}${codigo}${enlace}
 <p style="margin:24px 0 0;font-size:13px;color:#475569">${escapar(mail.pie ?? "Si no pediste este mail, podés ignorarlo.")}</p></td></tr>

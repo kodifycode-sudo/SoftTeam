@@ -218,6 +218,13 @@
       "when": 1791585692732,
       "tag": "0030_tickets",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791591640762,
+      "tag": "0031_nombre_boletin",
+      "breakpoints": true
     }
   ]
 }

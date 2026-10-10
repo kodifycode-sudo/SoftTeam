@@ -87,15 +87,17 @@ export async function registrarCliente(page: Page, razonSocial: string, email: s
   await page.getByLabel("CUIT").fill(cuitAleatorio());
   await page.getByLabel("Condición frente al IVA").selectOption("RESPONSABLE_INSCRIPTO");
   await page.getByLabel("Teléfono / WhatsApp").fill("+54 341 444-5555");
+  await page.getByRole("button", { name: "Siguiente" }).click();
   await page.getByLabel("Dirección").fill("Córdoba 1234");
   await page.getByLabel("Localidad").fill("Rosario");
   await page.getByLabel("Código postal").fill("2000");
   await page.getByLabel("Provincia").selectOption("Santa Fe");
+  await page.getByRole("button", { name: "Siguiente" }).click();
   await page.getByLabel("Mail", { exact: true }).fill(email);
   await page.getByLabel("Contraseña", { exact: true }).fill(CONTRASENA);
   await page.getByLabel("Repetí la contraseña").fill(CONTRASENA);
   await page.getByRole("checkbox", { name: /Acepto los términos y condiciones/ }).click();
-  await page.getByRole("button", { name: "Crear cuenta y continuar" }).click();
+  await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
   await expect(page).toHaveURL(/\/registro\/verificar/);
   await page.getByLabel("Código de verificación").fill(await codigoEnviadoA(email));
   await expect(page).toHaveURL(/\/portal\?bienvenida=1/);

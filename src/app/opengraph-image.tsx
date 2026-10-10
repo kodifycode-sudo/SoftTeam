@@ -1,11 +1,11 @@
 import { ImageResponse } from "next/og";
 import { COLORES_MARCA, fuentesMarca, InsigniaSt } from "@/lib/imagenes-marca";
 
-export const alt = "STLic · Portal de clientes de SOFTeam Sistemas";
+export const alt = "SOFTeam · Licencias y cuentas";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const PRODUCTOS = ["Prodigal", "CotiWeb", "BienSeguro", "Boletín C@"];
+const PRODUCTOS = ["Prodigal", "CotiWeb", "BienSeguro", "Boletín@"];
 const TITULO = [
   ...["Administrá", "las", "licencias", "de", "tu", "broker"].map((palabra) => ({
     palabra,

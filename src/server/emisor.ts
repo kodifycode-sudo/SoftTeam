@@ -5,8 +5,8 @@ import "server-only";
  * y el domicilio se configuran por entorno (van en los recibos).
  */
 export const EMISOR = {
-  marca: "SOFTeam Sistemas",
-  razonSocial: "de Contacto Asegurado SRL",
+  marca: "SOFTeam",
+  razonSocial: "Sistemas de Contacto Asegurado SRL",
   cuit: process.env.STLIC_EMISOR_CUIT ?? null,
   domicilio: process.env.STLIC_EMISOR_DOMICILIO ?? null,
   email: "administracion@softeam.com.ar",

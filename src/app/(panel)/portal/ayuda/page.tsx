@@ -78,7 +78,7 @@ const TEMAS: { titulo: string; preguntas: Pregunta[] }[] = [
       {
         pregunta: "¿Qué consultas usan un ticket de soporte?",
         respuesta:
-          "Los pedidos de soporte técnico de los productos (Prodigal, CotiWeb, BienSeguro, Boletín C@). Las consultas sobre tu cuenta, licencias, pagos y facturación son sin cargo.",
+          "Los pedidos de soporte técnico de los productos (Prodigal, CotiWeb, BienSeguro, Boletín@). Las consultas sobre tu cuenta, licencias, pagos y facturación son sin cargo.",
       },
       {
         pregunta: "¿Qué hago si me quedé sin tickets?",

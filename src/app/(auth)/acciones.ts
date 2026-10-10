@@ -1,5 +1,6 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -9,10 +10,11 @@ import {
   rutaInternaSegura,
   valoresDe,
 } from "@/lib/formulario";
-import { obtenerAuth } from "@/server/auth";
+import { envioFallido, obtenerAuth } from "@/server/auth";
 import { codigoDeError, esErrorDeAuth, esLimiteDeIntentos } from "@/server/auth/errores";
 import { intentoPermitido } from "@/server/auth/limites";
 import { obtenerDb } from "@/server/db";
+import { usuarios } from "@/server/db/schema";
 import { condicionIvaValida } from "@/server/modules/catalogo/condiciones-iva";
 import { provinciaValida } from "@/server/modules/catalogo/paises";
 import {
@@ -24,7 +26,16 @@ import {
 } from "@/server/modules/cuentas/alta";
 import { vincularColaboradores } from "@/server/modules/cuentas/usuarios";
 
-const rutaVerificar = (email: string) => `/registro/verificar?email=${encodeURIComponent(email)}`;
+/**
+ * Pantalla para confirmar el mail. `fallo`: el código no se pudo enviar;
+ * `pendiente`: ya había un registro sin confirmar con ese mail.
+ */
+const rutaVerificar = (email: string, aviso: { fallo?: boolean; pendiente?: boolean } = {}) =>
+  `/registro/verificar?email=${encodeURIComponent(email)}${aviso.fallo ? "&envio=fallo" : ""}${
+    aviso.pendiente ? "&aviso=pendiente" : ""
+  }`;
+
+const NO_ENVIADO = "No pudimos enviarte el mail con el código. Probá de nuevo en unos minutos.";
 
 // ─── Ingresar ──────────────────────────────────────────────────────────────
 
@@ -68,7 +79,7 @@ export async function ingresar(_: EstadoFormulario, formData: FormData): Promise
           body: { email: datos.data.email, type: "email-verification" },
         });
       }
-      redirect(rutaVerificar(datos.data.email));
+      redirect(rutaVerificar(datos.data.email, { fallo: envioFallido(datos.data.email) }));
     }
     if (esLimiteDeIntentos(error)) {
       return {
@@ -219,6 +230,41 @@ export async function registrarse(
   }
 
   const auth = await obtenerAuth();
+  // El mail ya registrado se resuelve antes: con un mail existente, la
+  // librería de autenticación no avisa (para no revelar quién tiene cuenta).
+  const existente = await db.query.usuarios.findFirst({
+    columns: { id: true, emailVerified: true },
+    where: eq(usuarios.email, alta.email),
+  });
+  if (existente?.emailVerified) {
+    return {
+      errores: {
+        email: [
+          "Ya hay una cuenta con este mail. Ingresá con tu contraseña o recuperala desde el ingreso.",
+        ],
+      },
+      valores: recordar,
+    };
+  }
+  if (existente) {
+    // Un registro anterior sin confirmar (se cortó la conexión, no llegó el
+    // mail…): se actualiza con este intento y se manda un código nuevo. Solo
+    // quien recibe el código en esa casilla puede activar la cuenta.
+    const contexto = await auth.$context;
+    await contexto.internalAdapter.updatePassword(
+      existente.id,
+      await contexto.password.hash(password),
+    );
+    await db.update(usuarios).set({ name: alta.nombre }).where(eq(usuarios.id, existente.id));
+    await guardarSolicitudAlta(db, existente.id, esquemaDatosAlta.parse(alta));
+    if (await intentoPermitido("enviarCodigo", alta.email)) {
+      await auth.api.sendVerificationOTP({
+        body: { email: alta.email, type: "email-verification" },
+      });
+    }
+    redirect(rutaVerificar(alta.email, { pendiente: true, fallo: envioFallido(alta.email) }));
+  }
+
   try {
     const { user } = await auth.api.signUpEmail({
       body: { name: alta.nombre, email: alta.email, password },
@@ -226,17 +272,6 @@ export async function registrarse(
     });
     await guardarSolicitudAlta(db, user.id, esquemaDatosAlta.parse(alta));
   } catch (error) {
-    const codigo = codigoDeError(error);
-    if (codigo?.startsWith("USER_ALREADY_EXISTS")) {
-      return {
-        errores: {
-          email: [
-            "Ya hay una cuenta con este mail. Ingresá con tu contraseña o recuperala desde el ingreso.",
-          ],
-        },
-        valores: recordar,
-      };
-    }
     if (esLimiteDeIntentos(error)) {
       return {
         mensaje: "Demasiados intentos. Esperá un minuto y volvé a probar.",
@@ -245,7 +280,7 @@ export async function registrarse(
     }
     throw error;
   }
-  redirect(rutaVerificar(alta.email));
+  redirect(rutaVerificar(alta.email, { fallo: envioFallido(alta.email) }));
 }
 
 // ─── Verificación del mail ─────────────────────────────────────────────────
@@ -313,6 +348,7 @@ export async function reenviarCodigo(
       return { mensaje: "Esperá un minuto antes de pedir otro código." };
     throw error;
   }
+  if (envioFallido(email.data)) return { mensaje: NO_ENVIADO };
   return { ok: true, mensaje: "Te enviamos un código nuevo." };
 }
 
@@ -347,6 +383,7 @@ export async function pedirCodigoContrasena(
     }
     throw error;
   }
+  if (envioFallido(email.data)) return { mensaje: NO_ENVIADO, valores };
   redirect(rutaCambiar(email.data, valores.invitacion === "1"));
 }
 

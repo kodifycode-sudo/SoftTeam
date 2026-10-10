@@ -19,7 +19,7 @@ export const PRODUCTOS_SOPORTE = {
   prodigal: "Prodigal",
   cotiweb: "CotiWeb",
   bienseguro: "BienSeguro",
-  boletin: "Boletín C@",
+  boletin: "Boletín@",
   stlic: "Mi cuenta, licencias y pagos",
   otro: "Otro",
 } as const;

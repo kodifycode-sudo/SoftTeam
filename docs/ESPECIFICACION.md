@@ -10,7 +10,7 @@ cuando cambia, se actualiza en este documento.
 
 SOFTeam vende software a intermediarios de seguros: **Prodigal** (gestión de
 cartera), **CotiWeb** (multicotización y emisión), **BienSeguro** (portal y app
-para asegurados), **Boletín C@** (boletín para asegurados) y servicios
+para asegurados), **Boletín@** (boletín para asegurados) y servicios
 complementarios (mail marketing, notificaciones).
 
 STLic es el sistema detrás del catálogo:

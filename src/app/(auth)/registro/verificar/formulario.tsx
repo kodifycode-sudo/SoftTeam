@@ -1,8 +1,9 @@
 "use client";
 
-import { RotateCw } from "lucide-react";
+import { MailX, RotateCw } from "lucide-react";
 import { useActionState, useRef } from "react";
 import { BotonEnviar, MensajeFormulario } from "@/components/formulario";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError } from "@/components/ui/field";
 import {
@@ -14,14 +15,33 @@ import {
 import { ESTADO_INICIAL } from "@/lib/formulario";
 import { reenviarCodigo, verificarCodigo } from "../../acciones";
 
-export function FormularioVerificacion({ email }: { email: string }) {
+export function FormularioVerificacion({
+  email,
+  envioFallido,
+}: {
+  email: string;
+  /** El mail con el código no se pudo enviar al registrarse. */
+  envioFallido: boolean;
+}) {
   const [estado, verificar] = useActionState(verificarCodigo, ESTADO_INICIAL);
   const [estadoReenvio, reenviar, reenviando] = useActionState(reenviarCodigo, ESTADO_INICIAL);
   const formulario = useRef<HTMLFormElement>(null);
   const errores = estado.errores?.codigo;
+  // Hasta que un reintento salga bien, el reenvío es la acción principal.
+  const sinCodigo = envioFallido && !estadoReenvio.ok;
 
   return (
     <div className="space-y-6">
+      {sinCodigo && (
+        <Alert variant="destructive">
+          <MailX />
+          <AlertTitle>No pudimos enviarte el mail</AlertTitle>
+          <AlertDescription>
+            Tu cuenta quedó creada, pero el mail con el código no salió. Revisá que el mail esté
+            bien escrito y tocá "Reintentar el envío".
+          </AlertDescription>
+        </Alert>
+      )}
       <form ref={formulario} action={verificar} className="space-y-6">
         <input type="hidden" name="email" value={email} />
         <MensajeFormulario estado={estado} />
@@ -54,14 +74,20 @@ export function FormularioVerificacion({ email }: { email: string }) {
           <FieldError errors={errores?.map((message) => ({ message }))} />
         </Field>
         <BotonEnviar size="lg" className="w-full">
-          Confirmar y entrar
+          Confirmar
         </BotonEnviar>
       </form>
       <form action={reenviar} className="text-center">
         <input type="hidden" name="email" value={email} />
-        <Button type="submit" variant="ghost" size="sm" disabled={reenviando}>
+        <Button
+          type="submit"
+          variant={sinCodigo ? "default" : "ghost"}
+          size={sinCodigo ? "lg" : "sm"}
+          className={sinCodigo ? "w-full" : undefined}
+          disabled={reenviando}
+        >
           <RotateCw data-icon="inline-start" className={reenviando ? "animate-spin" : undefined} />
-          No me llegó, enviar otro código
+          {sinCodigo ? "Reintentar el envío" : "No me llegó, enviar otro código"}
         </Button>
       </form>
     </div>

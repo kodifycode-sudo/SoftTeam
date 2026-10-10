@@ -17,29 +17,39 @@ test.describe
       await page.goto("/registro");
       await capturar(page, "02-registro");
 
-      // Enviar vacío muestra errores por campo, sin perder nada.
-      await page.getByRole("button", { name: "Crear cuenta y continuar" }).click();
-      await expect(page.getByText("Revisá los datos marcados.")).toBeVisible();
+      // Asistente en tres pasos: no avanza con datos faltantes ni pierde lo cargado.
+      await expect(page.getByRole("list", { name: "Pasos del registro" })).toBeVisible();
+      await page.getByRole("button", { name: "Siguiente" }).click();
+      await expect(page.getByText("Ingresá la razón social")).toBeVisible();
+      await expect(page.getByText("El CUIT/CUIL no es válido")).toBeVisible();
 
       await page.getByLabel("Razón social").fill(razonSocial);
-      // Un envío con errores no borra lo que ya se cargó.
-      await page.getByRole("button", { name: "Crear cuenta y continuar" }).click();
-      await expect(page.getByText("Revisá los datos marcados.")).toBeVisible();
+      await page.getByRole("button", { name: "Siguiente" }).click();
+      await expect(page.getByText("Ingresá la razón social")).toHaveCount(0);
       await expect(page.getByLabel("Razón social")).toHaveValue(razonSocial);
       await page.getByLabel("Tipo de sociedad").selectOption("SRL");
       await page.getByLabel("Apellido y nombre del administrador").fill("Pérez, Ana");
       await page.getByLabel("CUIT").fill(cuitAleatorio());
       await page.getByLabel("Condición frente al IVA").selectOption("RESPONSABLE_INSCRIPTO");
       await page.getByLabel("Teléfono / WhatsApp").fill("+54 341 444-5555");
+      await page.getByRole("button", { name: "Siguiente" }).click();
       await page.getByLabel("Dirección").fill("Córdoba 1234");
       await page.getByLabel("Localidad").fill("Rosario");
       await page.getByLabel("Código postal").fill("2000");
       await page.getByLabel("Provincia").selectOption("Santa Fe");
+      await page.getByRole("button", { name: "Siguiente" }).click();
+      // Volver no pierde lo cargado.
+      await page.getByRole("button", { name: "Anterior" }).click();
+      await expect(page.getByLabel("Localidad")).toHaveValue("Rosario");
+      await page.getByRole("button", { name: "Siguiente" }).click();
       await page.getByLabel("Mail", { exact: true }).fill(email);
       await page.getByLabel("Contraseña", { exact: true }).fill(contrasena);
       await page.getByLabel("Repetí la contraseña").fill(contrasena);
+      // Sin aceptar los términos, el servidor lo rechaza en el último paso.
+      await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+      await expect(page.getByText("Revisá los datos marcados.")).toBeVisible();
       await page.getByRole("checkbox", { name: /Acepto los términos y condiciones/ }).click();
-      await page.getByRole("button", { name: "Crear cuenta y continuar" }).click();
+      await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
 
       await expect(page).toHaveURL(/\/registro\/verificar/);
       await capturar(page, "03-verificar");
@@ -156,3 +166,39 @@ test.describe
       await contexto.close();
     });
   });
+
+test("volver a registrarse con un mail sin confirmar retoma el alta", async ({ page }) => {
+  const mail = `retoma.${Date.now().toString(36)}@brokerdelsur.com.ar`;
+  const completar = async (razon: string) => {
+    await page.goto("/registro");
+    await page.getByLabel("Razón social").fill(razon);
+    await page.getByLabel("Apellido y nombre del administrador").fill("Pérez, Ana");
+    await page.getByLabel("CUIT").fill(cuitAleatorio());
+    await page.getByLabel("Condición frente al IVA").selectOption("RESPONSABLE_INSCRIPTO");
+    await page.getByLabel("Teléfono / WhatsApp").fill("+54 341 444-5555");
+    await page.getByRole("button", { name: "Siguiente" }).click();
+    await page.getByLabel("Dirección").fill("Córdoba 1234");
+    await page.getByLabel("Localidad").fill("Rosario");
+    await page.getByLabel("Código postal").fill("2000");
+    await page.getByLabel("Provincia").selectOption("Santa Fe");
+    await page.getByRole("button", { name: "Siguiente" }).click();
+    await page.getByLabel("Mail", { exact: true }).fill(mail);
+    await page.getByLabel("Contraseña", { exact: true }).fill(contrasena);
+    await page.getByLabel("Repetí la contraseña").fill(contrasena);
+    await page.getByRole("checkbox", { name: /Acepto los términos y condiciones/ }).click();
+    await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+    await expect(page).toHaveURL(/\/registro\/verificar/);
+  };
+
+  // Primer intento: se crea la cuenta, pero no se confirma (se cortó, no llegó…).
+  await completar("Retoma Primera SRL");
+  // Segundo intento con el mismo mail: no dice "ya existe", retoma el alta.
+  await completar("Retoma Segunda SRL");
+  await expect(page).toHaveURL(/aviso=pendiente/);
+  await expect(page.getByText(/Ya habías empezado el registro con este mail/)).toBeVisible();
+  await page.getByLabel("Código de verificación").fill(await codigoEnviadoA(mail));
+  await expect(page).toHaveURL(/\/portal\?bienvenida=1/);
+  // Quedan los datos del último intento.
+  await page.goto("/portal/empresa");
+  await expect(page.getByText("Retoma Segunda SRL").first()).toBeVisible();
+});

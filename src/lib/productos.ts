@@ -24,7 +24,7 @@ export const PRODUCTOS_UI: Record<string, { nombre: string; icono: LucideIcon; c
     clase: "bg-success/10 text-success",
   },
   boletin: {
-    nombre: "Boletín C@",
+    nombre: "Boletín@",
     icono: Newspaper,
     clase: "bg-destructive/10 text-destructive",
   },

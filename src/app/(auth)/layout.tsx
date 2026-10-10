@@ -49,7 +49,7 @@ export default function LayoutAcceso({ children }: LayoutProps<"/">) {
         </div>
 
         <p className="relative text-sm text-navy-foreground/50">
-          SOFTeam Sistemas · de Contacto Asegurado SRL
+          SOFTEAM - Sistemas de Contacto Asegurado SRL
         </p>
       </aside>
 

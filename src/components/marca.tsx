@@ -6,7 +6,7 @@ export function LogoSofteam({ className }: { className?: string }) {
   return (
     <Image
       src="/marca/softeam.png"
-      alt="SOFTeam Sistemas"
+      alt="SOFTeam"
       width={501}
       height={101}
       priority
@@ -15,7 +15,7 @@ export function LogoSofteam({ className }: { className?: string }) {
   );
 }
 
-/** Logotipo de STLic para fondos oscuros (barra lateral, paneles azul marino). */
+/** Logotipo "SOFTeam - Licencias y cuentas" para fondos oscuros (barra lateral, paneles azul marino). */
 export function MarcaStlic({
   className,
   compacta = false,
@@ -25,14 +25,15 @@ export function MarcaStlic({
 }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand font-black text-brand-foreground shadow-sm shadow-black/20">
-        ST
+      <span
+        aria-hidden
+        className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand text-lg font-black text-brand-foreground shadow-sm shadow-black/20"
+      >
+        S
       </span>
       {!compacta && (
         <span className="flex flex-col leading-none">
-          <span className="font-semibold tracking-tight">
-            SOFTeam <span className="text-brand">·</span> STLic
-          </span>
+          <span className="font-semibold tracking-tight">SOFTeam</span>
           <span className="mt-1 text-[0.7rem] font-medium uppercase tracking-[0.14em] opacity-60">
             Licencias y cuentas
           </span>

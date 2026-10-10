@@ -4,8 +4,8 @@
  * sin tocar las páginas.
  */
 export const RESPONSABLE = {
-  razonSocial: "Contacto Asegurado SRL",
-  marca: "SOFTeam Sistemas",
+  razonSocial: "Sistemas de Contacto Asegurado SRL",
+  marca: "SOFTeam",
   sitio: "https://softeam.com.ar/st/",
   sitioTexto: "softeam.com.ar",
 } as const;

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     siteName: "STLic · SOFTeam",
     title: "STLic · Portal de clientes de SOFTeam",
     description:
-      "Contratá, renová y seguí el uso de Prodigal, CotiWeb, BienSeguro y Boletín C@ desde un solo lugar.",
+      "Contratá, renová y seguí el uso de Prodigal, CotiWeb, BienSeguro y Boletín@ desde un solo lugar.",
   },
   twitter: { card: "summary_large_image" },
   robots: { index: false, follow: false },
