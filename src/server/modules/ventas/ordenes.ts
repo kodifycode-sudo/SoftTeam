@@ -1,7 +1,8 @@
-import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, ilike, inArray, lt, or, sql } from "drizzle-orm";
 import type { Alcance } from "@/domain/cuentas/alcance";
 import { type Fecha, hoy as hoyArgentina } from "@/domain/fecha";
 import { periodoAlta, puedeTransicionar } from "@/domain/licencias/contrato";
+import type { Rango } from "@/domain/reportes/periodos";
 import { exito, type Resultado, rechazo } from "@/domain/resultado";
 import type { Orden, Pagina } from "@/lib/listados";
 import type { Db, Ejecutor, Tx } from "@/server/db/cliente";
@@ -37,6 +38,13 @@ export function alcanceDeOrden(alcance: AlcanceOrden) {
   );
 }
 
+/** Instante dentro de un rango de fechas de Argentina (UTC−3, `hasta` exclusivo). */
+const enRangoArgentina = (columna: typeof t.ordenes.emitidaEn, rango: Rango) =>
+  and(
+    gte(columna, new Date(`${rango.desde}T03:00:00Z`)),
+    lt(columna, new Date(`${rango.hasta}T03:00:00Z`)),
+  );
+
 export const COLUMNAS_ORDENES = ["numero", "empresa", "emitida", "total"] as const;
 export type ColumnaOrdenes = (typeof COLUMNAS_ORDENES)[number];
 
@@ -46,13 +54,27 @@ export async function listarOrdenes(
     estado?: EstadoOrden;
     /** Solo las que tuvieron un pago rechazado. */
     conErrorDePago?: boolean;
+    /** Número de orden, CUIT o nombre del cliente o de la empresa. */
     busqueda?: string;
+    /** Emitidas en el rango (`hasta` exclusivo, fechas de Argentina). */
+    emitidas?: Rango | undefined;
+    emisorId?: string | undefined;
+    medioPagoId?: string | undefined;
+    modoFacturacion?: number | undefined;
     /** Sin página, devuelve todas (exportación). */
     pagina?: Pagina;
     orden?: Orden<ColumnaOrdenes>;
   } = {},
 ) {
-  const numero = filtros.busqueda?.replace(/\D/g, "");
+  const texto = filtros.busqueda?.trim() ?? "";
+  const digitos = texto.replace(/\D/g, "");
+  // "1234" o "#1234": número de orden; 11 dígitos: CUIT; si no, nombre.
+  const porNumero = /^#?\d{1,9}$/.test(texto) ? Number(digitos) : undefined;
+  const porCuit = porNumero === undefined && digitos.length === 11 && /^[\d\s.-]+$/.test(texto);
+  const porNombre =
+    texto && porNumero === undefined && !porCuit
+      ? `%${texto.replace(/[\\%_]/g, "\\$&")}%`
+      : undefined;
   const columnasOrden = {
     numero: t.ordenes.numero,
     empresa: sql`lower(coalesce(${t.empresas.nombre}, ${t.clientes.nombre}))`,
@@ -88,7 +110,23 @@ export async function listarOrdenes(
         alcanceDeOrden(filtros),
         filtros.estado ? eq(t.ordenes.estado, filtros.estado) : undefined,
         filtros.conErrorDePago ? eq(t.ordenes.pagoError, true) : undefined,
-        numero ? eq(t.ordenes.numero, Number(numero)) : undefined,
+        porNumero !== undefined ? eq(t.ordenes.numero, porNumero) : undefined,
+        porCuit
+          ? sql`(${t.clientes.cuit} = ${digitos} or exists (select 1 from ${t.clientes} cf where cf.id = ${t.ordenes.clienteFacturacionId} and cf.cuit = ${digitos}))`
+          : undefined,
+        porNombre
+          ? or(
+              ilike(t.clientes.nombre, porNombre),
+              ilike(t.empresas.nombre, porNombre),
+              sql`exists (select 1 from ${t.clientes} cf where cf.id = ${t.ordenes.clienteFacturacionId} and cf.nombre_factura ilike ${porNombre})`,
+            )
+          : undefined,
+        filtros.emitidas ? enRangoArgentina(t.ordenes.emitidaEn, filtros.emitidas) : undefined,
+        filtros.emisorId ? eq(t.ordenes.emisorId, filtros.emisorId) : undefined,
+        filtros.medioPagoId ? eq(t.ordenes.medioPagoId, filtros.medioPagoId) : undefined,
+        filtros.modoFacturacion !== undefined
+          ? eq(t.ordenes.modoFacturacion, filtros.modoFacturacion)
+          : undefined,
       ),
     )
     .orderBy(

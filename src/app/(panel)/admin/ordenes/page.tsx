@@ -1,3 +1,4 @@
+import { asc } from "drizzle-orm";
 import { ChevronRight, Download, Receipt, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -5,6 +6,7 @@ import { redirect } from "next/navigation";
 import { EstadoOrden } from "@/components/compra/vista-orden";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { ColumnaOrdenable, Paginacion } from "@/components/panel/listado";
+import { SelectNativo } from "@/components/select-nativo";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,6 +26,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { MODOS_FACTURACION, NOMBRE_MODO } from "@/domain/facturacion/modo";
+import { hoy } from "@/domain/fecha";
 import { fechaCorta, pesos } from "@/lib/formato";
 import { hrefListado, leerListado } from "@/lib/listados";
 import { nombresEquivalentes } from "@/lib/nombres";
@@ -31,12 +35,15 @@ import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { totalDe } from "@/server/db/listados";
+import * as t from "@/server/db/schema";
+import { opcionesEmisores } from "@/server/modules/catalogo/emisores";
 import { leerParametroDe } from "@/server/modules/parametros";
 import {
   COLUMNAS_ORDENES,
   type EstadoOrden as Estado,
   listarOrdenes,
 } from "@/server/modules/ventas/ordenes";
+import { filtrosDeOrdenes } from "./filtros";
 
 export const metadata: Metadata = { title: "Órdenes" };
 
@@ -69,22 +76,48 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
   await requerirSofteam();
   const sp = await searchParams;
   const estado = FILTROS.some(([v]) => v === sp.estado) ? (sp.estado as Estado | "") : "PEND_PAGO";
-  const busqueda = typeof sp.q === "string" ? sp.q : "";
+  const filtros = filtrosDeOrdenes(sp, hoy());
+  const busqueda = filtros.busqueda;
   const { pagina, orden } = leerListado(sp, COLUMNAS_ORDENES, {
     columna: "emitida",
     direccion: "desc",
   });
   const db = await obtenerDb();
-  const [ordenes, umbrales] = await Promise.all([
+  const [ordenes, umbrales, emisores, medios] = await Promise.all([
     listarOrdenes(db, {
       estado: estado || undefined,
       conErrorDePago: sp.error === "1",
       busqueda,
+      emitidas: filtros.emitidas?.rango,
+      emisorId: filtros.emisorId,
+      medioPagoId: filtros.medioPagoId,
+      modoFacturacion: filtros.modoFacturacion,
       pagina,
       orden,
     }),
     leerParametroDe(db, "cobranza.semaforo_dias"),
+    opcionesEmisores(db),
+    db
+      .select({ id: t.mediosPago.id, nombre: t.mediosPago.nombre })
+      .from(t.mediosPago)
+      .orderBy(asc(t.mediosPago.orden)),
   ]);
+  const consulta = new URLSearchParams({
+    estado,
+    q: busqueda,
+    desde: filtros.emitidas?.desde ?? "",
+    hasta: filtros.emitidas?.hasta ?? "",
+    emisor: filtros.emisorId ?? "",
+    medio: filtros.medioPagoId ?? "",
+    modo: filtros.modoFacturacion === undefined ? "" : String(filtros.modoFacturacion),
+  });
+  const hayFiltros = Boolean(
+    busqueda ||
+      filtros.emitidas ||
+      filtros.emisorId ||
+      filtros.medioPagoId ||
+      filtros.modoFacturacion !== undefined,
+  );
   if (ordenes.length === 0 && pagina.numero > 1) {
     redirect(hrefListado(BASE, sp, { pagina: 1 }));
   }
@@ -99,7 +132,7 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
         descripcion={`Cobranza de compras y renovaciones. El semáforo marca las pendientes con más de ${umbrales[0]} y ${umbrales[1]} días.`}
         acciones={
           <a
-            href={`/admin/reportes/exportar?${new URLSearchParams({ reporte: "ordenes", estado, q: busqueda })}`}
+            href={`/admin/reportes/exportar?reporte=ordenes&${consulta}`}
             className={buttonVariants({ variant: "outline" })}
           >
             <Download data-icon="inline-start" /> Exportar a Excel
@@ -124,26 +157,106 @@ export default async function OrdenesAdmin({ searchParams }: PageProps<"/admin/o
             </Link>
           ))}
         </div>
-        <search>
-          <form className="flex gap-2">
-            <input type="hidden" name="estado" value={estado} />
-            <div className="relative">
+      </div>
+      <search className="mb-5">
+        <form className="flex flex-wrap items-end gap-3" aria-label="Filtros de órdenes">
+          <input type="hidden" name="estado" value={estado} />
+          <label htmlFor="filtro-q" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Buscar</span>
+            <span className="relative">
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                id="filtro-q"
                 name="q"
-                key={busqueda}
                 defaultValue={busqueda}
-                placeholder="N.º de orden"
-                inputMode="numeric"
-                className="h-9 w-40 pl-9"
+                placeholder="N.º, cliente o CUIT"
+                className="h-9 w-56 pl-9"
               />
-            </div>
-            <Button type="submit" variant="secondary" className="h-9">
-              Buscar
-            </Button>
-          </form>
-        </search>
-      </div>
+            </span>
+          </label>
+          <label htmlFor="filtro-desde" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Emitidas desde</span>
+            <Input
+              id="filtro-desde"
+              type="date"
+              name="desde"
+              defaultValue={filtros.emitidas?.desde}
+              className="h-9 w-40"
+            />
+          </label>
+          <label htmlFor="filtro-hasta" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Hasta</span>
+            <Input
+              id="filtro-hasta"
+              type="date"
+              name="hasta"
+              defaultValue={filtros.emitidas?.hasta}
+              className="h-9 w-40"
+            />
+          </label>
+          <label htmlFor="filtro-emisor" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Emisor</span>
+            <SelectNativo
+              id="filtro-emisor"
+              name="emisor"
+              defaultValue={filtros.emisorId ?? ""}
+              className="h-9 w-48"
+            >
+              <option value="">Todos</option>
+              {emisores.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.razonSocial}
+                </option>
+              ))}
+            </SelectNativo>
+          </label>
+          <label htmlFor="filtro-medio" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Medio de pago</span>
+            <SelectNativo
+              id="filtro-medio"
+              name="medio"
+              defaultValue={filtros.medioPagoId ?? ""}
+              className="h-9 w-48"
+            >
+              <option value="">Todos</option>
+              {medios.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nombre}
+                </option>
+              ))}
+            </SelectNativo>
+          </label>
+          <label htmlFor="filtro-modo" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Modo de facturación</span>
+            <SelectNativo
+              id="filtro-modo"
+              name="modo"
+              defaultValue={
+                filtros.modoFacturacion === undefined ? "" : String(filtros.modoFacturacion)
+              }
+              className="h-9 w-56"
+            >
+              <option value="">Todos</option>
+              {MODOS_FACTURACION.map((m) => (
+                <option key={m} value={m}>
+                  {NOMBRE_MODO[m]}
+                </option>
+              ))}
+            </SelectNativo>
+          </label>
+          <Button type="submit" variant="secondary" className="h-9">
+            Aplicar
+          </Button>
+          {hayFiltros && (
+            <Link
+              href={`/admin/ordenes?estado=${estado}`}
+              className={buttonVariants({ variant: "ghost", className: "h-9" })}
+            >
+              Limpiar
+            </Link>
+          )}
+        </form>
+      </search>
 
       {ordenes.length === 0 ? (
         <Empty className="border border-dashed bg-card">

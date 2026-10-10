@@ -41,15 +41,14 @@ export interface FilaCobranza {
 /**
  * Por mes: lo emitido (órdenes no canceladas emitidas en el mes), lo cobrado
  * (órdenes pagadas en el mes, sin importar cuándo se emitieron) y lo que de
- * lo emitido sigue pendiente.
+ * lo emitido sigue pendiente. `lista`: meses "AAAA-MM" consecutivos.
  */
 export async function cobranzaPorMes(
   db: Ejecutor,
-  hoy: Fecha,
-  meses = 12,
+  lista: readonly string[],
 ): Promise<FilaCobranza[]> {
-  const lista = mesesHasta(hoy, meses);
   const desde = inicioArgentina(`${lista[0]}-01` as Fecha);
+  const hasta = inicioArgentina(sumarMeses(`${lista.at(-1)}-01` as Fecha, 1));
   const [emitidas, cobradas] = await Promise.all([
     db
       .select({
@@ -59,7 +58,13 @@ export async function cobranzaPorMes(
         pendiente: sql<string>`coalesce(sum(${t.ordenes.total}) filter (where ${t.ordenes.estado} = 'PEND_PAGO'), 0)::text`,
       })
       .from(t.ordenes)
-      .where(and(gte(t.ordenes.emitidaEn, desde), ne(t.ordenes.estado, "CANCELADA")))
+      .where(
+        and(
+          gte(t.ordenes.emitidaEn, desde),
+          lt(t.ordenes.emitidaEn, hasta),
+          ne(t.ordenes.estado, "CANCELADA"),
+        ),
+      )
       .groupBy(mesArgentina(t.ordenes.emitidaEn)),
     db
       .select({
@@ -67,7 +72,13 @@ export async function cobranzaPorMes(
         cobrado: sql<string>`coalesce(sum(${t.ordenes.total}), 0)::text`,
       })
       .from(t.ordenes)
-      .where(and(eq(t.ordenes.estado, "PAGADA"), gte(t.ordenes.pagadaEn, desde)))
+      .where(
+        and(
+          eq(t.ordenes.estado, "PAGADA"),
+          gte(t.ordenes.pagadaEn, desde),
+          lt(t.ordenes.pagadaEn, hasta),
+        ),
+      )
       .groupBy(mesArgentina(t.ordenes.pagadaEn)),
   ]);
   return lista.map((mes) => {
@@ -133,7 +144,7 @@ export async function tendenciasTablero(db: Ejecutor, hoy: Fecha): Promise<Tende
         .from(t.contratos)
         .where(gte(t.contratos.activadoEn, desde))
         .groupBy(mesArgentina(t.contratos.activadoEn)),
-      cobranzaPorMes(db, hoy, 12),
+      cobranzaPorMes(db, meses),
       db
         .select({
           actual: sql<number>`count(*) filter (where ${altas.actual})::int`,
@@ -410,13 +421,8 @@ export interface FilaVentaPaquete {
   facturado: bigint;
 }
 
-/** Paquetes vendidos en los últimos meses (altas y renovaciones de órdenes no canceladas). */
-export async function ventasPorPaquete(
-  db: Ejecutor,
-  hoy: Fecha,
-  meses = 12,
-): Promise<FilaVentaPaquete[]> {
-  const desde = inicioArgentina(sumarMeses(inicioDeMes(hoy), -(meses - 1)));
+/** Paquetes vendidos en el rango (altas y renovaciones de órdenes no canceladas emitidas en él). */
+export async function ventasPorPaquete(db: Ejecutor, rango: Rango): Promise<FilaVentaPaquete[]> {
   const filas = await db
     .select({
       paquete: t.paquetes.nombre,
@@ -428,7 +434,7 @@ export async function ventasPorPaquete(
     .innerJoin(t.paquetes, eq(t.paquetes.id, t.contratos.paqueteId))
     .innerJoin(t.ordenes, eq(t.ordenes.id, t.contratos.ordenId))
     .innerJoin(t.ordenItems, eq(t.ordenItems.contratoId, t.contratos.id))
-    .where(and(gte(t.ordenes.emitidaEn, desde), ne(t.ordenes.estado, "CANCELADA")))
+    .where(and(enRango(t.ordenes.emitidaEn, rango), ne(t.ordenes.estado, "CANCELADA")))
     .groupBy(t.paquetes.nombre)
     .orderBy(desc(sql`sum(${t.ordenItems.totalProrrateado})`));
   return filas.map((f) => ({ ...f, facturado: centavos(f.facturado) }));
@@ -480,3 +486,54 @@ export async function consumosDeEmpresa(
     .$dynamic();
   return paginar(consulta, pagina);
 }
+
+// ─── Facturación (libro de ventas) ───────────────────────────────────────────
+
+export interface FiltrosFacturacion {
+  /** Fecha de la factura. */
+  rango: Rango;
+  emisorId?: string | undefined;
+  comprobante?: "A" | "B" | undefined;
+}
+
+/**
+ * Facturas emitidas en el rango, con lo que se informó en cada una: emisor,
+ * comprobante, cliente de facturación, condición frente al IVA, neto, alícuota,
+ * IVA y total. Para conciliar con Xubio y el libro de IVA ventas. Incluye las
+ * órdenes canceladas después de facturar, marcadas por su estado.
+ */
+export async function libroDeVentas(db: Ejecutor, filtros: FiltrosFacturacion) {
+  return db
+    .select({
+      ordenId: t.ordenes.id,
+      orden: t.ordenes.numero,
+      estado: t.ordenes.estado,
+      facturadaEn: t.ordenes.facturadaEn,
+      factura: t.ordenes.facturaNumero,
+      comprobante: t.ordenes.tipoComprobante,
+      emisorId: t.ordenes.emisorId,
+      emisor: t.ordenes.emisorRazonSocial,
+      emisorCuit: t.ordenes.emisorCuit,
+      cliente: t.clientes.nombreFactura,
+      clienteCuit: t.clientes.cuit,
+      condicionIva: sql<string>`coalesce((select c.nombre from ${t.condicionesIva} c where c.codigo = ${t.ordenes.condicionIva} and c.pais_id = 'AR'), ${t.ordenes.condicionIva})`,
+      moneda: t.ordenes.moneda,
+      netoGravado: t.ordenes.netoGravado,
+      alicuotaIva: t.ordenes.alicuotaIva,
+      iva: t.ordenes.iva,
+      total: t.ordenes.total,
+    })
+    .from(t.ordenes)
+    .innerJoin(t.clientes, eq(t.clientes.id, t.ordenes.clienteFacturacionId))
+    .where(
+      and(
+        sql`${t.ordenes.facturaNumero} is not null`,
+        enRango(t.ordenes.facturadaEn, filtros.rango),
+        filtros.emisorId ? eq(t.ordenes.emisorId, filtros.emisorId) : undefined,
+        filtros.comprobante ? eq(t.ordenes.tipoComprobante, filtros.comprobante) : undefined,
+      ),
+    )
+    .orderBy(asc(t.ordenes.facturadaEn), asc(t.ordenes.numero));
+}
+
+export type FilaLibroVentas = Awaited<ReturnType<typeof libroDeVentas>>[number];

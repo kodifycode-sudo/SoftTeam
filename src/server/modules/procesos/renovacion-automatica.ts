@@ -1,4 +1,5 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
+import { FAMILIAS, FAMILIAS_CONSUMO } from "@/domain/consumos/familias";
 import { type Alcance, TODA_LA_EMPRESA } from "@/domain/cuentas/alcance";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
@@ -13,14 +14,18 @@ export interface EstadoRenovacion {
   aNegociar: boolean;
 }
 
-/** Renovación automática y orden de renovación generada, por contrato. */
+/**
+ * Renovación automática y orden de renovación generada, por contrato. Los
+ * consumibles que no se renuevan por saldo (tickets de soporte) no aparecen:
+ * no tienen renovación automática que elegir.
+ */
 export async function estadoDeRenovacion(
   db: Ejecutor,
   empresaId: string,
   contratoIds: string[],
 ): Promise<Map<string, EstadoRenovacion>> {
   if (contratoIds.length === 0) return new Map();
-  const [contratos, renovaciones] = await Promise.all([
+  const [contratos, renovaciones, renovablesPorSaldo] = await Promise.all([
     db
       .select({
         id: t.contratos.id,
@@ -40,17 +45,32 @@ export async function estadoDeRenovacion(
           ne(t.contratos.estado, "CANCELADO"),
         ),
       ),
+    db
+      .selectDistinct({ contratoId: t.contratoRecursos.contratoId })
+      .from(t.contratoRecursos)
+      .where(
+        and(
+          inArray(t.contratoRecursos.contratoId, contratoIds),
+          inArray(
+            t.contratoRecursos.recursoId,
+            FAMILIAS.map((f) => FAMILIAS_CONSUMO[f].saldo),
+          ),
+        ),
+      ),
   ]);
+  const porSaldo = new Set(renovablesPorSaldo.map((r) => r.contratoId));
   const ordenDe = new Map(renovaciones.map((r) => [r.anteriorId, r.numero]));
   return new Map(
-    contratos.map((c) => [
-      c.id,
-      {
-        noRenovar: c.noRenovar,
-        ordenRenovacion: ordenDe.get(c.id) ?? null,
-        aNegociar: c.tipoPaquete === "TEMPORAL" && c.diaVenc === null,
-      },
-    ]),
+    contratos
+      .filter((c) => c.tipoPaquete === "TEMPORAL" || porSaldo.has(c.id))
+      .map((c) => [
+        c.id,
+        {
+          noRenovar: c.noRenovar,
+          ordenRenovacion: ordenDe.get(c.id) ?? null,
+          aNegociar: c.tipoPaquete === "TEMPORAL" && c.diaVenc === null,
+        },
+      ]),
   );
 }
 

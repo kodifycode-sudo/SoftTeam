@@ -1,6 +1,8 @@
+import { formatearCuit } from "@/domain/cuentas/cuit";
 import { importeCsv } from "@/domain/exportacion/csv";
 import { type ModoFacturacion, NOMBRE_MODO } from "@/domain/facturacion/modo";
 import { hoy } from "@/domain/fecha";
+import { rangoDeDias, rangoDeMeses } from "@/domain/reportes/periodos";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { respuestaCsv } from "@/server/exportacion";
@@ -12,11 +14,13 @@ import {
   consumosPorEmpresa,
   consumosPorMes,
   empresasPorProducto,
+  libroDeVentas,
   ordenesPendientes,
   vencimientos,
   ventasPorPaquete,
 } from "@/server/modules/reportes/reportes";
 import { listarOrdenes } from "@/server/modules/ventas/ordenes";
+import { filtrosDeOrdenes } from "../../ordenes/filtros";
 
 const ESTADOS_RENOVACION = {
   NO_RENOVAR: "No se renueva",
@@ -37,10 +41,12 @@ export async function GET(peticion: Request) {
   const p = new URL(peticion.url).searchParams;
   const db = await obtenerDb();
   const fecha = hoy();
+  // Período de cobranza y ventas: el mismo que se ve en la pantalla.
+  const periodo = rangoDeMeses(p.get("desde") ?? undefined, p.get("hasta") ?? undefined, fecha);
 
   switch (p.get("reporte")) {
     case "cobranza":
-      return respuestaCsv("cobranza por mes", await cobranzaPorMes(db, fecha), [
+      return respuestaCsv("cobranza por mes", await cobranzaPorMes(db, periodo.meses), [
         { titulo: "Mes", valor: (f) => f.mes },
         { titulo: "Órdenes emitidas", valor: (f) => f.ordenes },
         { titulo: "Emitido", valor: (f) => importeCsv(f.emitido) },
@@ -97,8 +103,34 @@ export async function GET(peticion: Request) {
         { titulo: "Producto", valor: (f) => f.producto },
         { titulo: "Empresas", valor: (f) => f.empresas },
       ]);
+    case "facturacion": {
+      const dias = rangoDeDias(p.get("desde") ?? undefined, p.get("hasta") ?? undefined, fecha);
+      const comprobante = p.get("comprobante");
+      const filas = await libroDeVentas(db, {
+        rango: dias.rango,
+        emisorId: p.get("emisor") || undefined,
+        comprobante: comprobante === "A" || comprobante === "B" ? comprobante : undefined,
+      });
+      return respuestaCsv("libro de ventas", filas, [
+        { titulo: "Fecha", valor: (f) => f.facturadaEn },
+        { titulo: "Comprobante", valor: (f) => `Factura ${f.comprobante}` },
+        { titulo: "Número", valor: (f) => f.factura },
+        { titulo: "Emisor", valor: (f) => f.emisor },
+        { titulo: "CUIT emisor", valor: (f) => (f.emisorCuit ? formatearCuit(f.emisorCuit) : "") },
+        { titulo: "Cliente", valor: (f) => f.cliente },
+        { titulo: "CUIT cliente", valor: (f) => formatearCuit(f.clienteCuit) },
+        { titulo: "Condición frente al IVA", valor: (f) => f.condicionIva },
+        { titulo: "Moneda", valor: (f) => f.moneda },
+        { titulo: "Neto gravado", valor: (f) => importeCsv(f.netoGravado) },
+        { titulo: "Alícuota IVA", valor: (f) => importeCsv(f.alicuotaIva) },
+        { titulo: "IVA", valor: (f) => importeCsv(f.iva) },
+        { titulo: "Total", valor: (f) => importeCsv(f.total) },
+        { titulo: "Orden", valor: (f) => f.orden },
+        { titulo: "Estado de la orden", valor: (f) => ESTADOS_ORDEN[f.estado] },
+      ]);
+    }
     case "ventas":
-      return respuestaCsv("ventas por paquete", await ventasPorPaquete(db, fecha), [
+      return respuestaCsv("ventas por paquete", await ventasPorPaquete(db, periodo.rango), [
         { titulo: "Paquete", valor: (f) => f.paquete },
         { titulo: "Altas", valor: (f) => f.altas },
         { titulo: "Renovaciones", valor: (f) => f.renovaciones },
@@ -106,12 +138,17 @@ export async function GET(peticion: Request) {
       ]);
     case "ordenes": {
       const estado = p.get("estado");
+      const filtros = filtrosDeOrdenes(p, fecha);
       const ordenes = await listarOrdenes(db, {
         estado:
           estado === "PEND_PAGO" || estado === "PAGADA" || estado === "CANCELADA"
             ? estado
             : undefined,
-        busqueda: p.get("q") ?? undefined,
+        busqueda: filtros.busqueda,
+        emitidas: filtros.emitidas?.rango,
+        emisorId: filtros.emisorId,
+        medioPagoId: filtros.medioPagoId,
+        modoFacturacion: filtros.modoFacturacion,
       });
       return respuestaCsv("ordenes", ordenes, [
         { titulo: "Orden", valor: (f) => f.numero },

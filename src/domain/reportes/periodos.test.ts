@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fecha } from "@/domain/fecha";
-import { periodosComparables, variacion } from "./periodos";
+import { periodosComparables, rangoDeDias, rangoDeMeses, variacion } from "./periodos";
 
 describe("periodosComparables", () => {
   it("compara del 1 a hoy con el mismo tramo del mes anterior", () => {
@@ -47,5 +47,33 @@ describe("variacion", () => {
   it("sin valor anterior no hay porcentaje", () => {
     expect(variacion(3n, 0n)).toEqual({ sentido: "sube", porcentaje: null, diferencia: 3n });
     expect(variacion(0n, 0n)).toEqual({ sentido: "igual", porcentaje: null, diferencia: 0n });
+  });
+});
+
+describe("rangos de los filtros de reportes", () => {
+  const hoy = fecha("2026-10-10");
+
+  it("meses: por defecto los últimos 12; invertidos se ordenan; con tope", () => {
+    expect(rangoDeMeses(undefined, undefined, hoy).meses).toHaveLength(12);
+    expect(rangoDeMeses(undefined, undefined, hoy).rango).toEqual({
+      desde: "2025-11-01",
+      hasta: "2026-11-01",
+    });
+    expect(rangoDeMeses("2026-03", "2026-01", hoy).meses).toEqual([
+      "2026-01",
+      "2026-02",
+      "2026-03",
+    ]);
+    expect(rangoDeMeses("2020-01", "2026-10", hoy).meses).toHaveLength(36);
+    expect(rangoDeMeses("2026-13", "x", hoy).meses.at(-1)).toBe("2026-10");
+  });
+
+  it("días: por defecto el mes en curso; hasta exclusivo en el rango", () => {
+    expect(rangoDeDias(undefined, undefined, hoy)).toEqual({
+      desde: "2026-10-01",
+      hasta: "2026-10-10",
+      rango: { desde: "2026-10-01", hasta: "2026-10-11" },
+    });
+    expect(rangoDeDias("2026-09-30", "2026-09-01", hoy).desde).toBe("2026-09-01");
   });
 });

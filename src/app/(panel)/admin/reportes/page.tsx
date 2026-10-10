@@ -8,6 +8,7 @@ import { SelectNativo } from "@/components/select-nativo";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -16,11 +17,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatearCuit } from "@/domain/cuentas/cuit";
 import { hoy } from "@/domain/fecha";
-import { fechaCorta, numero, pesos } from "@/lib/formato";
+import { type Rango, rangoDeDias, rangoDeMeses } from "@/domain/reportes/periodos";
+import { fechaCorta, numero, pesos, porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import { opcionesEmisores } from "@/server/modules/catalogo/emisores";
 import { leerParametroDe } from "@/server/modules/parametros";
 import {
   cobranzaPorMes,
@@ -28,6 +32,7 @@ import {
   consumosPorMes,
   empresasPorProducto,
   incidentesPorEstado,
+  libroDeVentas,
   ordenesPendientes,
   vencimientos,
   ventasPorPaquete,
@@ -37,6 +42,7 @@ export const metadata: Metadata = { title: "Reportes" };
 
 const PESTANAS = {
   cobranza: "Cobranza",
+  facturacion: "Facturación",
   vencimientos: "Vencimientos",
   consumos: "Consumos",
   licencias: "Licencias",
@@ -58,6 +64,43 @@ function Exportar({ reporte, extra = "" }: { reporte: string; extra?: string }) 
     >
       <Download data-icon="inline-start" /> Exportar a Excel
     </a>
+  );
+}
+
+const texto = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+
+/** Rango de meses de la pantalla: "desde" y "hasta" con un formulario GET. */
+function FiltroMeses({ ver, meses }: { ver: string; meses: string[] }) {
+  return (
+    <form className="mb-6 flex flex-wrap items-end gap-3" aria-label="Período">
+      <input type="hidden" name="ver" value={ver} />
+      <label htmlFor="filtro-desde" className="grid gap-1 text-sm">
+        <span className="text-muted-foreground">Desde</span>
+        <Input
+          type="month"
+          id="filtro-desde"
+          name="desde"
+          defaultValue={meses[0]}
+          className="h-9 w-40"
+        />
+      </label>
+      <label htmlFor="filtro-hasta" className="grid gap-1 text-sm">
+        <span className="text-muted-foreground">Hasta</span>
+        <Input
+          type="month"
+          id="filtro-hasta"
+          name="hasta"
+          defaultValue={meses.at(-1)}
+          className="h-9 w-40"
+        />
+      </label>
+      <Button type="submit" variant="secondary" className="h-9">
+        Aplicar
+      </Button>
+      <p className="w-full text-xs text-muted-foreground sm:w-auto">
+        {meses.length} mes{meses.length === 1 ? "" : "es"} (hasta 36).
+      </p>
+    </form>
   );
 }
 
@@ -110,12 +153,14 @@ export default async function PaginaReportes({ searchParams }: PageProps<"/admin
   const pestana: Pestana =
     typeof sp.ver === "string" && sp.ver in PESTANAS ? (sp.ver as Pestana) : "cobranza";
   const fecha = hoy();
+  const { meses, rango } = rangoDeMeses(texto(sp.desde), texto(sp.hasta), fecha);
+  const periodo = `&desde=${meses[0]}&hasta=${meses.at(-1)}`;
 
   return (
     <>
       <EncabezadoPagina
         titulo="Reportes"
-        descripcion="Cobranza, vencimientos, consumos y licencias. Cada reporte se puede exportar a Excel."
+        descripcion="Cobranza, facturación, vencimientos, consumos y licencias. Cada reporte se puede exportar a Excel."
       />
       <nav aria-label="Reportes" className="mb-6 flex gap-1 overflow-x-auto border-b">
         {Object.entries(PESTANAS).map(([clave, nombre]) => (
@@ -133,22 +178,44 @@ export default async function PaginaReportes({ searchParams }: PageProps<"/admin
           </Link>
         ))}
       </nav>
-      {pestana === "cobranza" && <Cobranza fecha={fecha} />}
+      {(pestana === "cobranza" || pestana === "licencias") && (
+        <FiltroMeses ver={pestana} meses={meses} />
+      )}
+      {pestana === "cobranza" && <Cobranza fecha={fecha} meses={meses} periodo={periodo} />}
+      {pestana === "facturacion" && (
+        <Facturacion
+          fecha={fecha}
+          desde={texto(sp.desde)}
+          hasta={texto(sp.hasta)}
+          emisorId={texto(sp.emisor)}
+          comprobante={texto(sp.comprobante)}
+        />
+      )}
       {pestana === "vencimientos" && (
         <Vencimientos fecha={fecha} dias={typeof sp.dias === "string" ? Number(sp.dias) : 30} />
       )}
       {pestana === "consumos" && (
         <Consumos fecha={fecha} mes={typeof sp.mes === "string" ? sp.mes : fecha.slice(0, 7)} />
       )}
-      {pestana === "licencias" && <Licencias fecha={fecha} />}
+      {pestana === "licencias" && (
+        <Licencias fecha={fecha} rango={rango} periodo={periodo} meses={meses} />
+      )}
     </>
   );
 }
 
-async function Cobranza({ fecha }: { fecha: ReturnType<typeof hoy> }) {
+async function Cobranza({
+  fecha,
+  meses: lista,
+  periodo,
+}: {
+  fecha: ReturnType<typeof hoy>;
+  meses: string[];
+  periodo: string;
+}) {
   const db = await obtenerDb();
   const [meses, pendientes, umbrales] = await Promise.all([
-    cobranzaPorMes(db, fecha),
+    cobranzaPorMes(db, lista),
     ordenesPendientes(db, fecha),
     leerParametroDe(db, "cobranza.semaforo_dias"),
   ]);
@@ -159,7 +226,11 @@ async function Cobranza({ fecha }: { fecha: ReturnType<typeof hoy> }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        <Indicador titulo="Cobrado este mes" valor={pesos(actual?.cobrado ?? 0n)} />
+        <Indicador
+          titulo="Cobrado en el período"
+          valor={pesos(meses.reduce((s, m) => s + m.cobrado, 0n))}
+          detalle={`Último mes: ${pesos(actual?.cobrado ?? 0n)}`}
+        />
         <Indicador
           titulo="Pendiente de cobro"
           valor={pesos(totalPendiente)}
@@ -175,10 +246,10 @@ async function Cobranza({ fecha }: { fecha: ReturnType<typeof hoy> }) {
       <Seccion
         titulo="Emitido y cobrado por mes"
         descripcion="Lo emitido cuenta las órdenes no canceladas del mes; lo cobrado, los pagos acreditados en el mes."
-        acciones={<Exportar reporte="cobranza" />}
+        acciones={<Exportar reporte="cobranza" extra={periodo} />}
       >
         <GraficoBarras
-          descripcion="Emitido y cobrado en los últimos 12 meses"
+          descripcion="Emitido y cobrado por mes en el período"
           series={[
             { nombre: "Emitido", color: "var(--chart-1)" },
             { nombre: "Cobrado", color: "var(--chart-2)" },
@@ -533,11 +604,21 @@ const ESTADOS_INCIDENTE = {
   CERRADO: "Cerrados",
 } as const;
 
-async function Licencias({ fecha }: { fecha: ReturnType<typeof hoy> }) {
+async function Licencias({
+  fecha,
+  rango,
+  periodo,
+  meses,
+}: {
+  fecha: ReturnType<typeof hoy>;
+  rango: Rango;
+  periodo: string;
+  meses: string[];
+}) {
   const db = await obtenerDb();
   const [productos, ventas, incidentes] = await Promise.all([
     empresasPorProducto(db, fecha),
-    ventasPorPaquete(db, fecha),
+    ventasPorPaquete(db, rango),
     incidentesPorEstado(db),
   ]);
   const maximo = Math.max(1, ...productos.map((p) => p.empresas));
@@ -586,8 +667,8 @@ async function Licencias({ fecha }: { fecha: ReturnType<typeof hoy> }) {
 
       <Seccion
         titulo="Ventas por paquete"
-        descripcion="Últimos 12 meses, órdenes no canceladas. Importes con impuestos."
-        acciones={<Exportar reporte="ventas" />}
+        descripcion={`De ${mesCorto(meses[0] ?? "")} a ${mesCorto(meses.at(-1) ?? "")}, órdenes no canceladas. Importes con impuestos.`}
+        acciones={<Exportar reporte="ventas" extra={periodo} />}
       >
         {ventas.length === 0 ? (
           <p className="text-sm text-muted-foreground">Todavía no hay ventas.</p>
@@ -609,6 +690,224 @@ async function Licencias({ fecha }: { fecha: ReturnType<typeof hoy> }) {
                     <TableCell className="text-right tabular-nums">{v.altas}</TableCell>
                     <TableCell className="text-right tabular-nums">{v.renovaciones}</TableCell>
                     <TableCell className="text-right tabular-nums">{pesos(v.facturado)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Seccion>
+    </div>
+  );
+}
+
+const COMPROBANTES = ["A", "B"] as const;
+
+/**
+ * Libro de ventas: facturas del período con lo que se informó en cada una,
+ * para conciliar con Xubio. Totales por emisor y tipo de comprobante.
+ */
+async function Facturacion({
+  fecha,
+  desde,
+  hasta,
+  emisorId,
+  comprobante,
+}: {
+  fecha: ReturnType<typeof hoy>;
+  desde: string | undefined;
+  hasta: string | undefined;
+  emisorId: string | undefined;
+  comprobante: string | undefined;
+}) {
+  const db = await obtenerDb();
+  const dias = rangoDeDias(desde, hasta, fecha);
+  const tipo = COMPROBANTES.find((c) => c === comprobante);
+  const emisores = await opcionesEmisores(db);
+  const emisor = emisores.find((e) => e.id === emisorId)?.id;
+  const filas = await libroDeVentas(db, { rango: dias.rango, emisorId: emisor, comprobante: tipo });
+  const sumar = (de: typeof filas, campo: "netoGravado" | "iva" | "total") =>
+    de.reduce((s, f) => s + f[campo], 0n);
+  const grupos = [...new Set(filas.map((f) => `${f.emisor ?? "Sin emisor"}|${f.comprobante}`))]
+    .sort()
+    .map((clave) => {
+      const [nombre, letra] = clave.split("|");
+      const de = filas.filter((f) => `${f.emisor ?? "Sin emisor"}|${f.comprobante}` === clave);
+      return {
+        clave,
+        nombre,
+        letra,
+        cantidad: de.length,
+        neto: sumar(de, "netoGravado"),
+        iva: sumar(de, "iva"),
+        total: sumar(de, "total"),
+      };
+    });
+  const extra = `&${new URLSearchParams({ desde: dias.desde, hasta: dias.hasta, emisor: emisor ?? "", comprobante: tipo ?? "" })}`;
+
+  return (
+    <div className="space-y-6">
+      <form className="flex flex-wrap items-end gap-3" aria-label="Filtros de facturación">
+        <input type="hidden" name="ver" value="facturacion" />
+        <label htmlFor="filtro-desde" className="grid gap-1 text-sm">
+          <span className="text-muted-foreground">Desde</span>
+          <Input
+            type="date"
+            id="filtro-desde"
+            name="desde"
+            defaultValue={dias.desde}
+            className="h-9 w-40"
+          />
+        </label>
+        <label htmlFor="filtro-hasta" className="grid gap-1 text-sm">
+          <span className="text-muted-foreground">Hasta</span>
+          <Input
+            type="date"
+            id="filtro-hasta"
+            name="hasta"
+            defaultValue={dias.hasta}
+            className="h-9 w-40"
+          />
+        </label>
+        <label htmlFor="filtro-emisor" className="grid gap-1 text-sm">
+          <span className="text-muted-foreground">Emisor</span>
+          <SelectNativo
+            id="filtro-emisor"
+            name="emisor"
+            defaultValue={emisor ?? ""}
+            className="h-9 w-56"
+          >
+            <option value="">Todos</option>
+            {emisores.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.razonSocial}
+              </option>
+            ))}
+          </SelectNativo>
+        </label>
+        <label htmlFor="filtro-comprobante" className="grid gap-1 text-sm">
+          <span className="text-muted-foreground">Comprobante</span>
+          <SelectNativo
+            id="filtro-comprobante"
+            name="comprobante"
+            defaultValue={tipo ?? ""}
+            className="h-9 w-32"
+          >
+            <option value="">Todos</option>
+            <option value="A">Factura A</option>
+            <option value="B">Factura B</option>
+          </SelectNativo>
+        </label>
+        <Button type="submit" variant="secondary" className="h-9">
+          Aplicar
+        </Button>
+      </form>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <Indicador titulo="Facturas" valor={numero(filas.length)} />
+        <Indicador titulo="Neto gravado" valor={pesos(sumar(filas, "netoGravado"))} />
+        <Indicador titulo="IVA" valor={pesos(sumar(filas, "iva"))} />
+        <Indicador titulo="Total facturado" valor={pesos(sumar(filas, "total"))} />
+      </div>
+
+      <Seccion
+        titulo="Por emisor y comprobante"
+        descripcion={`Facturas del ${fechaCorta(dias.desde)} al ${fechaCorta(dias.hasta)}.`}
+      >
+        {grupos.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hay facturas en el período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Emisor</TableHead>
+                  <TableHead>Comprobante</TableHead>
+                  <TableHead className="text-right">Facturas</TableHead>
+                  <TableHead className="text-right">Neto gravado</TableHead>
+                  <TableHead className="text-right">IVA</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {grupos.map((g) => (
+                  <TableRow key={g.clave}>
+                    <TableCell>{g.nombre}</TableCell>
+                    <TableCell>Factura {g.letra}</TableCell>
+                    <TableCell className="text-right tabular-nums">{g.cantidad}</TableCell>
+                    <TableCell className="text-right tabular-nums">{pesos(g.neto)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{pesos(g.iva)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{pesos(g.total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Seccion>
+
+      <Seccion
+        titulo="Libro de ventas"
+        descripcion="Cada factura con lo que se informó: cliente, condición frente al IVA, neto, alícuota e IVA."
+        acciones={<Exportar reporte="facturacion" extra={extra} />}
+      >
+        {filas.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hay facturas en el período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Comprobante</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Condición</TableHead>
+                  <TableHead className="text-right">Neto</TableHead>
+                  <TableHead className="text-right">IVA</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filas.map((f) => (
+                  <TableRow key={f.ordenId}>
+                    <TableCell className="whitespace-nowrap">
+                      {f.facturadaEn ? fechaCorta(f.facturadaEn) : "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {/* El número ya trae la letra del comprobante. */}
+                      <span className="tabular-nums">{f.factura}</span>
+                      <Link
+                        href={`/admin/ordenes/${f.ordenId}`}
+                        className="block text-xs text-primary hover:underline"
+                      >
+                        Orden #{f.orden}
+                      </Link>
+                      {f.estado === "CANCELADA" && (
+                        <Badge
+                          variant="outline"
+                          className="mt-1 border-destructive/40 text-destructive"
+                        >
+                          Orden cancelada
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {f.cliente}
+                      <span className="block text-xs text-muted-foreground">
+                        CUIT {formatearCuit(f.clienteCuit)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm">{f.condicionIva}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {pesos(f.netoGravado)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {pesos(f.iva)}
+                      <span className="block text-xs text-muted-foreground">
+                        {porcentajeTexto(f.alicuotaIva)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{pesos(f.total)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

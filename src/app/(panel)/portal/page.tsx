@@ -375,15 +375,19 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
         </Empty>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
-          <section>
+          {/* Las dos columnas terminan juntas: la grilla de tarjetas ocupa todo el alto. */}
+          <section className="flex flex-col">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
               <BadgeCheck className="size-5 text-primary" /> Tu licencia hoy
             </h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              {licencia.productos.map((p) => {
+            <div className="grid flex-1 gap-4 md:grid-cols-2">
+              {licencia.productos.map((p, n) => {
                 const ui = productoUI(p.productoId);
+                // Con una cantidad impar, la última ocupa las dos columnas: no queda un hueco.
+                const ultimaImpar =
+                  licencia.productos.length % 2 === 1 && n === licencia.productos.length - 1;
                 return (
-                  <Card key={p.productoId} className="gap-4">
+                  <Card key={p.productoId} className={cn("gap-4", ultimaImpar && "md:col-span-2")}>
                     <CardHeader className="flex-row items-center gap-3">
                       <span className={cn("grid size-10 place-items-center rounded-xl", ui.clase)}>
                         <ui.icono className="size-5" />
@@ -405,7 +409,8 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
             </div>
           </section>
 
-          <Card id="vencimientos" className="h-fit scroll-mt-20">
+          {/* En columna aparte, arranca a la altura de las tarjetas (debajo del título). */}
+          <Card id="vencimientos" className="scroll-mt-20 xl:mt-11">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarClock className="size-4 text-primary" /> Vencimientos
@@ -416,7 +421,7 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
                   : "Paquetes vigentes y cuándo vencen."}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-1 flex-col gap-2">
               {vencimientos.length === 0 && (
                 <p className="py-3 text-sm text-muted-foreground">
                   Todavía no hay paquetes asignados a tus oficinas.
@@ -472,7 +477,8 @@ export default async function InicioPortal({ searchParams }: PageProps<"/portal"
                 className={buttonVariants({
                   variant: "ghost",
                   size: "sm",
-                  className: "mt-2 w-full",
+                  // Al pie de la caja, aunque la caja se estire para alinearse.
+                  className: "mt-auto w-full",
                 })}
               >
                 Sumar paquetes <ArrowRight data-icon="inline-end" />

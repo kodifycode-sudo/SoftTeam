@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { centavos } from "@/domain/dinero";
 import { fecha } from "@/domain/fecha";
+import { rangoDeMeses } from "@/domain/reportes/periodos";
 import type { Db } from "@/server/db/cliente";
 import { crearContratoDePrueba, crearDbDePrueba, crearEmpresaDePrueba } from "@/server/db/pruebas";
 import * as t from "@/server/db/schema";
@@ -53,7 +54,7 @@ describe("cobranza", () => {
       .set({ emitidaEn: new Date("2031-06-01T02:30:00Z") })
       .where(eq(t.ordenes.id, tarde.id));
 
-    const filas = await cobranzaPorMes(db, HOY, 2);
+    const filas = await cobranzaPorMes(db, ["2031-05", "2031-06"]);
     expect(filas).toEqual([
       {
         mes: "2031-05",
@@ -184,7 +185,7 @@ describe("consumos, licencias y ventas", () => {
       precioFinal: centavos("30000"),
       totalProrrateado: centavos("36300"),
     });
-    const ventas = await ventasPorPaquete(db, HOY);
+    const ventas = await ventasPorPaquete(db, rangoDeMeses(undefined, undefined, HOY).rango);
     expect(ventas.find((v) => v.paquete === "Notificaciones 10.000")).toMatchObject({
       altas: 1,
       renovaciones: 0,

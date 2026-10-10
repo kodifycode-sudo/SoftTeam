@@ -45,3 +45,54 @@ export function variacion(actual: bigint, anterior: bigint): Variacion {
     diferencia,
   };
 }
+
+const MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DIA = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+/**
+ * Meses "AAAA-MM" pedidos en un filtro de reportes. Sin datos válidos, los
+ * últimos `porDefecto` meses hasta el actual; invertidos, se ordenan; nunca
+ * más de `maximo` (se acorta desde el principio).
+ */
+export function rangoDeMeses(
+  desdeTexto: string | undefined,
+  hastaTexto: string | undefined,
+  hoy: Fecha,
+  porDefecto = 12,
+  maximo = 36,
+): { meses: string[]; rango: Rango } {
+  const actual = hoy.slice(0, 7);
+  let hasta = hastaTexto && MES.test(hastaTexto) ? hastaTexto : actual;
+  let desde =
+    desdeTexto && MES.test(desdeTexto)
+      ? desdeTexto
+      : sumarMeses(`${hasta}-01` as Fecha, -(porDefecto - 1)).slice(0, 7);
+  if (desde > hasta) [desde, hasta] = [hasta, desde];
+  const meses: string[] = [];
+  for (let m = `${desde}-01` as Fecha; m.slice(0, 7) <= hasta; m = sumarMeses(m, 1)) {
+    meses.push(m.slice(0, 7));
+  }
+  const elegidos = meses.slice(-maximo);
+  return {
+    meses: elegidos,
+    rango: {
+      desde: `${elegidos[0]}-01` as Fecha,
+      hasta: sumarMeses(`${elegidos.at(-1)}-01` as Fecha, 1),
+    },
+  };
+}
+
+/**
+ * Días pedidos en un filtro ("AAAA-MM-DD", ambos incluidos). Por defecto, el
+ * mes en curso hasta hoy; invertidos, se ordenan. `rango.hasta` es exclusivo.
+ */
+export function rangoDeDias(
+  desdeTexto: string | undefined,
+  hastaTexto: string | undefined,
+  hoy: Fecha,
+): { desde: Fecha; hasta: Fecha; rango: Rango } {
+  let desde = desdeTexto && DIA.test(desdeTexto) ? (desdeTexto as Fecha) : inicioDeMes(hoy);
+  let hasta = hastaTexto && DIA.test(hastaTexto) ? (hastaTexto as Fecha) : hoy;
+  if (desde > hasta) [desde, hasta] = [hasta, desde];
+  return { desde, hasta, rango: { desde, hasta: sumarDias(hasta, 1) } };
+}

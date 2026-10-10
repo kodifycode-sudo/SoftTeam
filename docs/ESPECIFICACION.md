@@ -762,7 +762,18 @@ Regla de dependencias: `domain` no importa nada del resto.
      antigüedad, vencimientos con estado de renovación, consumos, empresas por
      producto, ventas por paquete, soporte) y **exportación a Excel** (CSV con
      ";" y BOM; protegido contra inyección de fórmulas) de reportes y listados,
-     también en el portal (órdenes y consumos).
+     también en el portal (órdenes y consumos). La cobranza y las ventas por
+     paquete se piden por rango de meses (por defecto los últimos 12, hasta
+     36).
+   - **Facturación (libro de ventas):** las facturas de un período, con
+     filtro por emisor y tipo de comprobante: fecha, número, emisor, cliente
+     de facturación con su CUIT, condición frente al IVA, neto gravado,
+     alícuota, IVA y total, con totales por emisor y comprobante. Sirve para
+     conciliar con Xubio; incluye las órdenes canceladas después de facturar,
+     marcadas.
+   - **Filtros de órdenes** (SOFTeam): estado, búsqueda por número, CUIT o
+     nombre del cliente o de la empresa, fechas de emisión, emisor, medio de
+     pago y modo de facturación. La exportación usa los mismos filtros.
    - **Marca blanca** (la marca del cliente en los productos): nombre comercial, logo (PNG/JPEG/WebP validado por su
      contenido, hasta 300 KB), colores con control de contraste, textos y
      contacto, con vista previa. Los productos la reciben en EmpresaFull_V1 y
