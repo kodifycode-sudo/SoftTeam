@@ -9,6 +9,7 @@ import { respuestaCsv } from "@/server/exportacion";
 import { listarCatalogoAseguradoras } from "@/server/modules/catalogo/aseguradoras";
 import { listarPaquetes } from "@/server/modules/catalogo/paquetes";
 import { listarClientes } from "@/server/modules/cuentas/consultas";
+import { altasDeClientes, altasPorMes } from "@/server/modules/reportes/altas";
 import {
   bonificacionesOtorgadas,
   consumiblesRenovados,
@@ -23,6 +24,7 @@ import {
   consumosPorEmpresa,
   consumosPorMes,
   empresasPorProducto,
+  filtroDeCuentas,
   libroDeVentas,
   ordenesPendientes,
   vencimientos,
@@ -39,6 +41,12 @@ const ESTADOS_RENOVACION = {
 } as const;
 
 const ESTADOS_ORDEN = { PEND_PAGO: "Pendiente", PAGADA: "Pagada", CANCELADA: "Cancelada" } as const;
+
+const ORIGENES_ALTA = {
+  EN_LINEA: "Registro en línea",
+  SOFTEAM: "Alta de SOFTeam",
+  IMPORTACION: "Importado",
+} as const;
 
 const ESTADOS_SERIE = { VIGENTE: "Vigente", AGOTADA: "Tope agotado", VENCIDA: "Vencida" } as const;
 
@@ -61,10 +69,12 @@ export async function GET(peticion: Request) {
   const fecha = hoy();
   // Período de cobranza y ventas: el mismo que se ve en la pantalla.
   const periodo = rangoDeMeses(p.get("desde") ?? undefined, p.get("hasta") ?? undefined, fecha);
+  // Grupo económico y país, en los reportes que los filtran.
+  const filtro = filtroDeCuentas(p.get("grupo"), p.get("pais"));
 
   switch (p.get("reporte")) {
     case "cobranza":
-      return respuestaCsv("cobranza por mes", await cobranzaPorMes(db, periodo.meses), [
+      return respuestaCsv("cobranza por mes", await cobranzaPorMes(db, periodo.meses, filtro), [
         { titulo: "Mes", valor: (f) => f.mes },
         { titulo: "Órdenes emitidas", valor: (f) => f.ordenes },
         { titulo: "Emitido", valor: (f) => importeCsv(f.emitido) },
@@ -72,7 +82,7 @@ export async function GET(peticion: Request) {
         { titulo: "Pendiente", valor: (f) => importeCsv(f.pendiente) },
       ]);
     case "pendientes":
-      return respuestaCsv("ordenes impagas", await ordenesPendientes(db, fecha), [
+      return respuestaCsv("ordenes impagas", await ordenesPendientes(db, fecha, filtro), [
         { titulo: "Orden", valor: (f) => f.numero },
         { titulo: "Empresa", valor: (f) => f.empresa ?? "Facturación agrupada" },
         { titulo: "Cliente", valor: (f) => f.cliente },
@@ -87,16 +97,25 @@ export async function GET(peticion: Request) {
         { titulo: "Total", valor: (f) => importeCsv(f.total) },
       ]);
     case "vencimientos":
-      return respuestaCsv("vencimientos", await vencimientos(db, fecha), [
-        { titulo: "Empresa", valor: (f) => f.empresa },
-        { titulo: "N.º empresa", valor: (f) => f.empresaNumero },
-        { titulo: "Paquete", valor: (f) => f.paquete },
-        { titulo: "Unidades", valor: (f) => f.cantidad },
-        { titulo: "Vence", valor: (f) => f.hasta },
-        { titulo: "Días", valor: (f) => f.dias },
-        { titulo: "Renovación", valor: (f) => ESTADOS_RENOVACION[f.estado] },
-        { titulo: "Orden de renovación", valor: (f) => f.ordenRenovacion },
-      ]);
+      return respuestaCsv(
+        "vencimientos",
+        await vencimientos(db, fecha, {
+          proximosDias: [15, 30, 60, 90].includes(Number(p.get("dias")))
+            ? Number(p.get("dias"))
+            : 30,
+          filtro,
+        }),
+        [
+          { titulo: "Empresa", valor: (f) => f.empresa },
+          { titulo: "N.º empresa", valor: (f) => f.empresaNumero },
+          { titulo: "Paquete", valor: (f) => f.paquete },
+          { titulo: "Unidades", valor: (f) => f.cantidad },
+          { titulo: "Vence", valor: (f) => f.hasta },
+          { titulo: "Días", valor: (f) => f.dias },
+          { titulo: "Renovación", valor: (f) => ESTADOS_RENOVACION[f.estado] },
+          { titulo: "Orden de renovación", valor: (f) => f.ordenRenovacion },
+        ],
+      );
     case "consumos":
       return respuestaCsv("consumos por mes", await consumosPorMes(db, fecha, 12), [
         { titulo: "Mes", valor: (f) => f.mes },
@@ -117,7 +136,7 @@ export async function GET(peticion: Request) {
       ]);
     }
     case "productos":
-      return respuestaCsv("empresas por producto", await empresasPorProducto(db, fecha), [
+      return respuestaCsv("empresas por producto", await empresasPorProducto(db, fecha, filtro), [
         { titulo: "Producto", valor: (f) => f.producto },
         { titulo: "Empresas", valor: (f) => f.empresas },
       ]);
@@ -145,6 +164,27 @@ export async function GET(peticion: Request) {
         { titulo: "Total", valor: (f) => importeCsv(f.total) },
         { titulo: "Orden", valor: (f) => f.orden },
         { titulo: "Estado de la orden", valor: (f) => ESTADOS_ORDEN[f.estado] },
+      ]);
+    }
+    case "altas":
+      return respuestaCsv("altas de clientes", await altasDeClientes(db, periodo.rango, filtro), [
+        { titulo: "Alta", valor: (f) => f.creadoEn },
+        { titulo: "Número", valor: (f) => f.numero },
+        { titulo: "Cliente", valor: (f) => f.nombre },
+        { titulo: "CUIT", valor: (f) => formatearCuit(f.cuit) },
+        { titulo: "Origen", valor: (f) => ORIGENES_ALTA[f.origen] },
+        { titulo: "Grupo económico", valor: (f) => f.grupo },
+        { titulo: "Países", valor: (f) => f.paises },
+        { titulo: "Empresas", valor: (f) => f.empresas },
+      ]);
+    case "altas-mes": {
+      const altas = await altasDeClientes(db, periodo.rango, filtro);
+      return respuestaCsv("altas por mes", altasPorMes(periodo.meses, altas), [
+        { titulo: "Mes", valor: (f) => f.mes },
+        { titulo: "Clientes nuevos", valor: (f) => f.total },
+        { titulo: ORIGENES_ALTA.EN_LINEA, valor: (f) => f.EN_LINEA },
+        { titulo: ORIGENES_ALTA.SOFTEAM, valor: (f) => f.SOFTEAM },
+        { titulo: ORIGENES_ALTA.IMPORTACION, valor: (f) => f.IMPORTACION },
       ]);
     }
     case "tickets":
@@ -234,7 +274,7 @@ export async function GET(peticion: Request) {
         ],
       );
     case "ventas":
-      return respuestaCsv("ventas por paquete", await ventasPorPaquete(db, periodo.rango), [
+      return respuestaCsv("ventas por paquete", await ventasPorPaquete(db, periodo.rango, filtro), [
         { titulo: "Paquete", valor: (f) => f.paquete },
         { titulo: "Altas", valor: (f) => f.altas },
         { titulo: "Renovaciones", valor: (f) => f.renovaciones },

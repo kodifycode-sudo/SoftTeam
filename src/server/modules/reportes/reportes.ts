@@ -28,6 +28,53 @@ function mesesHasta(hoy: Fecha, cantidad: number): string[] {
   return Array.from({ length: cantidad }, (_, i) => sumarMeses(inicio, i).slice(0, 7));
 }
 
+// ─── Filtro por grupo económico y país ──────────────────────────────────────
+
+/** Grupo económico del cliente y país de la empresa (o de alguna empresa del cliente). */
+export interface FiltroCuentas {
+  grupoId?: string;
+  paisId?: string;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Filtro de cuentas a partir de los parámetros de la pantalla; ignora los inválidos. */
+export function filtroDeCuentas(grupo?: string | null, pais?: string | null): FiltroCuentas {
+  return {
+    grupoId: grupo && UUID.test(grupo) ? grupo : undefined,
+    paisId: pais && /^[A-Z]{2}$/.test(pais) ? pais : undefined,
+  };
+}
+
+/** Parámetros de URL del filtro, para exportar lo mismo que se ve. */
+export function consultaDeCuentas(filtro: FiltroCuentas) {
+  return `${filtro.grupoId ? `&grupo=${filtro.grupoId}` : ""}${filtro.paisId ? `&pais=${filtro.paisId}` : ""}`;
+}
+
+/** Clientes del grupo y con alguna empresa en el país. */
+export function clienteEnFiltro(clienteId: AnyPgColumn, filtro: FiltroCuentas) {
+  return and(
+    filtro.grupoId
+      ? sql`${clienteId} in (select c.id from ${t.clientes} c where c.grupo_id = ${filtro.grupoId})`
+      : undefined,
+    filtro.paisId
+      ? sql`${clienteId} in (select e.cliente_id from ${t.empresas} e where e.pais_id = ${filtro.paisId})`
+      : undefined,
+  );
+}
+
+/** Empresas del país cuyo cliente es del grupo. */
+export function empresaEnFiltro(empresaId: AnyPgColumn, filtro: FiltroCuentas) {
+  return and(
+    filtro.grupoId
+      ? sql`${empresaId} in (select e.id from ${t.empresas} e join ${t.clientes} c on c.id = e.cliente_id where c.grupo_id = ${filtro.grupoId})`
+      : undefined,
+    filtro.paisId
+      ? sql`${empresaId} in (select e.id from ${t.empresas} e where e.pais_id = ${filtro.paisId})`
+      : undefined,
+  );
+}
+
 // ─── Cobranza ────────────────────────────────────────────────────────────────
 
 export interface FilaCobranza {
@@ -46,6 +93,7 @@ export interface FilaCobranza {
 export async function cobranzaPorMes(
   db: Ejecutor,
   lista: readonly string[],
+  filtro: FiltroCuentas = {},
 ): Promise<FilaCobranza[]> {
   const desde = inicioArgentina(`${lista[0]}-01` as Fecha);
   const hasta = inicioArgentina(sumarMeses(`${lista.at(-1)}-01` as Fecha, 1));
@@ -63,6 +111,7 @@ export async function cobranzaPorMes(
           gte(t.ordenes.emitidaEn, desde),
           lt(t.ordenes.emitidaEn, hasta),
           ne(t.ordenes.estado, "CANCELADA"),
+          clienteEnFiltro(t.ordenes.clienteId, filtro),
         ),
       )
       .groupBy(mesArgentina(t.ordenes.emitidaEn)),
@@ -77,6 +126,7 @@ export async function cobranzaPorMes(
           eq(t.ordenes.estado, "PAGADA"),
           gte(t.ordenes.pagadaEn, desde),
           lt(t.ordenes.pagadaEn, hasta),
+          clienteEnFiltro(t.ordenes.clienteId, filtro),
         ),
       )
       .groupBy(mesArgentina(t.ordenes.pagadaEn)),
@@ -201,7 +251,11 @@ export interface OrdenPendiente {
 }
 
 /** Órdenes impagas, de la más antigua a la más nueva, con sus días de antigüedad. */
-export async function ordenesPendientes(db: Ejecutor, hoy: Fecha): Promise<OrdenPendiente[]> {
+export async function ordenesPendientes(
+  db: Ejecutor,
+  hoy: Fecha,
+  filtro: FiltroCuentas = {},
+): Promise<OrdenPendiente[]> {
   const filas = await db
     .select({
       id: t.ordenes.id,
@@ -219,7 +273,7 @@ export async function ordenesPendientes(db: Ejecutor, hoy: Fecha): Promise<Orden
     .innerJoin(t.clientes, eq(t.clientes.id, t.ordenes.clienteId))
     .innerJoin(t.mediosPago, eq(t.mediosPago.id, t.ordenes.medioPagoId))
     .leftJoin(t.empresas, eq(t.empresas.id, t.ordenes.empresaId))
-    .where(eq(t.ordenes.estado, "PEND_PAGO"))
+    .where(and(eq(t.ordenes.estado, "PEND_PAGO"), clienteEnFiltro(t.ordenes.clienteId, filtro)))
     .orderBy(asc(t.ordenes.emitidaEn));
   return filas.map(({ emitida, ...f }) => ({ ...f, dias: diasEntre(emitida as Fecha, hoy) }));
 }
@@ -248,7 +302,7 @@ export interface FilaVencimiento {
 export async function vencimientos(
   db: Ejecutor,
   hoy: Fecha,
-  opciones: { proximosDias?: number; vencidosDias?: number } = {},
+  opciones: { proximosDias?: number; vencidosDias?: number; filtro?: FiltroCuentas } = {},
 ): Promise<FilaVencimiento[]> {
   const proximos = opciones.proximosDias ?? 30;
   const vencidos = opciones.vencidosDias ?? 30;
@@ -279,6 +333,7 @@ export async function vencimientos(
         inArray(t.contratos.estado, ["ACTIVO", "PEND_PAGO_ACTIVO"]),
         gte(t.contratos.hasta, sumarDias(hoy, -vencidos)),
         lte(t.contratos.hasta, sumarDias(hoy, proximos)),
+        empresaEnFiltro(t.empresas.id, opciones.filtro ?? {}),
       ),
     )
     .orderBy(asc(t.contratos.hasta), asc(t.empresas.nombre));
@@ -384,7 +439,11 @@ export interface FilaProducto {
 }
 
 /** Empresas activas con cada producto licenciado hoy. */
-export async function empresasPorProducto(db: Ejecutor, hoy: Fecha): Promise<FilaProducto[]> {
+export async function empresasPorProducto(
+  db: Ejecutor,
+  hoy: Fecha,
+  filtro: FiltroCuentas = {},
+): Promise<FilaProducto[]> {
   const filas = await db
     .select({
       productoId: t.productos.id,
@@ -407,6 +466,7 @@ export async function empresasPorProducto(db: Ejecutor, hoy: Fecha): Promise<Fil
           and(eq(t.contratos.estado, "ACTIVO"), gte(t.contratos.prorrogaHasta, hoy)),
         ),
         sql`${t.contratoRecursos.cantidad} > 0`,
+        empresaEnFiltro(t.empresas.id, filtro),
       ),
     )
     .groupBy(t.productos.id, t.productos.nombre, t.productos.orden)
@@ -422,7 +482,11 @@ export interface FilaVentaPaquete {
 }
 
 /** Paquetes vendidos en el rango (altas y renovaciones de órdenes no canceladas emitidas en él). */
-export async function ventasPorPaquete(db: Ejecutor, rango: Rango): Promise<FilaVentaPaquete[]> {
+export async function ventasPorPaquete(
+  db: Ejecutor,
+  rango: Rango,
+  filtro: FiltroCuentas = {},
+): Promise<FilaVentaPaquete[]> {
   const filas = await db
     .select({
       paquete: t.paquetes.nombre,
@@ -434,7 +498,13 @@ export async function ventasPorPaquete(db: Ejecutor, rango: Rango): Promise<Fila
     .innerJoin(t.paquetes, eq(t.paquetes.id, t.contratos.paqueteId))
     .innerJoin(t.ordenes, eq(t.ordenes.id, t.contratos.ordenId))
     .innerJoin(t.ordenItems, eq(t.ordenItems.contratoId, t.contratos.id))
-    .where(and(enRango(t.ordenes.emitidaEn, rango), ne(t.ordenes.estado, "CANCELADA")))
+    .where(
+      and(
+        enRango(t.ordenes.emitidaEn, rango),
+        ne(t.ordenes.estado, "CANCELADA"),
+        empresaEnFiltro(t.contratos.empresaId, filtro),
+      ),
+    )
     .groupBy(t.paquetes.nombre)
     .orderBy(desc(sql`sum(${t.ordenItems.totalProrrateado})`));
   return filas.map((f) => ({ ...f, facturado: centavos(f.facturado) }));

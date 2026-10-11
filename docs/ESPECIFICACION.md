@@ -782,6 +782,12 @@ Regla de dependencias: `domain` no importa nada del resto.
    - **Consumibles** (en Consumos, por mes): los renovados por saldo con su
      orden o la colectiva pendiente, y los pedidos que no alcanzaron
      (parciales y sin saldo) por empresa y familia.
+   - **Altas de clientes:** clientes nuevos por mes y por origen (registro en
+     línea, alta de SOFTeam desde el panel o importados), con su grupo
+     económico y los países de sus empresas.
+   - **Filtro por grupo económico y país** en Cobranza (órdenes de los
+     clientes del grupo o con empresas en el país), Vencimientos, Licencias
+     (por empresa) y Altas de clientes; la exportación respeta el filtro.
    - **Filtros de órdenes** (SOFTeam): estado, búsqueda por número, CUIT o
      nombre del cliente o de la empresa, fechas de emisión, emisor, medio de
      pago y modo de facturación. La exportación usa los mismos filtros.

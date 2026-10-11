@@ -24,8 +24,16 @@ import { fechaCorta, numero, pesos, porcentajeTexto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
+import * as t from "@/server/db/schema";
 import { opcionesEmisores } from "@/server/modules/catalogo/emisores";
+import { listarGrupos } from "@/server/modules/cuentas/grupos";
 import { leerParametroDe } from "@/server/modules/parametros";
+import {
+  type AltaDeCliente,
+  altasDeClientes,
+  altasPorMes,
+  type OrigenAlta,
+} from "@/server/modules/reportes/altas";
 import {
   bonificacionesOtorgadas,
   consumiblesRenovados,
@@ -38,9 +46,12 @@ import {
 } from "@/server/modules/reportes/comerciales";
 import {
   cobranzaPorMes,
+  consultaDeCuentas,
   consumosPorEmpresa,
   consumosPorMes,
   empresasPorProducto,
+  type FiltroCuentas,
+  filtroDeCuentas,
   incidentesPorEstado,
   libroDeVentas,
   ordenesPendientes,
@@ -58,7 +69,11 @@ const PESTANAS = {
   vencimientos: "Vencimientos",
   consumos: "Consumos",
   licencias: "Licencias",
+  altas: "Altas de clientes",
 } as const;
+
+/** Pestañas que se filtran por grupo económico y país. */
+const CON_FILTRO_CUENTAS: readonly Pestana[] = ["cobranza", "vencimientos", "licencias", "altas"];
 type Pestana = keyof typeof PESTANAS;
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -82,36 +97,98 @@ function Exportar({ reporte, extra = "" }: { reporte: string; extra?: string }) 
 const texto = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
 
 /** Rango de meses de la pantalla: "desde" y "hasta" con un formulario GET. */
-function FiltroMeses({ ver, meses }: { ver: string; meses: string[] }) {
+interface OpcionesCuentas {
+  grupos: { id: string; nombre: string }[];
+  paises: { id: string; nombre: string }[];
+  filtro: FiltroCuentas;
+}
+
+function FiltroMeses({
+  ver,
+  meses,
+  cuentas,
+  ocultos = {},
+}: {
+  ver: string;
+  meses?: string[];
+  cuentas?: OpcionesCuentas;
+  /** Otros parámetros de la pestaña que se conservan al aplicar. */
+  ocultos?: Record<string, string>;
+}) {
   return (
-    <form className="mb-6 flex flex-wrap items-end gap-3" aria-label="Período">
+    <form className="mb-6 flex flex-wrap items-end gap-3" aria-label="Filtros">
       <input type="hidden" name="ver" value={ver} />
-      <label htmlFor="filtro-desde" className="grid gap-1 text-sm">
-        <span className="text-muted-foreground">Desde</span>
-        <Input
-          type="month"
-          id="filtro-desde"
-          name="desde"
-          defaultValue={meses[0]}
-          className="h-9 w-48"
-        />
-      </label>
-      <label htmlFor="filtro-hasta" className="grid gap-1 text-sm">
-        <span className="text-muted-foreground">Hasta</span>
-        <Input
-          type="month"
-          id="filtro-hasta"
-          name="hasta"
-          defaultValue={meses.at(-1)}
-          className="h-9 w-48"
-        />
-      </label>
+      {Object.entries(ocultos).map(([nombre, valor]) => (
+        <input key={nombre} type="hidden" name={nombre} value={valor} />
+      ))}
+      {meses && (
+        <>
+          <label htmlFor="filtro-desde" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Desde</span>
+            <Input
+              type="month"
+              id="filtro-desde"
+              name="desde"
+              defaultValue={meses[0]}
+              className="h-9 w-48"
+            />
+          </label>
+          <label htmlFor="filtro-hasta" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Hasta</span>
+            <Input
+              type="month"
+              id="filtro-hasta"
+              name="hasta"
+              defaultValue={meses.at(-1)}
+              className="h-9 w-48"
+            />
+          </label>
+        </>
+      )}
+      {cuentas && (
+        <>
+          <label htmlFor="filtro-grupo" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Grupo económico</span>
+            <SelectNativo
+              id="filtro-grupo"
+              name="grupo"
+              defaultValue={cuentas.filtro.grupoId ?? ""}
+              className="h-9 w-52"
+            >
+              <option value="">Todos</option>
+              {cuentas.grupos.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.nombre}
+                </option>
+              ))}
+            </SelectNativo>
+          </label>
+          <label htmlFor="filtro-pais" className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">País</span>
+            <SelectNativo
+              id="filtro-pais"
+              name="pais"
+              defaultValue={cuentas.filtro.paisId ?? ""}
+              className="h-9 w-44"
+            >
+              <option value="">Todos</option>
+              {cuentas.paises.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </SelectNativo>
+          </label>
+        </>
+      )}
       <Button type="submit" variant="secondary" className="h-9">
         Aplicar
       </Button>
-      <p className="w-full text-xs text-muted-foreground sm:w-auto">
-        {meses.length} mes{meses.length === 1 ? "" : "es"} (hasta 36).
-      </p>
+      {meses && (
+        <p className="w-full text-xs text-muted-foreground sm:w-auto">
+          {meses.length} mes{meses.length === 1 ? "" : "es"} (hasta 36).
+        </p>
+      )}
     </form>
   );
 }
@@ -166,13 +243,20 @@ export default async function PaginaReportes({ searchParams }: PageProps<"/admin
     typeof sp.ver === "string" && sp.ver in PESTANAS ? (sp.ver as Pestana) : "cobranza";
   const fecha = hoy();
   const { meses, rango } = rangoDeMeses(texto(sp.desde), texto(sp.hasta), fecha);
+  const filtro = filtroDeCuentas(texto(sp.grupo), texto(sp.pais));
+  const cuentas = consultaDeCuentas(filtro);
   const periodo = `&desde=${meses[0]}&hasta=${meses.at(-1)}`;
+  const conMeses = pestana !== "vencimientos";
+  const dias = typeof sp.dias === "string" ? Number(sp.dias) : 30;
+  const opciones: OpcionesCuentas | undefined = CON_FILTRO_CUENTAS.includes(pestana)
+    ? await opcionesDeCuentas(filtro)
+    : undefined;
 
   return (
     <>
       <EncabezadoPagina
         titulo="Reportes"
-        descripcion="Cobranza, facturación, tickets, bonificaciones, renovaciones, consumos y licencias. Cada reporte se puede exportar a Excel."
+        descripcion="Cobranza, facturación, tickets, bonificaciones, renovaciones, consumos, licencias y altas de clientes. Cada reporte se puede exportar a Excel."
       />
       <nav aria-label="Reportes" className="mb-6 flex gap-1 overflow-x-auto border-b">
         {Object.entries(PESTANAS).map(([clave, nombre]) => (
@@ -193,8 +277,19 @@ export default async function PaginaReportes({ searchParams }: PageProps<"/admin
       {(pestana === "cobranza" ||
         pestana === "licencias" ||
         pestana === "comercial" ||
-        pestana === "renovaciones") && <FiltroMeses ver={pestana} meses={meses} />}
-      {pestana === "cobranza" && <Cobranza fecha={fecha} meses={meses} periodo={periodo} />}
+        pestana === "renovaciones" ||
+        pestana === "altas" ||
+        pestana === "vencimientos") && (
+        <FiltroMeses
+          ver={pestana}
+          meses={conMeses ? meses : undefined}
+          cuentas={opciones}
+          ocultos={pestana === "vencimientos" ? { dias: String(dias) } : {}}
+        />
+      )}
+      {pestana === "cobranza" && (
+        <Cobranza fecha={fecha} meses={meses} periodo={periodo} filtro={filtro} cuentas={cuentas} />
+      )}
       {pestana === "facturacion" && (
         <Facturacion
           fecha={fecha}
@@ -205,7 +300,7 @@ export default async function PaginaReportes({ searchParams }: PageProps<"/admin
         />
       )}
       {pestana === "vencimientos" && (
-        <Vencimientos fecha={fecha} dias={typeof sp.dias === "string" ? Number(sp.dias) : 30} />
+        <Vencimientos fecha={fecha} dias={dias} filtro={filtro} cuentas={cuentas} />
       )}
       {pestana === "consumos" && (
         <Consumos fecha={fecha} mes={typeof sp.mes === "string" ? sp.mes : fecha.slice(0, 7)} />
@@ -213,7 +308,17 @@ export default async function PaginaReportes({ searchParams }: PageProps<"/admin
       {pestana === "comercial" && <Comercial fecha={fecha} rango={rango} periodo={periodo} />}
       {pestana === "renovaciones" && <Renovaciones meses={meses} rango={rango} periodo={periodo} />}
       {pestana === "licencias" && (
-        <Licencias fecha={fecha} rango={rango} periodo={periodo} meses={meses} />
+        <Licencias
+          fecha={fecha}
+          rango={rango}
+          periodo={periodo}
+          meses={meses}
+          filtro={filtro}
+          cuentas={cuentas}
+        />
+      )}
+      {pestana === "altas" && (
+        <Altas meses={meses} rango={rango} periodo={periodo} filtro={filtro} cuentas={cuentas} />
       )}
     </>
   );
@@ -223,15 +328,19 @@ async function Cobranza({
   fecha,
   meses: lista,
   periodo,
+  filtro,
+  cuentas,
 }: {
   fecha: ReturnType<typeof hoy>;
   meses: string[];
   periodo: string;
+  filtro: FiltroCuentas;
+  cuentas: string;
 }) {
   const db = await obtenerDb();
   const [meses, pendientes, umbrales] = await Promise.all([
-    cobranzaPorMes(db, lista),
-    ordenesPendientes(db, fecha),
+    cobranzaPorMes(db, lista, filtro),
+    ordenesPendientes(db, fecha, filtro),
     leerParametroDe(db, "cobranza.semaforo_dias"),
   ]);
   const actual = meses.at(-1);
@@ -261,7 +370,7 @@ async function Cobranza({
       <Seccion
         titulo="Emitido y cobrado por mes"
         descripcion="Lo emitido cuenta las órdenes no canceladas del mes; lo cobrado, los pagos acreditados en el mes."
-        acciones={<Exportar reporte="cobranza" extra={periodo} />}
+        acciones={<Exportar reporte="cobranza" extra={periodo + cuentas} />}
       >
         <GraficoBarras
           descripcion="Emitido y cobrado por mes en el período"
@@ -305,7 +414,7 @@ async function Cobranza({
       <Seccion
         titulo="Órdenes impagas"
         descripcion={`De la más antigua a la más nueva. Amarillo desde ${umbrales[0]} días, rojo desde ${umbrales[1]}.`}
-        acciones={<Exportar reporte="pendientes" />}
+        acciones={<Exportar reporte="pendientes" extra={cuentas} />}
       >
         {pendientes.length === 0 ? (
           <p className="text-sm text-muted-foreground">No hay órdenes impagas.</p>
@@ -383,9 +492,19 @@ const ESTADO_RENOVACION = {
   RENOVADO: { etiqueta: "Renovado", clase: "border-success/40 text-success" },
 } as const;
 
-async function Vencimientos({ fecha, dias }: { fecha: ReturnType<typeof hoy>; dias: number }) {
+async function Vencimientos({
+  fecha,
+  dias,
+  filtro,
+  cuentas,
+}: {
+  fecha: ReturnType<typeof hoy>;
+  dias: number;
+  filtro: FiltroCuentas;
+  cuentas: string;
+}) {
   const proximos = [15, 30, 60, 90].includes(dias) ? dias : 30;
-  const filas = await vencimientos(await obtenerDb(), fecha, { proximosDias: proximos });
+  const filas = await vencimientos(await obtenerDb(), fecha, { proximosDias: proximos, filtro });
   const vencidos = filas.filter((f) => f.dias < 0);
   const porVencer = filas.filter((f) => f.dias >= 0);
   const sinResolver = porVencer.filter(
@@ -414,11 +533,13 @@ async function Vencimientos({ fecha, dias }: { fecha: ReturnType<typeof hoy>; di
           <div className="flex flex-wrap items-center gap-2">
             <form className="flex items-center gap-2">
               <input type="hidden" name="ver" value="vencimientos" />
+              {filtro.grupoId && <input type="hidden" name="grupo" value={filtro.grupoId} />}
+              {filtro.paisId && <input type="hidden" name="pais" value={filtro.paisId} />}
               <SelectNativo
                 name="dias"
                 defaultValue={String(proximos)}
                 aria-label="Próximos días"
-                className="h-8 w-36"
+                className="h-8 w-44"
               >
                 {[15, 30, 60, 90].map((d) => (
                   <option key={d} value={d}>
@@ -430,7 +551,7 @@ async function Vencimientos({ fecha, dias }: { fecha: ReturnType<typeof hoy>; di
                 Ver
               </Button>
             </form>
-            <Exportar reporte="vencimientos" />
+            <Exportar reporte="vencimientos" extra={`&dias=${proximos}${cuentas}`} />
           </div>
         }
       >
@@ -724,16 +845,20 @@ async function Licencias({
   rango,
   periodo,
   meses,
+  filtro,
+  cuentas,
 }: {
   fecha: ReturnType<typeof hoy>;
   rango: Rango;
   periodo: string;
   meses: string[];
+  filtro: FiltroCuentas;
+  cuentas: string;
 }) {
   const db = await obtenerDb();
   const [productos, ventas, incidentes] = await Promise.all([
-    empresasPorProducto(db, fecha),
-    ventasPorPaquete(db, rango),
+    empresasPorProducto(db, fecha, filtro),
+    ventasPorPaquete(db, rango, filtro),
     incidentesPorEstado(db),
   ]);
   const maximo = Math.max(1, ...productos.map((p) => p.empresas));
@@ -743,7 +868,7 @@ async function Licencias({
       <Seccion
         titulo="Empresas por producto"
         descripcion="Empresas activas con el producto licenciado hoy."
-        acciones={<Exportar reporte="productos" />}
+        acciones={<Exportar reporte="productos" extra={cuentas} />}
       >
         {productos.length === 0 ? (
           <p className="text-sm text-muted-foreground">Ninguna empresa tiene licencias vigentes.</p>
@@ -783,7 +908,7 @@ async function Licencias({
       <Seccion
         titulo="Ventas por paquete"
         descripcion={`De ${mesCorto(meses[0] ?? "")} a ${mesCorto(meses.at(-1) ?? "")}, órdenes no canceladas. Importes con impuestos.`}
-        acciones={<Exportar reporte="ventas" extra={periodo} />}
+        acciones={<Exportar reporte="ventas" extra={periodo + cuentas} />}
       >
         {ventas.length === 0 ? (
           <p className="text-sm text-muted-foreground">Todavía no hay ventas.</p>
@@ -1363,6 +1488,135 @@ async function Renovaciones({
                         </Badge>
                       )}
                     </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Seccion>
+    </div>
+  );
+}
+
+async function opcionesDeCuentas(filtro: FiltroCuentas): Promise<OpcionesCuentas> {
+  const db = await obtenerDb();
+  const [grupos, paises] = await Promise.all([
+    listarGrupos(db),
+    db.select({ id: t.paises.id, nombre: t.paises.nombre }).from(t.paises).orderBy(t.paises.nombre),
+  ]);
+  return { grupos: grupos.map((g) => ({ id: g.id, nombre: g.nombre })), paises, filtro };
+}
+
+const ORIGEN: Record<OrigenAlta, { nombre: string; color: string; clase: string }> = {
+  EN_LINEA: {
+    nombre: "Registro en línea",
+    color: "var(--chart-1)",
+    clase: "border-primary/40 text-primary",
+  },
+  SOFTEAM: {
+    nombre: "Alta de SOFTeam",
+    color: "var(--chart-2)",
+    clase: "border-success/40 text-success",
+  },
+  IMPORTACION: {
+    nombre: "Importado",
+    color: "var(--chart-3)",
+    clase: "border-muted-foreground/30 text-muted-foreground",
+  },
+};
+const ORIGENES = Object.keys(ORIGEN) as OrigenAlta[];
+
+/** Clientes nuevos por mes y por origen (registro en línea, alta de SOFTeam o importado). */
+async function Altas({
+  meses: lista,
+  rango,
+  periodo,
+  filtro,
+  cuentas,
+}: {
+  meses: string[];
+  rango: Rango;
+  periodo: string;
+  filtro: FiltroCuentas;
+  cuentas: string;
+}) {
+  const altas: AltaDeCliente[] = await altasDeClientes(await obtenerDb(), rango, filtro);
+  const meses = altasPorMes(lista, altas);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <Indicador titulo="Clientes nuevos" valor={numero(altas.length)} />
+        {ORIGENES.map((o) => (
+          <Indicador
+            key={o}
+            titulo={ORIGEN[o].nombre}
+            valor={numero(altas.filter((a) => a.origen === o).length)}
+          />
+        ))}
+      </div>
+
+      <Seccion
+        titulo="Altas por mes"
+        descripcion="Clientes nuevos por mes según cómo llegaron: registro en línea, alta de SOFTeam desde el panel o importados."
+        acciones={<Exportar reporte="altas-mes" extra={periodo + cuentas} />}
+      >
+        <GraficoBarras
+          descripcion="Clientes nuevos por mes y origen"
+          series={ORIGENES.map((o) => ({ nombre: ORIGEN[o].nombre, color: ORIGEN[o].color }))}
+          grupos={meses.map((m, i) => ({
+            etiqueta: mesGrafico(m.mes, i),
+            detalle: mesCorto(m.mes),
+            valores: ORIGENES.map((o) => m[o]),
+          }))}
+          unidad="numero"
+        />
+      </Seccion>
+
+      <Seccion
+        titulo="Clientes nuevos"
+        descripcion="Del más nuevo al más viejo, con su grupo económico y los países de sus empresas."
+        acciones={<Exportar reporte="altas" extra={periodo + cuentas} />}
+      >
+        {altas.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hubo altas en el período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Alta</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Origen</TableHead>
+                  <TableHead>Grupo</TableHead>
+                  <TableHead>País</TableHead>
+                  <TableHead className="text-right">Empresas</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {altas.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell className="whitespace-nowrap">{fechaCorta(a.creadoEn)}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/admin/clientes/${a.id}`}
+                        className="text-primary hover:underline"
+                      >
+                        {a.nombre}
+                      </Link>
+                      <span className="block text-xs text-muted-foreground">
+                        #{a.numero} · {formatearCuit(a.cuit)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={ORIGEN[a.origen].clase}>
+                        {ORIGEN[a.origen].nombre}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{a.grupo ?? "—"}</TableCell>
+                    <TableCell>{a.paises || "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{a.empresas}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

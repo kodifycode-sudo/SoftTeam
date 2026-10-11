@@ -228,6 +228,7 @@ test.describe
         "Renovaciones",
         "Vencimientos",
         "Consumos",
+        "Altas de clientes",
         "Licencias",
       ]) {
         const pestanas = page.getByRole("navigation", { name: "Reportes" });
