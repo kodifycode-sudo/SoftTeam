@@ -1,7 +1,8 @@
-import { Clock, MailQuestion, ShieldCheck } from "lucide-react";
+import { Clock, Download, MailQuestion, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -71,7 +72,17 @@ export default async function PaginaUsuariosSofteam() {
       <EncabezadoPagina
         titulo="Usuarios SOFTeam"
         descripcion="Quiénes entran al panel y con qué rol. Los cambios rigen en el acto."
-        acciones={<InvitarUsuario />}
+        acciones={
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/admin/reportes/exportar?reporte=usuarios"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            <InvitarUsuario />
+          </div>
+        }
       />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">

@@ -1,7 +1,8 @@
-import { Banknote, Check, CreditCard, Link2, Repeat, Sheet, X } from "lucide-react";
+import { Banknote, Check, CreditCard, Download, Link2, Repeat, Sheet, X } from "lucide-react";
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { aTextoDecimal } from "@/domain/dinero";
 import { type ModoFacturacion, NOMBRE_MODO } from "@/domain/facturacion/modo";
@@ -10,15 +11,17 @@ import { cn } from "@/lib/utils";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { listarMediosPago } from "@/server/modules/catalogo/medios-pago";
-import { EditarMedioPago } from "./editar";
+import { listarPaises } from "@/server/modules/catalogo/paises";
+import { EditarMedioPago, NuevoMedioPago } from "./editar";
+import { ETIQUETA_TIPO } from "./tipos";
 
 export const metadata: Metadata = { title: "Medios de pago" };
 
-const TIPOS = {
-  TRANSFERENCIA: { etiqueta: "Transferencia", icono: Banknote },
-  LINK_MP: { etiqueta: "Link de Mercado Pago", icono: Link2 },
-  SUSCRIPCION_MP: { etiqueta: "Suscripción de Mercado Pago", icono: Repeat },
-  PLANILLA: { etiqueta: "Planilla (cobro consolidado)", icono: Sheet },
+const ICONO_TIPO = {
+  TRANSFERENCIA: Banknote,
+  LINK_MP: Link2,
+  SUSCRIPCION_MP: Repeat,
+  PLANILLA: Sheet,
 } as const;
 
 function Habilitado({ si, texto }: { si: boolean; texto: string }) {
@@ -37,27 +40,43 @@ function Habilitado({ si, texto }: { si: boolean; texto: string }) {
 export default async function PaginaMediosPago() {
   const { rol } = await requerirSofteam();
   const db = await obtenerDb();
-  const medios = await listarMediosPago(db);
+  const [medios, paises] = await Promise.all([listarMediosPago(db), listarPaises(db)]);
+  const nombrePais = new Map(paises.map((p) => [p.id, p.nombre]));
+  const paisesActivos = paises.filter((p) => p.activo).map(({ id, nombre }) => ({ id, nombre }));
 
   return (
     <>
       <EncabezadoPagina
         titulo="Medios de pago"
         descripcion="Cada medio puede tener un recargo o una bonificación que se aplica sobre la base neta, antes del IVA."
+        acciones={
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/admin/reportes/exportar?reporte=medios-pago"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            {rol === "ADMINISTRACION" && <NuevoMedioPago paises={paisesActivos} />}
+          </div>
+        }
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {medios.map((m) => {
-          const tipo = TIPOS[m.tipo];
+          const Icono = ICONO_TIPO[m.tipo];
           const ajuste = m.ajustePorcentaje;
           return (
             <Card key={m.id} className={cn("gap-4", !m.activo && "opacity-60")}>
               <CardHeader className="flex-row items-start gap-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-navy text-brand">
-                  <tipo.icono className="size-5" />
+                  <Icono className="size-5" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <CardTitle className="leading-snug">{m.nombre}</CardTitle>
-                  <p className="text-xs text-muted-foreground">{tipo.etiqueta}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {ETIQUETA_TIPO[m.tipo]}
+                    {m.paisId && ` · Solo ${nombrePais.get(m.paisId) ?? m.paisId}`}
+                  </p>
                 </div>
                 <Badge
                   variant="outline"

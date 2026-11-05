@@ -1,4 +1,5 @@
 import { pgEnum } from "drizzle-orm/pg-core";
+import { TIPOS_MEDIO_PAGO } from "@/domain/facturacion/medio-pago";
 import { ESTADOS_CONTRATO } from "@/domain/licencias/contrato";
 
 export const tipoPersona = pgEnum("tipo_persona", ["FISICA", "JURIDICA"]);
@@ -15,12 +16,7 @@ export const tipoAccion = pgEnum("tipo_accion", ["ALTA", "RENOVACION"]);
 export const estadoContrato = pgEnum("estado_contrato", ESTADOS_CONTRATO);
 export const estadoOrden = pgEnum("estado_orden", ["PEND_PAGO", "PAGADA", "CANCELADA"]);
 export const tipoGeneracion = pgEnum("tipo_generacion", ["MANUAL", "RENOVACION"]);
-export const tipoMedioPago = pgEnum("tipo_medio_pago", [
-  "TRANSFERENCIA",
-  "LINK_MP",
-  "SUSCRIPCION_MP",
-  "PLANILLA",
-]);
+export const tipoMedioPago = pgEnum("tipo_medio_pago", TIPOS_MEDIO_PAGO);
 export const tipoComprobante = pgEnum("tipo_comprobante", ["A", "B"]);
 export const tipoMovimiento = pgEnum("tipo_movimiento", [
   "CARGA",

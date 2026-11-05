@@ -1,8 +1,9 @@
-import { ChevronRight, Network } from "lucide-react";
+import { ChevronRight, Download, Network } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Empty,
@@ -28,7 +29,17 @@ export default async function PaginaGrupos() {
       <EncabezadoPagina
         titulo="Grupos económicos"
         descripcion="Clientes relacionados: para reportes y para la facturación consolidada por planilla."
-        acciones={edita && <NuevoGrupo />}
+        acciones={
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/admin/reportes/exportar?reporte=grupos"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            {edita && <NuevoGrupo />}
+          </div>
+        }
       />
       {grupos.length === 0 ? (
         <Empty className="border border-dashed bg-card">

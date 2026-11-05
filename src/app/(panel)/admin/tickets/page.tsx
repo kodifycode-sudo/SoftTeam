@@ -1,8 +1,8 @@
-import { Power, PowerOff, TicketPercent } from "lucide-react";
+import { Download, Power, PowerOff, TicketPercent } from "lucide-react";
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Empty,
@@ -55,13 +55,21 @@ export default async function PaginaTickets() {
         titulo="Tickets"
         descripcion="Códigos de descuento. El tope funciona como saldo: la orden y sus renovaciones de los 12 meses siguientes descuentan hasta agotarlo."
         acciones={
-          administra && (
-            <NuevoTicket
-              paquetes={paquetes}
-              paises={paises.filter((p) => p.activo).map((p) => ({ id: p.id, nombre: p.nombre }))}
-              hoy={fechaHoy}
-            />
-          )
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/admin/reportes/exportar?reporte=catalogo-tickets"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            {administra && (
+              <NuevoTicket
+                paquetes={paquetes}
+                paises={paises.filter((p) => p.activo).map((p) => ({ id: p.id, nombre: p.nombre }))}
+                hoy={fechaHoy}
+              />
+            )}
+          </div>
         }
       />
       {tickets.length === 0 ? (

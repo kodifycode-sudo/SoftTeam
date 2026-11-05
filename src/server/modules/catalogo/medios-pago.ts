@@ -1,6 +1,7 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { porcentaje } from "@/domain/dinero";
+import { caracteristicasDeTipo, TIPOS_MEDIO_PAGO } from "@/domain/facturacion/medio-pago";
 import type { Db, Ejecutor } from "@/server/db/cliente";
 import * as t from "@/server/db/schema";
 
@@ -52,6 +53,68 @@ export async function actualizarMedioPago(
       despues: { ...cambios, ajustePorcentaje: cambios.ajustePorcentaje.toString() },
     });
     return true;
+  });
+}
+
+/** El alta suma lo que no cambia después: código, tipo y país. */
+export const esquemaAltaMedioPago = esquemaMedioPago.extend({
+  codigo: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9_]{2,20}$/, { error: "De 2 a 20 letras, números o _" }),
+  tipo: z.enum(TIPOS_MEDIO_PAGO, { error: "Elegí el tipo" }),
+  /** Sin país: disponible en todos. */
+  paisId: z.string().length(2).optional(),
+});
+
+export type EntradaAltaMedioPago = z.infer<typeof esquemaAltaMedioPago>;
+
+export type ErrorAltaMedioPago = "CODIGO_EXISTENTE" | "PAIS_INEXISTENTE";
+
+/** Da de alta un medio de pago al final de la lista y audita el alta. */
+export async function crearMedioPago(
+  db: Db,
+  entrada: EntradaAltaMedioPago,
+  actorId: string,
+): Promise<{ ok: true; id: string } | { ok: false; error: ErrorAltaMedioPago }> {
+  return db.transaction(async (tx) => {
+    const repetido = await tx.query.mediosPago.findFirst({
+      columns: { id: true },
+      where: eq(t.mediosPago.codigo, entrada.codigo),
+    });
+    if (repetido) return { ok: false, error: "CODIGO_EXISTENTE" };
+    if (entrada.paisId) {
+      const pais = await tx.query.paises.findFirst({
+        columns: { id: true },
+        where: eq(t.paises.id, entrada.paisId),
+      });
+      if (!pais) return { ok: false, error: "PAIS_INEXISTENTE" };
+    }
+    const [ultimo] = await tx
+      .select({ orden: sql<number>`coalesce(max(${t.mediosPago.orden}), 0)::int` })
+      .from(t.mediosPago);
+    const valores = {
+      ...entrada,
+      ...caracteristicasDeTipo(entrada.tipo),
+      paisId: entrada.paisId ?? null,
+      instrucciones: entrada.instrucciones || null,
+      orden: (ultimo?.orden ?? 0) + 1,
+    };
+    const [creado] = await tx
+      .insert(t.mediosPago)
+      .values(valores)
+      .returning({ id: t.mediosPago.id });
+    const id = creado?.id ?? "";
+    await tx.insert(t.auditoria).values({
+      actorId,
+      actorTipo: "usuario",
+      entidad: "medio_pago",
+      entidadId: id,
+      accion: "alta",
+      despues: { ...valores, ajustePorcentaje: valores.ajustePorcentaje.toString() },
+    });
+    return { ok: true, id };
   });
 }
 

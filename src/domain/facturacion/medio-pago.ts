@@ -4,7 +4,24 @@ import { exito, type Resultado, rechazo } from "../resultado";
 /** Momento de la contratación: define qué medios de pago se ofrecen. */
 export type Instancia = "ALTA_INICIAL" | "ADICIONAL" | "RENOVACION";
 
-export type TipoMedioPago = "TRANSFERENCIA" | "LINK_MP" | "SUSCRIPCION_MP" | "PLANILLA";
+export const TIPOS_MEDIO_PAGO = ["TRANSFERENCIA", "LINK_MP", "SUSCRIPCION_MP", "PLANILLA"] as const;
+
+export type TipoMedioPago = (typeof TIPOS_MEDIO_PAGO)[number];
+
+/**
+ * Lo que cada tipo implica, fijo: Mercado Pago genera el link de pago y la
+ * planilla factura al grupo. En el alta no se elige por separado para que un
+ * medio no quede, por ejemplo, como transferencia que intenta generar un link.
+ */
+export function caracteristicasDeTipo(tipo: TipoMedioPago): {
+  readonly generaLink: boolean;
+  readonly planilla: boolean;
+} {
+  return {
+    generaLink: tipo === "LINK_MP" || tipo === "SUSCRIPCION_MP",
+    planilla: tipo === "PLANILLA",
+  };
+}
 
 export interface MedioPago {
   readonly id: string;

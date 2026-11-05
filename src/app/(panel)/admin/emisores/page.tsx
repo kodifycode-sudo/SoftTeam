@@ -1,7 +1,8 @@
-import { Landmark } from "lucide-react";
+import { Download, Landmark } from "lucide-react";
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatearCuit } from "@/domain/cuentas/cuit";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,17 @@ export default async function PaginaEmisores() {
       <EncabezadoPagina
         titulo="Emisores"
         descripcion="Sociedades de SOFTeam que facturan. Cada cliente tiene un emisor; sus órdenes se facturan y cobran con la cuenta de Xubio y de Mercado Pago de ese emisor."
-        acciones={<DialogoEmisor opciones={opciones} />}
+        acciones={
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/admin/reportes/exportar?reporte=emisores"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            <DialogoEmisor opciones={opciones} />
+          </div>
+        }
       />
       {emisores.length === 0 ? (
         <p className="text-sm text-muted-foreground">

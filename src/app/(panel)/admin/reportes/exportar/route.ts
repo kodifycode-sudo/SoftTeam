@@ -3,12 +3,19 @@ import { importeCsv } from "@/domain/exportacion/csv";
 import { type ModoFacturacion, NOMBRE_MODO } from "@/domain/facturacion/modo";
 import { type Fecha, hoy, sumarMeses } from "@/domain/fecha";
 import { rangoDeDias, rangoDeMeses } from "@/domain/reportes/periodos";
+import { ROLES_SOFTEAM_INFO } from "@/lib/roles";
 import { requerirSofteam } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
 import { respuestaCsv } from "@/server/exportacion";
 import { listarCatalogoAseguradoras } from "@/server/modules/catalogo/aseguradoras";
+import { listarEmisores } from "@/server/modules/catalogo/emisores";
+import { listarMediosPago } from "@/server/modules/catalogo/medios-pago";
+import { listarPaises } from "@/server/modules/catalogo/paises";
 import { listarPaquetes } from "@/server/modules/catalogo/paquetes";
+import { listarTickets } from "@/server/modules/catalogo/tickets";
 import { listarClientes } from "@/server/modules/cuentas/consultas";
+import { listarGrupos } from "@/server/modules/cuentas/grupos";
+import { listarUsuariosSofteam } from "@/server/modules/cuentas/usuarios-softeam";
 import { altasDeClientes, altasPorMes } from "@/server/modules/reportes/altas";
 import {
   bonificacionesOtorgadas,
@@ -31,6 +38,7 @@ import {
   ventasPorPaquete,
 } from "@/server/modules/reportes/reportes";
 import { listarOrdenes } from "@/server/modules/ventas/ordenes";
+import { ETIQUETA_TIPO } from "../../medios-pago/tipos";
 import { filtrosDeOrdenes } from "../../ordenes/filtros";
 
 const ESTADOS_RENOVACION = {
@@ -47,6 +55,12 @@ const ORIGENES_ALTA = {
   SOFTEAM: "Alta de SOFTeam",
   IMPORTACION: "Importado",
 } as const;
+
+const USOS_TICKET: Record<string, string> = {
+  UNICO_X_CLIENTE: "Una vez por cliente",
+  UNICO_ABSOLUTO: "Una sola vez",
+  MULTIPLE: "Varias veces",
+};
 
 const ESTADOS_SERIE = { VIGENTE: "Vigente", AGOTADA: "Tope agotado", VENCIDA: "Vencida" } as const;
 
@@ -373,6 +387,100 @@ export async function GET(peticion: Request) {
         { titulo: "Contratos vigentes", valor: (f) => f.p.contratosVigentes },
       ]);
     }
+    case "medios-pago": {
+      const [medios, paises] = await Promise.all([listarMediosPago(db), listarPaises(db)]);
+      const pais = new Map(paises.map((x) => [x.id, x.nombre]));
+      return respuestaCsv("medios de pago", medios, [
+        { titulo: "Código", valor: (f) => f.codigo },
+        { titulo: "Nombre", valor: (f) => f.nombre },
+        { titulo: "Tipo", valor: (f) => ETIQUETA_TIPO[f.tipo] },
+        { titulo: "País", valor: (f) => (f.paisId ? (pais.get(f.paisId) ?? f.paisId) : "Todos") },
+        { titulo: "Ajuste %", valor: (f) => importeCsv(f.ajustePorcentaje) },
+        { titulo: "Alta inicial", valor: (f) => f.habilitadoAlta },
+        { titulo: "Adicionales", valor: (f) => f.habilitadoAdicional },
+        { titulo: "Renovaciones", valor: (f) => f.habilitadoRenovacion },
+        {
+          titulo: "Modos de facturación",
+          valor: (f) => f.modosFacturacion.map((m) => NOMBRE_MODO[m as ModoFacturacion]).join(", "),
+        },
+        { titulo: "Genera link", valor: (f) => f.generaLink },
+        { titulo: "Factura al grupo", valor: (f) => f.planilla },
+        { titulo: "Activo", valor: (f) => f.activo },
+        { titulo: "Instrucciones", valor: (f) => f.instrucciones },
+      ]);
+    }
+    case "emisores":
+      await requerirSofteam(["ADMINISTRACION"]);
+      // Las credenciales no se exportan: solo si están cargadas.
+      return respuestaCsv("emisores", await listarEmisores(db), [
+        { titulo: "Razón social", valor: (f) => f.razonSocial },
+        { titulo: "CUIT", valor: (f) => formatearCuit(f.cuit) },
+        { titulo: "Condición IVA", valor: (f) => f.condicionIva },
+        { titulo: "Domicilio fiscal", valor: (f) => f.domicilioFiscal },
+        { titulo: "País", valor: (f) => f.paisId },
+        { titulo: "Punto de venta", valor: (f) => f.puntoVenta },
+        { titulo: "Preferido del país", valor: (f) => f.preferido },
+        { titulo: "Factura con Xubio", valor: (f) => f.xubio },
+        { titulo: "Credenciales de Xubio", valor: (f) => f.xubioSecretoCargado },
+        { titulo: "Cobra con Mercado Pago", valor: (f) => f.mercadoPago },
+        { titulo: "Credenciales de Mercado Pago", valor: (f) => f.mpAccessTokenCargado },
+        { titulo: "Activo", valor: (f) => f.activo },
+      ]);
+    case "grupos":
+      return respuestaCsv("grupos economicos", await listarGrupos(db), [
+        { titulo: "Grupo", valor: (f) => f.nombre },
+        { titulo: "Nombre corto", valor: (f) => f.nombreCorto },
+        { titulo: "Cliente principal", valor: (f) => f.principal },
+        { titulo: "Factura a", valor: (f) => f.facturacion },
+        { titulo: "Miembros", valor: (f) => f.miembros },
+      ]);
+    case "paises":
+      return respuestaCsv("paises", await listarPaises(db), [
+        { titulo: "Código", valor: (f) => f.id },
+        { titulo: "País", valor: (f) => f.nombre },
+        { titulo: "Nombre corto", valor: (f) => f.nombreCorto },
+        { titulo: "Prefijo telefónico", valor: (f) => f.prefijoTelefonico },
+        { titulo: "Moneda", valor: (f) => f.moneda },
+        { titulo: "IVA general %", valor: (f) => importeCsv(f.alicuotaIvaGeneral) },
+        { titulo: "Provincias", valor: (f) => f.provincias },
+        { titulo: "Empresas", valor: (f) => f.empresas },
+        { titulo: "Activo", valor: (f) => f.activo },
+      ]);
+    case "catalogo-tickets":
+      await requerirSofteam(["ADMINISTRACION", "COMERCIAL"]);
+      return respuestaCsv("tickets", await listarTickets(db), [
+        { titulo: "Código", valor: (f) => f.codigo },
+        { titulo: "Descripción", valor: (f) => f.descripcion },
+        { titulo: "Porcentaje", valor: (f) => importeCsv(f.porcentaje) },
+        { titulo: "Tope", valor: (f) => importeCsv(f.tope) },
+        { titulo: "Descontado", valor: (f) => importeCsv(f.descontado) },
+        { titulo: "Mínimo de compra", valor: (f) => importeCsv(f.minimo) },
+        { titulo: "Vigente desde", valor: (f) => f.vigenteDesde },
+        { titulo: "Vigente hasta", valor: (f) => f.vigenteHasta },
+        { titulo: "Uso", valor: (f) => USOS_TICKET[f.uso] ?? f.uso },
+        { titulo: "Usos máximos", valor: (f) => f.usosMaximos || null },
+        { titulo: "Usos", valor: (f) => f.usos },
+        { titulo: "Público", valor: (f) => f.publico },
+        { titulo: "Alta inicial", valor: (f) => f.altaInicial },
+        { titulo: "Adicionales", valor: (f) => f.adicional },
+        { titulo: "Renovaciones", valor: (f) => f.renovacion },
+        { titulo: "País", valor: (f) => f.paisId },
+        { titulo: "Cliente", valor: (f) => f.cliente },
+        { titulo: "Paquetes", valor: (f) => f.paquetes.join(", ") },
+        { titulo: "Activo", valor: (f) => f.activo },
+        { titulo: "Observaciones", valor: (f) => f.observaciones },
+      ]);
+    case "usuarios":
+      await requerirSofteam(["ADMINISTRACION"]);
+      return respuestaCsv("usuarios softeam", await listarUsuariosSofteam(db), [
+        { titulo: "Nombre", valor: (f) => f.nombre },
+        { titulo: "Mail", valor: (f) => f.email },
+        { titulo: "Rol", valor: (f) => (f.rol ? ROLES_SOFTEAM_INFO[f.rol].etiqueta : null) },
+        { titulo: "Mail verificado", valor: (f) => f.verificado },
+        { titulo: "Doble factor", valor: (f) => f.dosFactores },
+        { titulo: "Alta", valor: (f) => f.desde },
+        { titulo: "Último ingreso", valor: (f) => f.ultimoIngreso },
+      ]);
     default:
       return new Response("Reporte inexistente", { status: 404 });
   }

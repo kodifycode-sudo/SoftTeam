@@ -1,7 +1,8 @@
-import { MapPin, MapPinned, Phone, Receipt, UsersRound } from "lucide-react";
+import { Download, MapPin, MapPinned, Phone, Receipt, UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { puedeComprar, requerirCliente } from "@/server/auth/sesion";
 import { obtenerDb } from "@/server/db";
@@ -49,16 +50,21 @@ export default async function PaginaOficinas() {
             : "Las oficinas se agrupan en canales. Sirven para limitar qué ve cada usuario y para repartir los consumos."
         }
         acciones={
-          puedeConfigurar && (
-            <NuevaOficina
-              canales={canalesPropios.map((c) => ({
-                id: c.id,
-                codigo: c.codigo,
-                nombre: c.nombre,
-              }))}
-              permitirCanalNuevo={alcance.tipo === "empresa"}
-            />
-          )
+          <div className="flex flex-wrap gap-2">
+            <a href="/portal/oficinas/exportar" className={buttonVariants({ variant: "outline" })}>
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            {puedeConfigurar && (
+              <NuevaOficina
+                canales={canalesPropios.map((c) => ({
+                  id: c.id,
+                  codigo: c.codigo,
+                  nombre: c.nombre,
+                }))}
+                permitirCanalNuevo={alcance.tipo === "empresa"}
+              />
+            )}
+          </div>
         }
       />
 

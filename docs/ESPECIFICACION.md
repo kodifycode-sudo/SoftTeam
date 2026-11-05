@@ -401,6 +401,11 @@ El cliente de facturación pasa a ser el del **grupo** solo si el medio es de
 planilla **y** el grupo tiene cliente de facturación. La condición de IVA sale
 siempre del cliente de facturación ya resuelto.
 
+Administración da de alta los medios desde la pantalla: código (único, no
+cambia), tipo, país (vacío = todos), ajuste, instancias, modos de facturación e
+instrucciones. El tipo fija lo demás: los de Mercado Pago (link y suscripción)
+generan el link de pago y la planilla factura al grupo.
+
 ### 5.4 Confirmar la orden (transacción única)
 
 Recalcular en el servidor, sin confiar en ningún importe que mande el navegador
@@ -842,8 +847,11 @@ Regla de dependencias: `domain` no importa nada del resto.
      punto 3).
    - **Movimientos de saldo de un contrato** para SOFTeam, con el saldo
      después de cada movimiento.
-   - **Exportaciones** de aseguradoras y paquetes (SOFTeam) y de usuarios,
-     productores y códigos (portal, con los títulos de la importación).
+   - **Exportaciones** de aseguradoras, paquetes, medios de pago, emisores,
+     grupos económicos, países, tickets y usuarios (SOFTeam, cada una con el
+     rol de su pantalla; los emisores, sin credenciales) y de usuarios,
+     productores, códigos, oficinas y aseguradoras (portal, con los títulos de
+     la importación donde la hay).
    - **Tipos de comunicación:** cada empresa define sus comunicaciones con
      los medios (aviso del sistema, aviso en el portal, mail, SMS, push,
      WhatsApp) y, por tipo de usuario que la origina, a quiénes llega y quién

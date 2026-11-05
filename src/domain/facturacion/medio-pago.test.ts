@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { type MedioPago, resolverClienteFacturacion, validarMedioPago } from "./medio-pago";
+import {
+  caracteristicasDeTipo,
+  type MedioPago,
+  resolverClienteFacturacion,
+  validarMedioPago,
+} from "./medio-pago";
 
 const medio = (parcial: Partial<MedioPago> = {}): MedioPago => ({
   id: "mp",
@@ -75,5 +80,16 @@ describe("resolverClienteFacturacion", () => {
         medio: medio({ planilla: true }),
       }),
     ).toBe("c1");
+  });
+});
+
+describe("caracteristicasDeTipo", () => {
+  it.each([
+    ["TRANSFERENCIA", false, false],
+    ["LINK_MP", true, false],
+    ["SUSCRIPCION_MP", true, false],
+    ["PLANILLA", false, true],
+  ] as const)("%s: genera link %s, planilla %s", (tipo, generaLink, planilla) => {
+    expect(caracteristicasDeTipo(tipo)).toEqual({ generaLink, planilla });
   });
 });

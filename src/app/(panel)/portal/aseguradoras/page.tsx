@@ -1,8 +1,8 @@
-import { Cable, Search, ShieldCheck } from "lucide-react";
+import { Cable, Download, Search, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { EncabezadoPagina } from "@/components/panel/estructura";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Empty,
@@ -83,7 +83,17 @@ export default async function PaginaAseguradoras({
       <EncabezadoPagina
         titulo="Aseguradoras"
         descripcion="Con qué compañías trabajás y qué interfaces tenés activas. Dar de baja una interfaz rige desde el mes siguiente."
-        acciones={agregar}
+        acciones={
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/portal/aseguradoras/exportar"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Download data-icon="inline-start" /> Exportar a Excel
+            </a>
+            {agregar}
+          </div>
+        }
       />
 
       <section aria-label="Interfaces licenciadas" className="mb-6 grid gap-3 sm:grid-cols-2">

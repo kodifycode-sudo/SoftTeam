@@ -1,4 +1,4 @@
-import { MapPin } from "lucide-react";
+import { Download, MapPin } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EncabezadoPagina } from "@/components/panel/estructura";
@@ -71,6 +71,14 @@ export default async function PaginaPaises({ searchParams }: PageProps<"/admin/p
       <EncabezadoPagina
         titulo="Países y monedas"
         descripcion="Dónde se vende: cada país con su moneda, sus provincias y sus condiciones frente al IVA. Los cambios quedan en la auditoría."
+        acciones={
+          <a
+            href="/admin/reportes/exportar?reporte=paises"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            <Download data-icon="inline-start" /> Exportar a Excel
+          </a>
+        }
       />
       <div className="grid gap-6">
         <Card className="overflow-hidden pb-0">
